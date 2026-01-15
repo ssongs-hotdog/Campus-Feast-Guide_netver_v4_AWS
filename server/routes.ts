@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import * as fs from "fs";
 import * as path from "path";
+import { computeWaitMinutes } from "./waitModel";
 
 interface WaitingDataRow {
   timestamp: string;
@@ -23,13 +24,18 @@ function parseCSV(content: string): WaitingDataRow[] {
   
   for (let i = 1; i < lines.length; i++) {
     const values = lines[i].split(',').map(v => v.trim());
-    if (values.length >= 5) {
+    if (values.length >= 4) {
+      const timestamp = values[0];
+      const restaurantId = values[1];
+      const cornerId = values[2];
+      const queueLen = parseInt(values[3], 10) || 0;
+      
       data.push({
-        timestamp: values[0],
-        restaurantId: values[1],
-        cornerId: values[2],
-        queue_len: parseInt(values[3], 10) || 0,
-        est_wait_time_min: parseInt(values[4], 10) || 0,
+        timestamp,
+        restaurantId,
+        cornerId,
+        queue_len: queueLen,
+        est_wait_time_min: computeWaitMinutes(queueLen, restaurantId, cornerId),
       });
     }
   }
