@@ -71,11 +71,11 @@ export const CONGESTION_COLORS: Record<CongestionLevel, string> = {
 };
 
 export function getCongestionLevel(estWaitTime: number): CongestionLevel {
-  if (estWaitTime <= 1) return 1;
-  if (estWaitTime <= 3) return 2;
-  if (estWaitTime <= 6) return 3;
-  if (estWaitTime <= 12) return 4;
-  return 5;
+  if (estWaitTime <= 2) return 1;  // 1-2 min → 매우 여유
+  if (estWaitTime <= 5) return 2;  // 3-5 min → 여유
+  if (estWaitTime <= 9) return 3;  // 6-9 min → 보통
+  if (estWaitTime <= 12) return 4; // 10-12 min → 혼잡
+  return 5;                        // 13+ min → 매우 혼잡
 }
 
 export function formatPrice(won: number): string {
