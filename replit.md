@@ -1,8 +1,8 @@
-# H-Eat PoC
+# HY-eat PoC
 
 ## Overview
 
-H-Eat is a mobile-first web application designed for Hanyang University students to check real-time cafeteria wait times and congestion levels. The app displays menu information, estimated wait times based on AI camera data, and allows users to purchase digital meal tickets with QR codes. It features both real-time monitoring and a simulation mode for time-based data exploration.
+HY-eat is a mobile-first web application designed for Hanyang University students to check real-time cafeteria wait times and congestion levels. The app displays menu information, estimated wait times based on AI camera data, and allows users to purchase digital meal tickets with QR codes. It features both real-time monitoring and a simulation mode for time-based data exploration.
 
 ## User Preferences
 
@@ -56,6 +56,10 @@ Preferred communication style: Simple, everyday language.
 - JSON file: `data/menu.json` containing restaurant and menu information
 
 ## Recent Changes (2026-01-15)
+- Renamed application from "H-Eat" to "HY-eat"
+- Fixed main/detail page congestion data mismatch by passing ISO timestamp as query parameter
+- Replaced shadcn Select with native HTML select in ChartsPanel for reliable overlay behavior
+- Centered the "통계" button horizontally in the bottom panel
 - Fixed CSV parsing to handle CRLF line endings correctly
 - Fixed time playback loop to stop cleanly at the last timestamp
 - Fixed ticket countdown lifecycle to maintain 30-minute timer correctly
