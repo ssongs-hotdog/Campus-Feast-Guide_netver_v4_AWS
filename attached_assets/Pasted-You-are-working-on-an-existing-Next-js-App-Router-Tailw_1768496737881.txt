@@ -1,0 +1,121 @@
+You are working on an existing Next.js (App Router) + Tailwind mobile web app.
+Do NOT redesign the whole UI. Make minimal, targeted changes only.
+Preserve current styles/colors/components unless explicitly asked.
+
+We need 3 changes:
+(1) Move the simulation time controls to a bottom fixed panel.
+(2) Fix a bug: during playback/slider time changes, the congestion/wait time does NOT update (stays constant).
+(3) Add a bottom expandable “Charts” panel that visualizes the uploaded CSV dataset.
+
+========================================================
+(0) DATA SOURCE CONFIRMATION (CRITICAL)
+========================================================
+The app must use the new CSV file:
+- /data/waiting_peakboost.csv
+
+Schema:
+timestamp (ISO with +09:00)
+restaurantId
+cornerId
+queue_len
+est_wait_time_min
+
+Make sure the API route /api/waiting reads waiting_peakboost.csv (not the old file).
+If the file path is missing or wrong, show a user-friendly error.
+
+========================================================
+(1) UI CHANGE: Move Time Controls to Bottom
+========================================================
+Current top simulation time box (mode label, time label, slider, play, realtime button, speed toggle)
+should be moved to the very bottom of the page as a fixed bottom bar:
+
+- On mobile: fixed position, full width, above safe-area.
+- Collapsible: default collapsed (small bar showing current mode + current time + play button).
+- Tap expands to show full controls (slider + play/pause + '실시간으로' + '시연 가속').
+- Keep existing functionality and labels.
+
+Implementation suggestion:
+- Create <BottomTimePanel /> component wrapping existing TimeControls.
+- Use Tailwind: fixed bottom-0 left-0 right-0, bg-white, shadow, rounded-t-xl.
+
+========================================================
+(2) BUG FIX: Time changes should update the displayed data
+========================================================
+There is a bug where congestion/wait time does not change when simulation time changes.
+
+You must debug and fix it, NOT hide it.
+
+Checklist:
+A) Verify the time state actually changes:
+- Log displayTime (KST) when slider changes and when playback ticks.
+- Ensure slider is truly controlling the same displayTime used for data queries.
+
+B) Verify the API query uses the selected time:
+- If /api/waiting accepts a time param, ensure the frontend passes it.
+- If the API returns "current snapshot", ensure it returns the snapshot for the requested timestamp.
+
+C) Timestamp matching logic:
+- CSV is 1-minute granularity. When displayTime is 11:05, you must fetch the row with timestamp 11:05 (KST).
+- Use nearest-minute or floor-to-minute consistent logic.
+- Important: timestamp strings include +09:00. Avoid timezone mismatch.
+  Recommended approach:
+  - Convert displayTime to ISO string with +09:00 then match exactly
+  OR
+  - Parse all CSV timestamps into epoch milliseconds and do nearest match.
+
+D) Ensure React state updates trigger re-render:
+- The data snapshot for restaurants/corners must be derived from current displayTime state.
+- Avoid memoization bugs (stale useMemo dependencies, missing dependency arrays, etc.)
+- If you cache API response, key it by timestamp.
+
+E) Add a very small developer-only debug text (optional):
+- show "data timestamp loaded: YYYY-MM-DD HH:mm"
+so we can confirm the UI is using different snapshots.
+
+After fix, verify:
+- At 11:05 vs 12:15, ramen/instant should rise and colors should change.
+
+========================================================
+(3) New Feature: Bottom expandable “Charts” panel
+========================================================
+Add a bottom expandable panel (separate from time controls panel) or a tab inside the same bottom sheet.
+
+Goal:
+- Provide simple visualizations from the same CSV dataset.
+
+UI:
+- A button/handle near bottom: “📈 통계/그래프”
+- Tap opens a bottom sheet with charts.
+- Charts are generated from the CSV already loaded (avoid re-parsing multiple times).
+
+Charts (minimum 2, maximum 3):
+1) Line chart: est_wait_time_min over time for a selected corner
+   - Provide dropdowns: restaurant + corner
+   - X-axis: time (11:00–14:00)
+   - Y-axis: wait minutes
+2) Line chart or area: queue_len over time for same selection
+3) (Optional) Heatmap-like table: average est_wait_time_min by restaurant & corner at each hour block
+
+Implementation:
+- Use a lightweight chart library already available in Next.js environment (e.g. recharts) OR simple SVG.
+- Keep performance: precompute series once, then filter by selection.
+
+Data processing notes:
+- Aggregate by timestamp (already 1-min).
+- Use parsed timestamps as Date objects in KST for axis labels.
+
+========================================================
+(4) Guardrails
+========================================================
+- Do NOT break existing pages (detail pages, ticket/QR flow).
+- Do NOT remove styling colors or icons already present.
+- Keep congestion 5-step bar behavior unchanged.
+- Keep file structure organized: add new components under /components.
+
+========================================================
+(5) Deliverables
+========================================================
+- Working bottom simulation controls.
+- Congestion updates correctly during playback and slider changes.
+- Charts panel works and reflects CSV time-series changes.
+- Provide a short summary of what was changed and where (file names).

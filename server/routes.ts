@@ -141,5 +141,10 @@ export async function registerRoutes(
     res.json(filtered);
   });
 
+  app.get('/api/waiting/all', (_req: Request, res: Response) => {
+    const { data } = loadWaitingData();
+    res.json(data);
+  });
+
   return httpServer;
 }
