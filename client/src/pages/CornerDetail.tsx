@@ -1,5 +1,4 @@
-import { useMemo } from 'react';
-import { useRoute, useLocation } from 'wouter';
+import { useRoute, useLocation, useSearch } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,6 +10,7 @@ import { useTicketContext } from '@/lib/ticketContext';
 import { 
   RESTAURANTS, 
   formatPrice, 
+  formatTime,
   getCongestionLevel,
   CONGESTION_LABELS,
   CONGESTION_COLORS,
@@ -21,11 +21,33 @@ import {
 export default function CornerDetail() {
   const [, params] = useRoute('/restaurant/:restaurantId/corner/:cornerId');
   const [, setLocation] = useLocation();
-  const { timeState } = useTimeContext();
+  const searchString = useSearch();
+  const { timeState, availableTimestamps } = useTimeContext();
   const { createTicket, ticket } = useTicketContext();
 
   const restaurantId = params?.restaurantId || '';
   const cornerId = params?.cornerId || '';
+  
+  const searchParams = new URLSearchParams(searchString);
+  const timestampParam = searchParams.get('t') || '';
+  
+  const effectiveTimestamp = (() => {
+    if (timestampParam) return timestampParam;
+    if (availableTimestamps.length === 0) return '';
+    
+    const targetTime = timeState.displayTime.getTime();
+    let closestTs = availableTimestamps[0];
+    let minDiff = Math.abs(new Date(availableTimestamps[0]).getTime() - targetTime);
+    
+    for (const ts of availableTimestamps) {
+      const diff = Math.abs(new Date(ts).getTime() - targetTime);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closestTs = ts;
+      }
+    }
+    return closestTs;
+  })();
 
   const restaurant = RESTAURANTS.find((r) => r.id === restaurantId);
 
@@ -33,20 +55,18 @@ export default function CornerDetail() {
     queryKey: ['/api/menu'],
   });
 
-  const formattedDisplayTime = useMemo(() => {
-    const d = timeState.displayTime;
-    const hours = d.getHours().toString().padStart(2, '0');
-    const minutes = d.getMinutes().toString().padStart(2, '0');
-    return `${hours}:${minutes}`;
-  }, [timeState.displayTime]);
+  const hasValidTimestamp = !!timestampParam || availableTimestamps.length > 0;
 
   const { data: waitingData } = useQuery<WaitingData[]>({
-    queryKey: ['/api/waiting', formattedDisplayTime],
+    queryKey: ['/api/waiting', effectiveTimestamp],
     queryFn: async () => {
-      const res = await fetch(`/api/waiting?time=${encodeURIComponent(formattedDisplayTime)}`);
+      if (!effectiveTimestamp) return [];
+      const res = await fetch(`/api/waiting?time=${encodeURIComponent(effectiveTimestamp)}`);
       if (!res.ok) throw new Error('Failed to fetch waiting data');
       return res.json();
     },
+    enabled: hasValidTimestamp,
+    staleTime: 0,
   });
 
   const menu = menuData?.[restaurantId]?.[cornerId];
@@ -57,6 +77,10 @@ export default function CornerDetail() {
   const estWait = cornerWaiting?.est_wait_time_min ?? 0;
   const queueLen = cornerWaiting?.queue_len ?? 0;
   const level = getCongestionLevel(estWait);
+  
+  const loadedTimestamp = waitingData?.[0]?.timestamp 
+    ? formatTime(new Date(waitingData[0].timestamp))
+    : null;
 
   const handlePayment = () => {
     if (!menu) return;
@@ -94,6 +118,11 @@ export default function CornerDetail() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-4">
+        {loadedTimestamp && (
+          <div className="text-xs text-muted-foreground mb-3 text-center" data-testid="text-loaded-timestamp-detail">
+            데이터 시각: {loadedTimestamp}
+          </div>
+        )}
         <Card className="p-4 mb-4" data-testid="card-waiting-info">
           <div className="flex items-center justify-between mb-3">
             <div>

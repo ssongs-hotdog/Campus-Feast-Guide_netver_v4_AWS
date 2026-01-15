@@ -1,0 +1,90 @@
+You are modifying an existing Next.js (App Router) + Tailwind mobile web app.
+Make minimal targeted changes only.
+Do NOT redesign UI, do NOT change colors, do NOT refactor unrelated code.
+Fix exactly the items below and verify them.
+
+========================================================
+(1) BUG: Main page vs Detail page values mismatch
+========================================================
+Symptom:
+On the main list page, each corner card shows est_wait_time_min + congestion.
+But on the corner detail page, the shown est_wait_time_min + congestion do NOT match the main page.
+
+Root cause is likely inconsistent time snapshot usage.
+Required behavior:
+- Main and detail must use the exact same displayTime snapshot.
+- If the app is in simulation mode (slider), detail must reflect that same slider time.
+- If in realtime mode, detail must reflect realtime.
+
+Implementation requirement (preferred, minimal risk):
+A) When navigating to detail page, include displayTime as query param:
+   e.g. /restaurant/[restaurantId]/corner/[cornerId]?t=<ISO_WITH_+09:00>
+B) In the detail page, use that `t` to request the SAME snapshot from /api/waiting:
+   /api/waiting?t=<ISO...>
+C) Ensure /api/waiting supports `t` and returns rows for the closest matching minute.
+D) Use the returned row’s est_wait_time_min to compute congestion levels.
+E) Confirm that the main page and detail page show identical wait time + congestion for same corner at same time.
+
+Add a small debug line (can be hidden in a subtle style) that shows:
+- loadedDataTimestamp: HH:mm
+on BOTH main and detail, so we can verify they match.
+
+Acceptance test:
+- Set simulation to 12:15 and open ramen corner detail:
+  main and detail must match exactly.
+
+========================================================
+(1-1) BUG: Stats panel dropdowns not opening
+========================================================
+Symptom:
+In the “통계/그래프” panel, restaurant/corner selectors exist but clicking does not open options.
+
+Fix:
+- Make selectors fully interactive on top of overlays.
+- Common causes to check/fix:
+  - parent container has overflow:hidden clipping the dropdown menu
+  - dropdown menu z-index too low (behind bottom sheet)
+  - pointer-events: none on overlay layers
+  - focus trap preventing click
+- If using shadcn/ui Select/Popover:
+  - ensure the popover is portalled to document.body or has high z-index
+  - ensure the bottom sheet overlay does not block clicks on the select trigger
+- If simplest is safer, replace custom dropdown with native <select> controls inside the panel.
+  (But keep the same labels and layout.)
+
+Acceptance test:
+- Clicking restaurant opens list
+- selecting restaurant updates corner list
+- clicking corner opens list and selection updates charts
+
+========================================================
+(2) UI: Center the “통계” button
+========================================================
+Currently the “통계/그래프” button is stuck to far left.
+Move it to the horizontal center of the screen.
+
+Requirement:
+- On mobile width, the button should be centered.
+- Use flex container with justify-center or equivalent.
+- Do not change size/colors unnecessarily.
+
+========================================================
+(2-2) Rename app title: H-Eat -> HY-eat
+========================================================
+Change the displayed app name anywhere it appears (header/title/metadata) from:
+- "H-Eat" / "H-eat" / "HEat" etc.
+to:
+- "HY-eat"
+
+Also update:
+- <title> in layout/head metadata
+- any visible top header brand string
+Do NOT change URLs or IDs unless they explicitly show the app name.
+
+========================================================
+(3) Deliverables
+========================================================
+After changes, summarize:
+- which files were changed
+- what the fix was for each item
+and confirm all acceptance tests passed.

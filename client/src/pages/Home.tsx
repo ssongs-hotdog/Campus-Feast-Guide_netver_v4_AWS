@@ -145,7 +145,7 @@ export default function Home() {
 
       <footer className="border-t border-border py-4 mt-8">
         <p className="text-center text-xs text-muted-foreground">
-          H-Eat PoC - 한양대학교 학생식당 혼잡도 모니터링
+          HY-eat - 한양대학교 학생식당 혼잡도 모니터링
         </p>
       </footer>
 

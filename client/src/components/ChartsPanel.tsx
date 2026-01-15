@@ -1,9 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { BarChart3, ChevronDown, X } from 'lucide-react';
+import { BarChart3, X } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { RESTAURANTS, type WaitingData } from '@shared/types';
 
@@ -90,35 +89,36 @@ export function ChartsPanel({ isOpen, onClose }: ChartsPanelProps) {
           <div className="flex flex-wrap gap-3">
             <div className="flex-1 min-w-[140px]">
               <Label className="text-xs text-muted-foreground mb-1 block">식당</Label>
-              <Select value={selectedRestaurant} onValueChange={(v) => {
-                setSelectedRestaurant(v);
-                const newRestaurant = RESTAURANTS.find(r => r.id === v);
-                if (newRestaurant && newRestaurant.cornerOrder.length > 0) {
-                  setSelectedCorner(newRestaurant.cornerOrder[0]);
-                }
-              }}>
-                <SelectTrigger data-testid="select-restaurant">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {RESTAURANTS.map(r => (
-                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select
+                value={selectedRestaurant}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setSelectedRestaurant(v);
+                  const newRestaurant = RESTAURANTS.find(r => r.id === v);
+                  if (newRestaurant && newRestaurant.cornerOrder.length > 0) {
+                    setSelectedCorner(newRestaurant.cornerOrder[0]);
+                  }
+                }}
+                className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm"
+                data-testid="select-restaurant"
+              >
+                {RESTAURANTS.map(r => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
             </div>
             <div className="flex-1 min-w-[140px]">
               <Label className="text-xs text-muted-foreground mb-1 block">코너</Label>
-              <Select value={selectedCorner} onValueChange={setSelectedCorner}>
-                <SelectTrigger data-testid="select-corner">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableCorners.map(c => (
-                    <SelectItem key={c} value={c}>{CORNER_NAMES[c] || c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select
+                value={selectedCorner}
+                onChange={(e) => setSelectedCorner(e.target.value)}
+                className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm"
+                data-testid="select-corner"
+              >
+                {availableCorners.map(c => (
+                  <option key={c} value={c}>{CORNER_NAMES[c] || c}</option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -213,15 +213,17 @@ export function ChartsPanel({ isOpen, onClose }: ChartsPanelProps) {
 
 export function ChartsPanelTrigger({ onClick }: { onClick: () => void }) {
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={onClick}
-      className="fixed bottom-20 right-4 z-40 shadow-md gap-1"
-      data-testid="button-open-charts"
-    >
-      <BarChart3 className="w-4 h-4" />
-      통계
-    </Button>
+    <div className="fixed bottom-20 left-0 right-0 z-40 flex justify-center pointer-events-none">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={onClick}
+        className="shadow-md gap-1 pointer-events-auto"
+        data-testid="button-open-charts"
+      >
+        <BarChart3 className="w-4 h-4" />
+        통계
+      </Button>
+    </div>
   );
 }
