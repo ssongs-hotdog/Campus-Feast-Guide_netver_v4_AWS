@@ -1,0 +1,72 @@
+You are modifying an existing Next.js (App Router) + Tailwind mobile web app.
+Goal: remove the visible “blink/flicker” when simulation time advances each minute.
+Do NOT redesign UI. Make minimal code changes only.
+
+IMPORTANT SAFETY FIRST (must do before changes):
+1) Create a Checkpoint/Snapshot named: "pre-smooth-update"
+   OR instruct the user to Remix the project as a backup.
+2) Ensure we can rollback to the exact current behavior.
+
+========================================================
+(1) Identify the cause of flicker (do not guess)
+========================================================
+During playback, each 1-minute tick causes the whole screen to visually blink.
+Debug by checking:
+A) Are we using a loading state that clears the UI each fetch?
+   - e.g., setData(null) or show skeleton that replaces the list
+B) Are list keys changing each tick?
+   - e.g., key includes timestamp or a random value
+C) Are we re-mounting the entire page due to routing or forcing refresh?
+   - e.g., router.refresh(), revalidate triggers, or key on root container
+D) Are we refetching in a way that causes layout reflow (full rerender)?
+
+========================================================
+(2) Implement smooth updates (minimal approach)
+========================================================
+Target behavior:
+- Keep the existing UI on screen while fetching next minute.
+- When new data arrives, update the values without unmounting/remounting components.
+- No “flash” to empty state.
+
+Required changes:
+1) Keep previous snapshot while fetching:
+   - Do NOT clear data on fetch.
+   - Use a separate state: isFetchingNext boolean
+   - Update data only when new response arrives.
+
+2) Stable keys:
+   - For restaurant sections and corner cards, keys must be stable:
+     use `${restaurantId}-${cornerId}` only.
+   - NEVER include timestamp in the React key.
+
+3) Avoid page remount:
+   - Do not key the root container by time.
+   - Do not call router.refresh() each tick.
+
+4) Optional (recommended) crossfade micro-transition:
+   - Add a very subtle CSS transition so value changes feel smooth:
+     e.g., apply transition on opacity/transform to the numbers only
+     (NOT a full-screen fade).
+   - Example: when data updates, briefly animate the wait time text from
+     opacity-80 to opacity-100 (150ms).
+   - Keep it subtle and fast.
+
+5) Reduce unnecessary refetch:
+   - If the API result for a timestamp was already loaded, cache it in memory
+     (Map keyed by timestamp string) and reuse it.
+   - This will reduce jank and network overhead.
+
+========================================================
+(3) Acceptance criteria
+========================================================
+- When autoplay advances minute by minute, the page should NOT blink.
+- The content updates smoothly (values change) without showing empty states.
+- No change to functionality: time controls, stats, tickets remain working.
+
+========================================================
+(4) Deliverables
+========================================================
+- Implement the fix and briefly explain:
+  - What caused flicker
+  - What was changed (file names)
+  - How rollback works (checkpoint name: pre-smooth-update)

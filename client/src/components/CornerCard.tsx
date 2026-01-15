@@ -65,7 +65,7 @@ export function CornerCard({ menu, waitingData }: CornerCardProps) {
         className="mt-3 text-sm text-muted-foreground"
         data-testid={`text-wait-${menu.cornerId}`}
       >
-        예상 대기시간: <span className="font-medium text-foreground">{estWait}분</span>
+        예상 대기시간: <span className="font-medium text-foreground transition-opacity duration-150">{estWait}분</span>
       </p>
     </Card>
   );

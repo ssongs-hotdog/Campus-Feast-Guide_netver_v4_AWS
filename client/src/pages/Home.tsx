@@ -53,7 +53,7 @@ export default function Home() {
     return `${hours}:${minutes}`;
   })();
 
-  const { data: waitingData, isLoading: isWaitingLoading } = useQuery<WaitingData[]>({
+  const { data: waitingData, isLoading: isWaitingLoading, isFetching } = useQuery<WaitingData[]>({
     queryKey: ['/api/waiting', currentTimestamp],
     queryFn: async () => {
       const res = await fetch(`/api/waiting?time=${encodeURIComponent(currentTimestamp!)}`);
@@ -61,7 +61,8 @@ export default function Home() {
       return res.json();
     },
     enabled: !!currentTimestamp,
-    staleTime: 0,
+    staleTime: 60000,
+    placeholderData: (previousData) => previousData,
   });
 
   const displayDate = formatDate(timeState.displayTime);
@@ -111,7 +112,7 @@ export default function Home() {
               waiting_1min_KST_2026-01-15.csv
             </p>
           </div>
-        ) : isWaitingLoading ? (
+        ) : isWaitingLoading && !waitingData ? (
           <div className="space-y-4">
             {RESTAURANTS.map((r) => (
               <div key={r.id} className="animate-pulse">
