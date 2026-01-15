@@ -52,7 +52,7 @@ Preferred communication style: Simple, everyday language.
 - **Zod**: Schema validation for API data
 
 ### Data Sources
-- CSV file: `data/waiting_1min_KST_2026-01-15.csv` containing timestamped wait time data
+- CSV file: `data/waiting_peak_popularity_realistic_v2.csv` containing timestamped wait time data
 - JSON file: `data/menu.json` containing restaurant and menu information
 
 ## Recent Changes (2026-01-15)

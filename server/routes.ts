@@ -42,7 +42,7 @@ function loadWaitingData(): { data: WaitingDataRow[]; timestamps: string[] } {
     return { data: cachedWaitingData, timestamps: cachedTimestamps };
   }
   
-  const csvPath = path.join(process.cwd(), 'data', 'waiting_1min_KST_2026-01-15.csv');
+  const csvPath = path.join(process.cwd(), 'data', 'waiting_peak_popularity_realistic_v2.csv');
   
   try {
     if (!fs.existsSync(csvPath)) {
