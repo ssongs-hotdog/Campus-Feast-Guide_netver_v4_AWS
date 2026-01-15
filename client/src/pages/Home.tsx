@@ -56,7 +56,7 @@ export default function Home() {
   const { data: waitingData, isLoading: isWaitingLoading } = useQuery<WaitingData[]>({
     queryKey: ['/api/waiting', currentTimestamp],
     queryFn: async () => {
-      const res = await fetch(`/api/waiting?time=${encodeURIComponent(formattedDisplayTime)}`);
+      const res = await fetch(`/api/waiting?time=${encodeURIComponent(currentTimestamp!)}`);
       if (!res.ok) throw new Error('Failed to fetch waiting data');
       return res.json();
     },

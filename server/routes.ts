@@ -116,28 +116,49 @@ export async function registerRoutes(
       return res.json(filtered);
     }
     
-    const [hours, minutes] = timeParam.split(':').map(Number);
-    if (isNaN(hours) || isNaN(minutes)) {
-      return res.status(400).json({ error: 'Invalid time format. Use HH:MM' });
-    }
+    let targetTimestamp: string;
     
-    const targetMinutes = hours * 60 + minutes;
-    
-    let closestTimestamp = timestamps[0];
-    let minDiff = Infinity;
-    
-    for (const ts of timestamps) {
-      const tsDate = new Date(ts);
-      const tsMinutes = tsDate.getHours() * 60 + tsDate.getMinutes();
-      const diff = Math.abs(tsMinutes - targetMinutes);
-      
-      if (diff < minDiff) {
-        minDiff = diff;
-        closestTimestamp = ts;
+    if (timeParam.includes('T') || timeParam.includes('+')) {
+      if (timestamps.includes(timeParam)) {
+        targetTimestamp = timeParam;
+      } else {
+        const targetTime = new Date(timeParam).getTime();
+        let closestTs = timestamps[0];
+        let minDiff = Math.abs(new Date(timestamps[0]).getTime() - targetTime);
+        
+        for (const ts of timestamps) {
+          const diff = Math.abs(new Date(ts).getTime() - targetTime);
+          if (diff < minDiff) {
+            minDiff = diff;
+            closestTs = ts;
+          }
+        }
+        targetTimestamp = closestTs;
       }
+    } else {
+      const [hours, minutes] = timeParam.split(':').map(Number);
+      if (isNaN(hours) || isNaN(minutes)) {
+        return res.status(400).json({ error: 'Invalid time format. Use HH:MM or ISO timestamp' });
+      }
+      
+      const targetMinutes = hours * 60 + minutes;
+      let closestTs = timestamps[0];
+      let minDiff = Infinity;
+      
+      for (const ts of timestamps) {
+        const tsDate = new Date(ts);
+        const tsMinutes = tsDate.getHours() * 60 + tsDate.getMinutes();
+        const diff = Math.abs(tsMinutes - targetMinutes);
+        
+        if (diff < minDiff) {
+          minDiff = diff;
+          closestTs = ts;
+        }
+      }
+      targetTimestamp = closestTs;
     }
     
-    const filtered = data.filter((row) => row.timestamp === closestTimestamp);
+    const filtered = data.filter((row) => row.timestamp === targetTimestamp);
     res.json(filtered);
   });
 
