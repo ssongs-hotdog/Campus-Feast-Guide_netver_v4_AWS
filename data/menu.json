@@ -1,0 +1,72 @@
+{
+  "hanyang_plaza": {
+    "western": {
+      "restaurantId": "hanyang_plaza",
+      "cornerId": "western",
+      "cornerDisplayName": "양식",
+      "mainMenuName": "치즈돈까스",
+      "priceWon": 4200,
+      "items": []
+    },
+    "korean": {
+      "restaurantId": "hanyang_plaza",
+      "cornerId": "korean",
+      "cornerDisplayName": "한식",
+      "mainMenuName": "소고기우거지탕",
+      "priceWon": 4200,
+      "items": ["바싹불고기", "도토리묵무침", "깍두기"]
+    },
+    "instant": {
+      "restaurantId": "hanyang_plaza",
+      "cornerId": "instant",
+      "cornerDisplayName": "즉석",
+      "mainMenuName": "순살닭한마리",
+      "priceWon": 4500,
+      "items": ["바싹불고기", "도토리묵무침", "깍두기"]
+    },
+    "ramen": {
+      "restaurantId": "hanyang_plaza",
+      "cornerId": "ramen",
+      "cornerDisplayName": "라면",
+      "mainMenuName": "차돌숙주라면",
+      "priceWon": 3500,
+      "items": ["토핑 선택(옵션): 계란/치즈/떡"]
+    }
+  },
+  "materials": {
+    "set_meal": {
+      "restaurantId": "materials",
+      "cornerId": "set_meal",
+      "cornerDisplayName": "정식",
+      "mainMenuName": "부대찌개(라면사리)",
+      "priceWon": 6000,
+      "items": ["흑미밥", "야채춘권*칠리소스", "메추리알곤약조림", "고들빼기무침", "배추김치"]
+    },
+    "single_dish": {
+      "restaurantId": "materials",
+      "cornerId": "single_dish",
+      "cornerDisplayName": "일품",
+      "mainMenuName": "탄탄면",
+      "priceWon": 6500,
+      "items": ["참치김가루주먹밥", "핫도그*케찹", "콘샐러드", "단무지무침", "배추김치", "마카로니과자"]
+    }
+  },
+  "life_science": {
+    "dam_a": {
+      "restaurantId": "life_science",
+      "cornerId": "dam_a",
+      "cornerDisplayName": "Dam-A",
+      "mainMenuName": "철판)언양식불고기&파채",
+      "priceWon": 6000,
+      "items": ["미역국", "어묵야채볶음", "콩나물무침", "깍두기", "잡곡밥"]
+    },
+    "pangeos": {
+      "restaurantId": "life_science",
+      "cornerId": "pangeos",
+      "cornerDisplayName": "Pangeos",
+      "mainMenuName": "돈가스&매운소스",
+      "priceWon": 6500,
+      "items": ["어묵우동", "추가밥", "웨지감자튀김&케찹", "단무지무침", "요구르트", "포기김치"]
+    }
+  }
+}
