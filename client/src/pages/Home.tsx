@@ -166,26 +166,23 @@ export default function Home() {
             </button>
             
             {isTimeSelectorOpen && (
-              <div className="mt-2 p-2 bg-muted/30 rounded-lg max-h-48 overflow-y-auto">
-                <div className="grid grid-cols-4 gap-1">
+              <div className="mt-2 p-3 bg-muted/30 rounded-lg">
+                <label className="block text-sm text-muted-foreground mb-2">시간 선택</label>
+                <select
+                  value={selectedTime5Min}
+                  onChange={(e) => {
+                    setSelectedTime5Min(e.target.value);
+                    setIsTimeSelectorOpen(false);
+                  }}
+                  className="w-full p-3 bg-background border border-border rounded-lg text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary"
+                  data-testid="select-time-5min"
+                >
                   {TIME_OPTIONS_5MIN.map((time) => (
-                    <button
-                      key={time}
-                      onClick={() => {
-                        setSelectedTime5Min(time);
-                        setIsTimeSelectorOpen(false);
-                      }}
-                      className={`p-2 text-sm rounded transition-colors ${
-                        time === selectedTime5Min
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-background hover-elevate'
-                      }`}
-                      data-testid={`button-time-${time}`}
-                    >
+                    <option key={time} value={time}>
                       {time}
-                    </button>
+                    </option>
                   ))}
-                </div>
+                </select>
               </div>
             )}
           </div>

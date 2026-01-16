@@ -22,7 +22,7 @@ export default function CornerDetail() {
   const [, params] = useRoute('/restaurant/:restaurantId/corner/:cornerId');
   const [, setLocation] = useLocation();
   const searchString = useSearch();
-  const { timeState, availableTimestamps } = useTimeContext();
+  const { timeState, availableTimestamps, selectedDate } = useTimeContext();
   const { createTicket, ticket } = useTicketContext();
 
   const restaurantId = params?.restaurantId || '';
@@ -179,23 +179,25 @@ export default function CornerDetail() {
           </div>
         </Card>
 
-        {hasExistingTicket ? (
-          <Button 
-            variant="outline"
-            className="w-full h-12 text-base"
-            onClick={() => setLocation('/ticket')}
-            data-testid="button-view-ticket"
-          >
-            주문권 확인하기
-          </Button>
-        ) : (
-          <Button 
-            className="w-full h-12 text-base"
-            onClick={handlePayment}
-            data-testid="button-payment"
-          >
-            결제하기 (시뮬)
-          </Button>
+        {selectedDate === '2026-01-15' && (
+          hasExistingTicket ? (
+            <Button 
+              variant="outline"
+              className="w-full h-12 text-base"
+              onClick={() => setLocation('/ticket')}
+              data-testid="button-view-ticket"
+            >
+              주문권 확인하기
+            </Button>
+          ) : (
+            <Button 
+              className="w-full h-12 text-base"
+              onClick={handlePayment}
+              data-testid="button-payment"
+            >
+              결제하기 (시뮬)
+            </Button>
+          )
         )}
       </main>
     </div>

@@ -1,0 +1,56 @@
+We are updating the existing Next.js (App Router) + Tailwind HY-eat app.
+Make ONLY the changes below. Do NOT refactor unrelated code. Do NOT redesign UI colors/styles.
+
+========================================
+CHANGE 1) Top date label cleanup
+========================================
+Currently the top date display shows extra text like "(오늘) (전날) (다음날)".
+Remove those labels completely.
+Show ONLY the date string (e.g., "2026-01-15") in the top date box.
+Keep the left/right date navigation buttons working as-is.
+
+Acceptance criteria:
+- The top date area contains ONLY the date, no parentheses labels anywhere.
+
+========================================
+CHANGE 2) Replace time selection blocks with a scrollable dropdown
+========================================
+For Prev day (2026-01-14) and Next day (2026-01-16) pages, the time selector currently shows times as blocks/chips/buttons.
+Replace this with a single native HTML <select> dropdown that opens a scrollable list.
+
+Requirements:
+- Keep the same collapsible box under the date (expand/collapse behavior unchanged).
+- Inside that box, show:
+  - a label like "시간 선택"
+  - a <select> element
+- The <select> options must be every 5 minutes from 11:00 to 14:00 inclusive.
+- Default selected option must be 11:00.
+- When the user changes the selected time, the snapshot updates exactly as before (5-min aggregation from 1-min data).
+
+Do NOT use a custom dropdown library. Use native <select> for maximum mobile stability.
+
+Styling:
+- Use Tailwind: full width, rounded corners, padding, subtle border.
+- No major redesign.
+
+========================================
+CHANGE 3) Hide "결제하기" in detail view for prev/next day
+========================================
+In the corner "상세 보기" panel/modal/page, there is a "결제하기" button.
+We must show this button ONLY on Today (2026-01-15).
+On Prev day (2026-01-14) and Next day (2026-01-16), remove/hide the button entirely.
+
+Implementation guidance:
+- Use the existing selectedDate state.
+- Condition: render the payment button only if selectedDate === "2026-01-15".
+- Do not remove payment logic for today; just hide the UI button on other dates.
+
+Acceptance criteria:
+- On 2026-01-15 detail view: "결제하기" is visible and works as before.
+- On 2026-01-14 and 2026-01-16 detail view: "결제하기" is not visible anywhere.
+
+========================================
+DELIVERABLES
+========================================
+- List the files changed.
+- Confirm: (1) date label removed, (2) time dropdown scroll selection works, (3) payment button hidden on prev/next only.
