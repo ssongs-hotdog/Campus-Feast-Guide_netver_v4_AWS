@@ -1,0 +1,57 @@
+We want to safely switch the app’s 3-day combined queue dataset to the new v2 file,
+with an easy rollback path.
+
+NEW file to use:
+  /data/hy_eat_queue_3days_combined_v2.csv
+
+CURRENT file in use (assume this path; if different, find and use the actual one):
+  /data/hy_eat_queue_3days_combined.csv
+
+========================================
+STEP 0) Safety backup (must do first)
+========================================
+1) Create a backup copy of the currently used CSV:
+   - If /data/hy_eat_queue_3days_combined.csv exists, rename it to:
+     /data/hy_eat_queue_3days_combined_backup.csv
+
+2) Do NOT delete anything.
+
+========================================
+STEP 1) Activate v2 dataset
+========================================
+Option A (preferred, minimal code change):
+- Rename the new file so the app keeps using the same filename:
+  /data/hy_eat_queue_3days_combined_v2.csv  ->  /data/hy_eat_queue_3days_combined.csv
+
+This ensures the app reads the new dataset without changing any code.
+
+If the app uses a different filename/path, then instead:
+Option B:
+- Update the single place in code that references the dataset path
+  to point to /data/hy_eat_queue_3days_combined_v2.csv
+  (change only that one string).
+
+========================================
+STEP 2) Sanity check
+========================================
+Run the app and verify:
+- No “file not found” errors.
+- Date navigation still works for 2026-01-14 / 2026-01-15 / 2026-01-16.
+- Values differ across days (e.g., 2026-01-14 generally lower, 2026-01-16 higher).
+- Today simulation still updates as before.
+
+========================================
+ROLLBACK PLAN (if anything goes wrong)
+========================================
+If the new dataset causes issues, rollback instantly by:
+1) Rename the current active file back:
+   /data/hy_eat_queue_3days_combined.csv -> /data/hy_eat_queue_3days_combined_v2_failed.csv
+2) Restore the backup:
+   /data/hy_eat_queue_3days_combined_backup.csv -> /data/hy_eat_queue_3days_combined.csv
+3) Re-run the app.
+
+========================================
+DELIVERABLES
+========================================
+- Report what exact file operations were performed (final filenames).
+- Confirm rollback steps are ready and backup exists.
