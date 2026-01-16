@@ -20,7 +20,7 @@ function Banner() {
   return (
     <div 
       className="w-full rounded-lg overflow-hidden shadow-sm border border-border"
-      style={{ aspectRatio: '3 / 1' }}
+      style={{ aspectRatio: '2.35 / 1' }}
       data-testid="banner-container"
     >
       {imageError ? (
