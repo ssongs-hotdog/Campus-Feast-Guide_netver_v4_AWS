@@ -1,0 +1,115 @@
+You are enhancing an existing Next.js (App Router) + Tailwind mobile web app for HY-eat.
+Do minimal changes and keep the current UI style consistent.
+Goal: Make the top date left/right buttons actually work and add Prev/Next day behavior.
+
+IMPORTANT: Do NOT break the current "Today" simulation behavior.
+Do NOT redesign components. Only add what is needed.
+
+========================================================
+DATA
+========================================================
+We have a combined 3-day queue dataset (queue_len only) located at:
+  /data/hy_eat_queue_3days_combined.csv
+Columns: timestamp (KST ISO), restaurantId, cornerId, queue_len, data_type (observed/predicted)
+
+Menu data must be stored as a single JSON file in:
+  /data/menus_by_date.json
+Structure should be keyed by date string: "YYYY-MM-DD".
+"today" menus should remain as currently implemented (no changes).
+Add menus for:
+- 2026-01-14 (prev day)
+- 2026-01-16 (next day)
+
+Use the menu content exactly as provided below (do not paraphrase).
+
+Prev day (2026-01-14) menus:
+Hanyang Plaza:
+- western: main "등심돈까스"
+- korean: main "제육덮밥", sides ["비엔나소세지*케찹","콘샐러드","깍두기","우동국"]
+- instant: main "목살김치찌개", sides ["비엔나소세지*케찹","콘샐러드","깍두기"]
+- ramen: main "부대라면"
+Materials:
+- set_meal: main "얼큰소고기전골", sides ["흑미밥","치킨까스*머스타드","새우젓호박나물","치커리상추무침","배추김치","그린샐러드"]
+- single_dish: main "통소시지오므라이스", sides ["온모밀","고구마맛탕","단무지무침","요구르트","배추김치","그린샐러드"]
+Life Science:
+- dam_a: main "뚝)참치김치찌개", sides ["생선가스&타르's","건파래볶음","양파초절임","깍두기","잡곡밥"]
+- pangeos: main "짜장면*오이채", sides ["스팸계란볶음밥","미소장국","군만두튀김","단무지","포기김치"]
+
+Next day (2026-01-16) menus:
+Hanyang Plaza:
+- western: main "고구마치즈돈까스"
+- korean: main "소고기알밥", sides ["연두부*간장","배추겉절이","김치","유부우동국"]
+- instant: main "교자칼국수", sides ["연두부*간장","배추겉절이","김치"]
+- ramen: main "빨계떡라면"
+Materials:
+- set_meal: main "소머리사리곰탕*소면사리", sides ["흑미밥","새우까스*칠리소스","도시락김","콩나물무침","석박지","옥수수차"]
+- single_dish: main "해물볶음우동", sides ["추가밥","미소된장국","고추잡채*꽃빵","단무지무침","배추김치","옥수수차"]
+Life Science:
+- dam_a: main "(뚝)돈육간장갈비찜", sides ["청양초콩나물국","두부양념조림","무말랭이무침","포기김치","흑미밥"]
+- pangeos: main "오므라이스&왕새우튀김", sides ["김치우동","참치펜네","단무지무침","깍두기","요구르트"]
+
+========================================================
+FEATURE 1: Date navigation (prev / today / next)
+========================================================
+There is already a top date box with left/right buttons, but it does nothing.
+Implement an internal date state: selectedDate (YYYY-MM-DD).
+Allowed dates: 2026-01-14, 2026-01-15, 2026-01-16
+- Default: 2026-01-15 (today)
+- Left button decrements date within range
+- Right button increments date within range
+- Disable buttons at edges
+
+When selectedDate changes:
+- The main corner list should show data for that date (from the combined CSV).
+- Today (2026-01-15) keeps the current 1-minute simulation mode (play/slider) exactly as now.
+- Prev/Next day pages do NOT autoplay. They are snapshot lookups using a 5-minute selector (Feature 2).
+
+========================================================
+FEATURE 2: 5-minute time selector box for prev/next day
+========================================================
+For prev day (2026-01-14) and next day (2026-01-16):
+Add a collapsible/expandable time selector box directly under the top date box.
+- Default selected time: 11:00
+- Options: every 5 minutes from 11:00 to 14:00 inclusive
+- This selector is independent from today's simulation.
+
+Behavior:
+- When user selects a 5-min time (e.g. 11:35), the app should display the snapshot.
+- Snapshot should be computed from the 1-minute dataset by aggregating the 5-minute window:
+  For time HH:MM, take minute rows from HH:MM to HH:MM+4 and compute:
+    queue_len_5min = rounded average of those 5 minutes for each corner.
+- Then compute est_wait_time_min inside code from queue_len_5min (same model as today).
+- Update the main list and detail pages to reflect this snapshot.
+
+For today (2026-01-15):
+- Do NOT show this 5-minute box.
+- Keep the existing simulation slider/play as is.
+
+========================================================
+FEATURE 3: Bottom "통계" panel consistency + per-day meaning
+========================================================
+You already have a bottom expandable "통계" panel with charts.
+Keep the same UI placement and style for all three dates.
+But the content meaning changes:
+- Prev day: label charts as "전날 이용 통계" (statistics)
+- Next day: label charts as "다음날 혼잡도 예측" (prediction)
+- Today: keep current labels
+
+Also fix any broken selectors inside that panel (if any) but do not redesign.
+
+Charts requirement (keep minimal):
+- At least 1 line chart of queue_len (or est_wait_time_min) over time for the selected restaurant/corner.
+- For prev/next day, the chart should use 5-minute aggregated series.
+- For today, it can remain 1-minute series.
+
+========================================================
+DELIVERABLES
+========================================================
+After implementing:
+1) List files changed
+2) Confirm:
+   - Date left/right buttons work
+   - Today simulation still works unchanged
+   - Prev/Next day shows 5-min selector default 11:00
+   - Prev/Next snapshots change when selecting times
+   - Menus change correctly for prev/next, today unchanged
