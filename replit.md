@@ -68,3 +68,27 @@ Preferred communication style: Simple, everyday language.
 ### Build & Development
 - Replit-specific plugins for development (cartographer, dev-banner, runtime-error-overlay)
 - TypeScript with path aliases (`@/` for client, `@shared/` for shared code)
+
+## Netlify Deployment (2026-01-16)
+
+### Configuration Files
+- `netlify.toml`: Build configuration, functions directory, and redirects
+- `netlify/functions/api.ts`: Express API wrapped with serverless-http
+
+### Deployment Setup
+- **Build Command**: `npx vite build`
+- **Publish Directory**: `dist/public`
+- **Functions Directory**: `netlify/functions`
+- **Node Version**: 20
+
+### API Routing on Netlify
+- `/api/*` requests are redirected to `/.netlify/functions/api/:splat`
+- SPA fallback redirects all other routes to `/index.html`
+
+### Data Files
+- CSV and JSON data files in `data/` are bundled with the serverless function via `included_files`
+
+### Key Differences from Replit
+- Server runs as serverless functions instead of persistent Express server
+- No WebSocket support (Netlify serverless limitation)
+- Each API request is stateless (no in-memory caching between requests)
