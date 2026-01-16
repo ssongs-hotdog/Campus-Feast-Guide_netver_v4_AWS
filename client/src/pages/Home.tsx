@@ -1,36 +1,71 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, Ticket } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Ticket, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BottomTimePanel } from '@/components/BottomTimePanel';
 import { ChartsPanel, ChartsPanelTrigger } from '@/components/ChartsPanel';
 import { RestaurantSection } from '@/components/RestaurantSection';
 import { useTimeContext } from '@/lib/timeContext';
 import { useTicketContext } from '@/lib/ticketContext';
-import { RESTAURANTS, formatDate, formatTime, type WaitingData, type MenuData } from '@shared/types';
+import { RESTAURANTS, formatDateWithLabel, formatTime, type WaitingData, type MenuData } from '@shared/types';
 import { useLocation } from 'wouter';
+
+const TODAY_DATE = '2026-01-15';
+
+const TIME_OPTIONS_5MIN = (() => {
+  const options: string[] = [];
+  for (let h = 11; h <= 14; h++) {
+    for (let m = 0; m < 60; m += 5) {
+      if (h === 14 && m > 0) break;
+      options.push(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
+    }
+  }
+  return options;
+})();
 
 export default function Home() {
   const [, setLocation] = useLocation();
-  const { timeState, setAvailableTimestamps } = useTimeContext();
+  const { 
+    timeState, 
+    setAvailableTimestamps,
+    selectedDate,
+    selectedTime5Min,
+    setSelectedTime5Min,
+    isToday,
+    canGoPrev,
+    canGoNext,
+    goPrevDate,
+    goNextDate,
+  } = useTimeContext();
   const { ticket } = useTicketContext();
   const [isChartsOpen, setIsChartsOpen] = useState(false);
+  const [isTimeSelectorOpen, setIsTimeSelectorOpen] = useState(false);
 
   const { data: menuData } = useQuery<MenuData>({
-    queryKey: ['/api/menu'],
+    queryKey: ['/api/menu', selectedDate],
+    queryFn: async () => {
+      const res = await fetch(`/api/menu?date=${selectedDate}`);
+      if (!res.ok) throw new Error('Failed to fetch menu data');
+      return res.json();
+    },
   });
 
   const { data: timestampsData } = useQuery<{ timestamps: string[] }>({
-    queryKey: ['/api/waiting/timestamps'],
+    queryKey: ['/api/waiting/timestamps', selectedDate],
+    queryFn: async () => {
+      const res = await fetch(`/api/waiting/timestamps?date=${selectedDate}`);
+      if (!res.ok) throw new Error('Failed to fetch timestamps');
+      return res.json();
+    },
   });
 
   useEffect(() => {
-    if (timestampsData?.timestamps) {
+    if (timestampsData?.timestamps && isToday) {
       setAvailableTimestamps(timestampsData.timestamps);
     }
-  }, [timestampsData, setAvailableTimestamps]);
+  }, [timestampsData, setAvailableTimestamps, isToday]);
 
-  const currentTimestamp = (() => {
+  const currentTimestamp = useMemo(() => {
     if (!timestampsData?.timestamps?.length) return null;
     const targetTime = timeState.displayTime.getTime();
     let closestIdx = 0;
@@ -44,46 +79,61 @@ export default function Home() {
       }
     }
     return timestampsData.timestamps[closestIdx];
-  })();
+  }, [timestampsData?.timestamps, timeState.displayTime]);
 
-  const formattedDisplayTime = (() => {
-    const d = timeState.displayTime;
-    const hours = d.getHours().toString().padStart(2, '0');
-    const minutes = d.getMinutes().toString().padStart(2, '0');
-    return `${hours}:${minutes}`;
-  })();
-
-  const { data: waitingData, isLoading: isWaitingLoading, isFetching } = useQuery<WaitingData[]>({
-    queryKey: ['/api/waiting', currentTimestamp],
+  const { data: waitingData, isLoading: isWaitingLoading } = useQuery<WaitingData[]>({
+    queryKey: isToday 
+      ? ['/api/waiting', selectedDate, currentTimestamp]
+      : ['/api/waiting', selectedDate, selectedTime5Min, '5min'],
     queryFn: async () => {
-      const res = await fetch(`/api/waiting?time=${encodeURIComponent(currentTimestamp!)}`);
-      if (!res.ok) throw new Error('Failed to fetch waiting data');
-      return res.json();
+      if (isToday) {
+        const res = await fetch(`/api/waiting?date=${selectedDate}&time=${encodeURIComponent(currentTimestamp!)}`);
+        if (!res.ok) throw new Error('Failed to fetch waiting data');
+        return res.json();
+      } else {
+        const res = await fetch(`/api/waiting?date=${selectedDate}&time=${selectedTime5Min}&aggregate=5min`);
+        if (!res.ok) throw new Error('Failed to fetch waiting data');
+        return res.json();
+      }
     },
-    enabled: !!currentTimestamp,
+    enabled: isToday ? !!currentTimestamp : true,
     staleTime: 60000,
     placeholderData: (previousData) => previousData,
   });
 
-  const displayDate = formatDate(timeState.displayTime);
+  const displayDate = formatDateWithLabel(selectedDate, TODAY_DATE);
   const hasActiveTicket = ticket && (ticket.status === 'stored' || ticket.status === 'active');
 
-  const loadedTimestamp = waitingData?.[0]?.timestamp 
+  const loadedTimestamp = isToday && waitingData?.[0]?.timestamp 
     ? formatTime(new Date(waitingData[0].timestamp))
-    : null;
+    : !isToday ? selectedTime5Min : null;
 
   return (
     <div className="min-h-screen bg-background pb-24">
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border px-4 py-3">
         <div className="flex items-center justify-between max-w-lg mx-auto">
-          <Button variant="ghost" size="icon" className="text-muted-foreground" data-testid="button-prev-date">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="text-muted-foreground" 
+            disabled={!canGoPrev}
+            onClick={goPrevDate}
+            data-testid="button-prev-date"
+          >
             <ChevronLeft className="w-5 h-5" />
           </Button>
           <h1 className="text-base font-semibold text-foreground" data-testid="text-date">
             {displayDate}
           </h1>
           <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="text-muted-foreground" data-testid="button-next-date">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="text-muted-foreground"
+              disabled={!canGoNext}
+              onClick={goNextDate}
+              data-testid="button-next-date"
+            >
               <ChevronRight className="w-5 h-5" />
             </Button>
             {hasActiveTicket && (
@@ -100,6 +150,46 @@ export default function Home() {
             )}
           </div>
         </div>
+
+        {!isToday && (
+          <div className="max-w-lg mx-auto mt-2">
+            <button
+              onClick={() => setIsTimeSelectorOpen(!isTimeSelectorOpen)}
+              className="flex items-center justify-between w-full p-2 bg-muted/50 rounded-lg text-sm"
+              data-testid="button-time-selector-toggle"
+            >
+              <span className="text-muted-foreground">시간 선택</span>
+              <div className="flex items-center gap-2">
+                <span className="font-medium" data-testid="text-selected-time">{selectedTime5Min}</span>
+                {isTimeSelectorOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </div>
+            </button>
+            
+            {isTimeSelectorOpen && (
+              <div className="mt-2 p-2 bg-muted/30 rounded-lg max-h-48 overflow-y-auto">
+                <div className="grid grid-cols-4 gap-1">
+                  {TIME_OPTIONS_5MIN.map((time) => (
+                    <button
+                      key={time}
+                      onClick={() => {
+                        setSelectedTime5Min(time);
+                        setIsTimeSelectorOpen(false);
+                      }}
+                      className={`p-2 text-sm rounded transition-colors ${
+                        time === selectedTime5Min
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-background hover-elevate'
+                      }`}
+                      data-testid={`button-time-${time}`}
+                    >
+                      {time}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-4">
@@ -151,8 +241,8 @@ export default function Home() {
       </footer>
 
       <ChartsPanelTrigger onClick={() => setIsChartsOpen(true)} />
-      <ChartsPanel isOpen={isChartsOpen} onClose={() => setIsChartsOpen(false)} />
-      <BottomTimePanel />
+      <ChartsPanel isOpen={isChartsOpen} onClose={() => setIsChartsOpen(false)} selectedDate={selectedDate} />
+      {isToday && <BottomTimePanel />}
     </div>
   );
 }

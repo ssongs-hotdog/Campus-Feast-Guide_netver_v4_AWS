@@ -11,10 +11,17 @@ interface WaitingDataRow {
   cornerId: string;
   queue_len: number;
   est_wait_time_min: number;
+  data_type?: string;
 }
 
-let cachedWaitingData: WaitingDataRow[] | null = null;
-let cachedTimestamps: string[] | null = null;
+interface CachedDataByDate {
+  data: WaitingDataRow[];
+  timestamps: string[];
+}
+
+let cachedDataByDate: Record<string, CachedDataByDate> | null = null;
+const AVAILABLE_DATES = ['2026-01-14', '2026-01-15', '2026-01-16'];
+const TODAY_DATE = '2026-01-15';
 
 function parseCSV(content: string): WaitingDataRow[] {
   const lines = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n');
@@ -29,6 +36,7 @@ function parseCSV(content: string): WaitingDataRow[] {
       const restaurantId = values[1];
       const cornerId = values[2];
       const queueLen = parseInt(values[3], 10) || 0;
+      const dataType = values[4] || 'observed';
       
       data.push({
         timestamp,
@@ -36,6 +44,7 @@ function parseCSV(content: string): WaitingDataRow[] {
         cornerId,
         queue_len: queueLen,
         est_wait_time_min: computeWaitMinutes(queueLen, restaurantId, cornerId),
+        data_type: dataType,
       });
     }
   }
@@ -43,48 +52,132 @@ function parseCSV(content: string): WaitingDataRow[] {
   return data;
 }
 
-function loadWaitingData(): { data: WaitingDataRow[]; timestamps: string[] } {
-  if (cachedWaitingData && cachedTimestamps) {
-    return { data: cachedWaitingData, timestamps: cachedTimestamps };
+function loadAllWaitingData(): Record<string, CachedDataByDate> {
+  if (cachedDataByDate) {
+    return cachedDataByDate;
   }
   
-  const csvPath = path.join(process.cwd(), 'data', 'waiting_peak_popularity_realistic_v2.csv');
+  const csvPath = path.join(process.cwd(), 'data', 'hy_eat_queue_3days_combined.csv');
   
   try {
     if (!fs.existsSync(csvPath)) {
       console.log('CSV file not found at:', csvPath);
-      return { data: [], timestamps: [] };
+      cachedDataByDate = {};
+      return cachedDataByDate;
     }
     
     const content = fs.readFileSync(csvPath, 'utf-8');
-    cachedWaitingData = parseCSV(content);
+    const allData = parseCSV(content);
     
-    const timestampSet = new Set<string>();
-    cachedWaitingData.forEach((row) => timestampSet.add(row.timestamp));
-    cachedTimestamps = Array.from(timestampSet).sort();
+    cachedDataByDate = {};
     
-    console.log(`Loaded ${cachedWaitingData.length} waiting data rows, ${cachedTimestamps.length} unique timestamps`);
+    for (const dateStr of AVAILABLE_DATES) {
+      const dateData = allData.filter(row => row.timestamp.startsWith(dateStr));
+      const timestampSet = new Set<string>();
+      dateData.forEach(row => timestampSet.add(row.timestamp));
+      const timestamps = Array.from(timestampSet).sort();
+      
+      cachedDataByDate[dateStr] = { data: dateData, timestamps };
+    }
     
-    return { data: cachedWaitingData, timestamps: cachedTimestamps };
+    console.log(`Loaded ${allData.length} waiting data rows for ${AVAILABLE_DATES.length} dates`);
+    
+    return cachedDataByDate;
   } catch (error) {
     console.error('Error loading CSV:', error);
-    return { data: [], timestamps: [] };
+    cachedDataByDate = {};
+    return cachedDataByDate;
   }
 }
 
-function loadMenuData(): Record<string, unknown> | null {
-  const menuPath = path.join(process.cwd(), 'data', 'menu.json');
+function loadWaitingData(date?: string): { data: WaitingDataRow[]; timestamps: string[] } {
+  const allData = loadAllWaitingData();
+  const targetDate = date || TODAY_DATE;
+  
+  if (allData[targetDate]) {
+    return allData[targetDate];
+  }
+  
+  return { data: [], timestamps: [] };
+}
+
+function extractKSTHoursMinutes(timestamp: string): { hours: number; minutes: number } {
+  const match = timestamp.match(/T(\d{2}):(\d{2})/);
+  if (!match) return { hours: 0, minutes: 0 };
+  return { hours: parseInt(match[1], 10), minutes: parseInt(match[2], 10) };
+}
+
+function compute5MinAggregatedSnapshot(
+  data: WaitingDataRow[],
+  timestamps: string[],
+  timeHHMM: string
+): WaitingDataRow[] {
+  const [hours, minutes] = timeHHMM.split(':').map(Number);
+  if (isNaN(hours) || isNaN(minutes)) return [];
+  
+  const startMinutes = hours * 60 + minutes;
+  const endMinutes = startMinutes + 4;
+  
+  const relevantRows = data.filter(row => {
+    const { hours: rHours, minutes: rMinutes } = extractKSTHoursMinutes(row.timestamp);
+    const rowMinutes = rHours * 60 + rMinutes;
+    return rowMinutes >= startMinutes && rowMinutes <= endMinutes;
+  });
+  
+  const grouped: Record<string, { queueLens: number[]; row: WaitingDataRow }> = {};
+  
+  for (const row of relevantRows) {
+    const key = `${row.restaurantId}:${row.cornerId}`;
+    if (!grouped[key]) {
+      grouped[key] = { queueLens: [], row };
+    }
+    grouped[key].queueLens.push(row.queue_len);
+  }
+  
+  const result: WaitingDataRow[] = [];
+  const firstTimestamp = timestamps.find(ts => {
+    const { hours: tHours, minutes: tMinutes } = extractKSTHoursMinutes(ts);
+    return tHours === hours && tMinutes === minutes;
+  }) || timestamps[0];
+  
+  for (const key in grouped) {
+    const { queueLens, row } = grouped[key];
+    const avgQueueLen = Math.round(queueLens.reduce((a, b) => a + b, 0) / queueLens.length);
+    
+    result.push({
+      timestamp: firstTimestamp,
+      restaurantId: row.restaurantId,
+      cornerId: row.cornerId,
+      queue_len: avgQueueLen,
+      est_wait_time_min: computeWaitMinutes(avgQueueLen, row.restaurantId, row.cornerId),
+      data_type: row.data_type,
+    });
+  }
+  
+  return result;
+}
+
+let cachedMenusByDate: Record<string, Record<string, unknown>> | null = null;
+
+function loadMenusByDate(): Record<string, Record<string, unknown>> | null {
+  if (cachedMenusByDate) {
+    return cachedMenusByDate;
+  }
+  
+  const menuPath = path.join(process.cwd(), 'data', 'menus_by_date.json');
   
   try {
     if (!fs.existsSync(menuPath)) {
-      console.log('Menu file not found at:', menuPath);
+      console.log('Menus by date file not found at:', menuPath);
       return null;
     }
     
     const content = fs.readFileSync(menuPath, 'utf-8');
-    return JSON.parse(content);
+    cachedMenusByDate = JSON.parse(content);
+    console.log(`Loaded menus for ${Object.keys(cachedMenusByDate!).length} dates`);
+    return cachedMenusByDate;
   } catch (error) {
-    console.error('Error loading menu:', error);
+    console.error('Error loading menus by date:', error);
     return null;
   }
 }
@@ -94,27 +187,49 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
-  app.get('/api/menu', (_req: Request, res: Response) => {
-    const menuData = loadMenuData();
-    if (!menuData) {
+  app.get('/api/dates', (_req: Request, res: Response) => {
+    res.json({ dates: AVAILABLE_DATES, today: TODAY_DATE });
+  });
+
+  app.get('/api/menu', (req: Request, res: Response) => {
+    const dateParam = req.query.date as string | undefined;
+    const menusByDate = loadMenusByDate();
+    
+    if (!menusByDate) {
       return res.status(404).json({ error: 'Menu data not found' });
     }
+    
+    const targetDate = dateParam || TODAY_DATE;
+    const menuData = menusByDate[targetDate];
+    
+    if (!menuData) {
+      return res.status(404).json({ error: `Menu data not found for date ${targetDate}` });
+    }
+    
     res.json(menuData);
   });
 
-  app.get('/api/waiting/timestamps', (_req: Request, res: Response) => {
-    const { timestamps } = loadWaitingData();
+  app.get('/api/waiting/timestamps', (req: Request, res: Response) => {
+    const dateParam = req.query.date as string | undefined;
+    const { timestamps } = loadWaitingData(dateParam);
     res.json({ timestamps });
   });
 
   app.get('/api/waiting', (req: Request, res: Response) => {
-    const { data, timestamps } = loadWaitingData();
+    const dateParam = req.query.date as string | undefined;
+    const { data, timestamps } = loadWaitingData(dateParam);
     
     if (data.length === 0) {
       return res.json([]);
     }
     
     const timeParam = req.query.time as string | undefined;
+    const aggregateParam = req.query.aggregate as string | undefined;
+    
+    if (aggregateParam === '5min' && timeParam) {
+      const aggregated = compute5MinAggregatedSnapshot(data, timestamps, timeParam);
+      return res.json(aggregated);
+    }
     
     if (!timeParam) {
       const latestTimestamp = timestamps[timestamps.length - 1];
@@ -168,8 +283,9 @@ export async function registerRoutes(
     res.json(filtered);
   });
 
-  app.get('/api/waiting/all', (_req: Request, res: Response) => {
-    const { data } = loadWaitingData();
+  app.get('/api/waiting/all', (req: Request, res: Response) => {
+    const dateParam = req.query.date as string | undefined;
+    const { data } = loadWaitingData(dateParam);
     res.json(data);
   });
 

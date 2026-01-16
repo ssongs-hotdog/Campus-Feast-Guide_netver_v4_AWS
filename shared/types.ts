@@ -99,6 +99,23 @@ export function formatDate(date: Date): string {
   });
 }
 
+export function formatDateWithLabel(dateStr: string, todayStr: string): string {
+  const date = new Date(dateStr + 'T12:00:00+09:00');
+  const baseDate = date.toLocaleDateString('ko-KR', {
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short',
+  });
+  
+  if (dateStr === todayStr) {
+    return `${baseDate} (오늘)`;
+  } else if (dateStr < todayStr) {
+    return `${baseDate} (전날)`;
+  } else {
+    return `${baseDate} (다음날)`;
+  }
+}
+
 export const RESTAURANTS: RestaurantInfo[] = [
   {
     id: 'hanyang_plaza',

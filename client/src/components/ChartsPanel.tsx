@@ -3,12 +3,15 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { BarChart3, X } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { RESTAURANTS, type WaitingData } from '@shared/types';
+
+const TODAY_DATE = '2026-01-15';
 
 interface ChartsPanelProps {
   isOpen: boolean;
   onClose: () => void;
+  selectedDate: string;
 }
 
 const CORNER_NAMES: Record<string, string> = {
@@ -22,14 +25,23 @@ const CORNER_NAMES: Record<string, string> = {
   pangeos: 'Pangeos',
 };
 
-export function ChartsPanel({ isOpen, onClose }: ChartsPanelProps) {
+export function ChartsPanel({ isOpen, onClose, selectedDate }: ChartsPanelProps) {
   const [selectedRestaurant, setSelectedRestaurant] = useState('hanyang_plaza');
   const [selectedCorner, setSelectedCorner] = useState('ramen');
 
+  const isToday = selectedDate === TODAY_DATE;
+  const isPrevDay = selectedDate < TODAY_DATE;
+
+  const panelTitle = isPrevDay 
+    ? '전날 이용 통계' 
+    : isToday 
+      ? '통계/그래프'
+      : '다음날 혼잡도 예측';
+
   const { data: allData } = useQuery<WaitingData[]>({
-    queryKey: ['/api/waiting/all'],
+    queryKey: ['/api/waiting/all', selectedDate],
     queryFn: async () => {
-      const res = await fetch('/api/waiting/all');
+      const res = await fetch(`/api/waiting/all?date=${selectedDate}`);
       if (!res.ok) throw new Error('Failed to fetch all waiting data');
       return res.json();
     },
@@ -73,7 +85,7 @@ export function ChartsPanel({ isOpen, onClose }: ChartsPanelProps) {
         <div className="sticky top-0 bg-background border-b border-border px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <BarChart3 className="w-5 h-5 text-primary" />
-            <h2 className="font-semibold text-foreground">통계/그래프</h2>
+            <h2 className="font-semibold text-foreground">{panelTitle}</h2>
           </div>
           <Button
             variant="ghost"
@@ -203,7 +215,7 @@ export function ChartsPanel({ isOpen, onClose }: ChartsPanelProps) {
           </div>
 
           <div className="text-xs text-muted-foreground text-center pb-4">
-            데이터 기간: 11:00 ~ 14:00 (1분 간격)
+            데이터 기간: 11:00 ~ 14:00 ({isToday ? '1분 간격' : '5분 간격'})
           </div>
         </div>
       </div>
