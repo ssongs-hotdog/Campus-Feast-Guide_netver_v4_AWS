@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, Ticket, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,40 @@ import { useTimeContext } from '@/lib/timeContext';
 import { useTicketContext } from '@/lib/ticketContext';
 import { RESTAURANTS, formatDateWithLabel, formatTime, type WaitingData, type MenuData } from '@shared/types';
 import { useLocation } from 'wouter';
+
+function Banner() {
+  const [imageError, setImageError] = useState(false);
+
+  const handleImageError = useCallback(() => {
+    setImageError(true);
+  }, []);
+
+  return (
+    <div 
+      className="w-full rounded-lg overflow-hidden shadow-sm border border-border"
+      style={{ aspectRatio: '3 / 1' }}
+      data-testid="banner-container"
+    >
+      {imageError ? (
+        <div 
+          className="w-full h-full bg-[#0e4194] flex items-center justify-center"
+          data-testid="banner-placeholder"
+        >
+          <span className="text-white/60 text-sm">HY-eat</span>
+        </div>
+      ) : (
+        <img
+          src="/banner.png"
+          alt="HY-eat 배너"
+          className="w-full h-full"
+          style={{ objectFit: 'contain', backgroundColor: '#0e4194' }}
+          onError={handleImageError}
+          data-testid="banner-image"
+        />
+      )}
+    </div>
+  );
+}
 
 const TODAY_DATE = '2026-01-15';
 
@@ -194,6 +228,10 @@ export default function Home() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-4">
+        <div className="mb-4">
+          <Banner />
+        </div>
+
         {!timestampsData?.timestamps?.length ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground text-sm">
