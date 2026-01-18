@@ -12,27 +12,33 @@ interface CornerCardProps {
 
 export function CornerCard({ menu, waitingData }: CornerCardProps) {
   const [, setLocation] = useLocation();
-  const { availableTimestamps, timeState } = useTimeContext();
+  const { availableTimestamps, timeState, selectedDate, selectedTime5Min, isToday } = useTimeContext();
   const estWait = waitingData?.est_wait_time_min ?? 0;
 
   const handleClick = () => {
-    if (availableTimestamps.length === 0) {
-      setLocation(`/restaurant/${menu.restaurantId}/corner/${menu.cornerId}`);
-      return;
-    }
+    const baseUrl = `/restaurant/${menu.restaurantId}/corner/${menu.cornerId}`;
+    const params = new URLSearchParams();
     
-    const targetTime = timeState.displayTime.getTime();
-    let closestTs = availableTimestamps[0];
-    let minDiff = Math.abs(new Date(availableTimestamps[0]).getTime() - targetTime);
+    params.set('date', selectedDate);
     
-    for (const ts of availableTimestamps) {
-      const diff = Math.abs(new Date(ts).getTime() - targetTime);
-      if (diff < minDiff) {
-        minDiff = diff;
-        closestTs = ts;
+    if (!isToday) {
+      params.set('time5min', selectedTime5Min);
+    } else if (availableTimestamps.length > 0) {
+      const targetTime = timeState.displayTime.getTime();
+      let closestTs = availableTimestamps[0];
+      let minDiff = Math.abs(new Date(availableTimestamps[0]).getTime() - targetTime);
+      
+      for (const ts of availableTimestamps) {
+        const diff = Math.abs(new Date(ts).getTime() - targetTime);
+        if (diff < minDiff) {
+          minDiff = diff;
+          closestTs = ts;
+        }
       }
+      params.set('t', closestTs);
     }
-    setLocation(`/restaurant/${menu.restaurantId}/corner/${menu.cornerId}?t=${encodeURIComponent(closestTs)}`);
+    
+    setLocation(`${baseUrl}?${params.toString()}`);
   };
 
   return (

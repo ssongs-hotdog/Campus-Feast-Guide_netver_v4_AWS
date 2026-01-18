@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CongestionBar } from '@/components/CongestionBar';
-import { useTimeContext } from '@/lib/timeContext';
 import { useTicketContext } from '@/lib/ticketContext';
 import { 
   RESTAURANTS, 
@@ -18,11 +17,12 @@ import {
   type MenuData 
 } from '@shared/types';
 
+const TODAY_DATE = '2026-01-15';
+
 export default function CornerDetail() {
   const [, params] = useRoute('/restaurant/:restaurantId/corner/:cornerId');
   const [, setLocation] = useLocation();
   const searchString = useSearch();
-  const { timeState, availableTimestamps, selectedDate } = useTimeContext();
   const { createTicket, ticket } = useTicketContext();
 
   const restaurantId = params?.restaurantId || '';
@@ -30,42 +30,62 @@ export default function CornerDetail() {
   
   const searchParams = new URLSearchParams(searchString);
   const timestampParam = searchParams.get('t') || '';
+  const dateParam = searchParams.get('date') || '';
+  const time5minParam = searchParams.get('time5min') || '';
   
-  const effectiveTimestamp = (() => {
-    if (timestampParam) return timestampParam;
-    if (availableTimestamps.length === 0) return '';
-    
-    const targetTime = timeState.displayTime.getTime();
-    let closestTs = availableTimestamps[0];
-    let minDiff = Math.abs(new Date(availableTimestamps[0]).getTime() - targetTime);
-    
-    for (const ts of availableTimestamps) {
-      const diff = Math.abs(new Date(ts).getTime() - targetTime);
-      if (diff < minDiff) {
-        minDiff = diff;
-        closestTs = ts;
-      }
-    }
-    return closestTs;
-  })();
+  const effectiveDate = dateParam || TODAY_DATE;
+  if (!dateParam) {
+    console.warn('CornerDetail: date param missing from URL, falling back to today');
+  }
+  
+  const isToday = effectiveDate === TODAY_DATE;
 
   const restaurant = RESTAURANTS.find((r) => r.id === restaurantId);
 
   const { data: menuData } = useQuery<MenuData>({
-    queryKey: ['/api/menu'],
-  });
-
-  const hasValidTimestamp = !!timestampParam || availableTimestamps.length > 0;
-
-  const { data: waitingData } = useQuery<WaitingData[]>({
-    queryKey: ['/api/waiting', effectiveTimestamp],
+    queryKey: ['/api/menu', effectiveDate],
     queryFn: async () => {
-      if (!effectiveTimestamp) return [];
-      const res = await fetch(`/api/waiting?time=${encodeURIComponent(effectiveTimestamp)}`);
-      if (!res.ok) throw new Error('Failed to fetch waiting data');
+      const res = await fetch(`/api/menu?date=${effectiveDate}`);
+      if (!res.ok) throw new Error('Failed to fetch menu data');
       return res.json();
     },
-    enabled: hasValidTimestamp,
+  });
+
+  const { data: timestampsData } = useQuery<{ timestamps: string[] }>({
+    queryKey: ['/api/waiting/timestamps', effectiveDate],
+    queryFn: async () => {
+      const res = await fetch(`/api/waiting/timestamps?date=${effectiveDate}`);
+      if (!res.ok) throw new Error('Failed to fetch timestamps');
+      return res.json();
+    },
+    enabled: isToday && !timestampParam,
+  });
+
+  const effectiveTimestamp = (() => {
+    if (timestampParam) return timestampParam;
+    if (!isToday) return '';
+    if (!timestampsData?.timestamps?.length) return '';
+    return timestampsData.timestamps[0];
+  })();
+
+  const { data: waitingData } = useQuery<WaitingData[]>({
+    queryKey: isToday 
+      ? ['/api/waiting', effectiveDate, effectiveTimestamp]
+      : ['/api/waiting', effectiveDate, time5minParam || '11:00', '5min'],
+    queryFn: async () => {
+      if (isToday) {
+        if (!effectiveTimestamp) return [];
+        const res = await fetch(`/api/waiting?date=${effectiveDate}&time=${encodeURIComponent(effectiveTimestamp)}`);
+        if (!res.ok) throw new Error('Failed to fetch waiting data');
+        return res.json();
+      } else {
+        const timeVal = time5minParam || '11:00';
+        const res = await fetch(`/api/waiting?date=${effectiveDate}&time=${timeVal}&aggregate=5min`);
+        if (!res.ok) throw new Error('Failed to fetch waiting data');
+        return res.json();
+      }
+    },
+    enabled: isToday ? !!effectiveTimestamp : true,
     staleTime: 0,
   });
 
@@ -78,9 +98,9 @@ export default function CornerDetail() {
   const queueLen = cornerWaiting?.queue_len ?? 0;
   const level = getCongestionLevel(estWait);
   
-  const loadedTimestamp = waitingData?.[0]?.timestamp 
+  const loadedTimestamp = isToday && waitingData?.[0]?.timestamp 
     ? formatTime(new Date(waitingData[0].timestamp))
-    : null;
+    : !isToday ? (time5minParam || '11:00') : null;
 
   const handlePayment = () => {
     if (!menu) return;
@@ -179,7 +199,7 @@ export default function CornerDetail() {
           </div>
         </Card>
 
-        {selectedDate === '2026-01-15' && (
+        {effectiveDate === '2026-01-15' && (
           hasExistingTicket ? (
             <Button 
               variant="outline"
