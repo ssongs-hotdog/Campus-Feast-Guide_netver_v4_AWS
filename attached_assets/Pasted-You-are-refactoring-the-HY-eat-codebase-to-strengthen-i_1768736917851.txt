@@ -1,0 +1,98 @@
+You are refactoring the HY-eat codebase to strengthen its service-ready architecture.
+The goal is to improve separation of concerns while keeping behavior and UI identical.
+
+ABSOLUTE CONSTRAINTS:
+- Do NOT change the UI/visual design/layout in any way.
+- Do NOT change any user-facing text or labels.
+- Do NOT change API response shapes.
+- Make minimal, safe refactors only.
+- Before starting, create a safe rollback point (new git commit / backup branch).
+
+OVERVIEW:
+This update consists of TWO tightly scoped steps:
+A) Unify waiting-data access through the dataProvider layer
+B) Make wait-time calculation logic a single source of truth
+
+────────────────────────────────────────
+STEP A) Route waiting data through dataProvider (no behavior change)
+────────────────────────────────────────
+
+Current situation:
+- Menu data is fetched via client/src/lib/data/dataProvider.ts
+- Waiting data (queue count & estimated wait time) is fetched directly in Home.tsx using useQuery
+- This breaks architectural consistency.
+
+Required changes:
+1) In client/src/lib/data/dataProvider.ts, add a new provider function, e.g.:
+   - getWaitingData(dateKey: string, timeKey?: string): Promise<WaitingData[]>
+
+2) Move the existing fetch logic for:
+   - GET /api/waiting?date=YYYY-MM-DD&time=HH:MM
+   into this provider function WITHOUT changing:
+   - query parameters
+   - response handling
+   - data shape
+   - caching/query keys
+
+3) Update Home.tsx to:
+   - Call the new dataProvider function instead of fetching directly
+   - Keep all React Query behavior and dependencies equivalent
+
+4) Confirm:
+   - The UI renders exactly the same values as before
+   - No logic is moved into UI components
+
+Goal of Step A:
+- UI → provider → API is now consistent for BOTH menu data and waiting data
+- This is a structural cleanup only; no feature changes
+
+────────────────────────────────────────
+STEP B) Make wait-time calculation a single source of truth
+────────────────────────────────────────
+
+Current situation:
+- computeWaitMinutes() exists in server/routes.ts
+- estimateWaitTime() exists in client/src/lib/domain/waitTime.ts
+- Both implement essentially the same logic (queue_len / service_rate + base time)
+
+Problem:
+- Duplicate logic risks divergence and makes future improvements harder.
+
+Required changes:
+1) Choose ONE canonical implementation of the wait-time calculation:
+   - Create or move logic into a shared module, e.g.:
+     shared/domain/waitTime.ts
+
+2) This shared module must:
+   - Export a pure function for computing estimated wait time
+   - Accept explicit inputs (queue length, restaurantId, cornerId)
+   - Use the existing SERVICE_RATES and base-time logic unchanged
+
+3) Update BOTH:
+   - server/routes.ts
+   - client-side domain usage
+   to import and use this shared function instead of maintaining duplicates.
+
+4) Preserve current behavior:
+   - Server should continue to compute est_wait_time_min at CSV parse/load time
+   - Client should continue to consume est_wait_time_min as before
+   - No numerical differences should appear in the UI
+
+5) Remove or deprecate the duplicate client-side calculation function
+   ONLY after confirming the shared implementation is used everywhere.
+
+────────────────────────────────────────
+VALIDATION CHECKLIST (must confirm)
+────────────────────────────────────────
+- UI output (numbers, labels, colors) is identical before and after
+- Waiting data still loads correctly for all dates/times
+- Menu data behavior is unaffected
+- There is exactly ONE authoritative wait-time calculation function
+- dataProvider is now the single entry point for all client-side data access
+
+DELIVERABLE:
+- List of files changed in Step A and Step B
+- Short summary explaining:
+  • where waiting data is fetched now
+  • where wait-time logic lives now
+  • confirmation that no UI behavior changed
