@@ -21,6 +21,7 @@ import { storage } from "./storage";
 import * as fs from "fs";
 import * as path from "path";
 import { computeWaitMinutes } from "./waitModel";
+import { RESTAURANTS } from "../shared/types";
 
 interface WaitingDataRow {
   timestamp: string;
@@ -176,6 +177,54 @@ function compute5MinAggregatedSnapshot(
 
 let cachedMenusByDate: Record<string, Record<string, unknown>> | null = null;
 
+/**
+ * Validates menu data against the canonical restaurant/corner IDs.
+ * Logs warnings for unknown restaurant or corner IDs.
+ * This runs once when loading/caching and does NOT throw errors.
+ * 
+ * Key concepts:
+ * - cornerId: Stable internal identifier that MUST match RESTAURANTS[].cornerOrder
+ * - cornerDisplayName: User-facing name that can change freely
+ * - To add dummy/real data, use the same cornerId keys as defined in shared/types.ts
+ */
+function validateMenuData(menusByDate: Record<string, Record<string, unknown>>): void {
+  // Build lookup maps from canonical RESTAURANTS config
+  const validRestaurantIds = new Set(RESTAURANTS.map(r => r.id));
+  const cornerOrderByRestaurant = new Map(
+    RESTAURANTS.map(r => [r.id, new Set(r.cornerOrder)])
+  );
+  
+  for (const dateKey of Object.keys(menusByDate)) {
+    const dateMenus = menusByDate[dateKey] as Record<string, Record<string, unknown>>;
+    if (!dateMenus || typeof dateMenus !== 'object') continue;
+    
+    for (const restaurantId of Object.keys(dateMenus)) {
+      // Check if restaurant ID is valid
+      if (!validRestaurantIds.has(restaurantId)) {
+        console.warn(
+          `[Menu Validation] Unknown restaurantId "${restaurantId}" in date ${dateKey}. ` +
+          `Valid IDs: ${Array.from(validRestaurantIds).join(', ')}`
+        );
+        continue;
+      }
+      
+      // Check corner IDs for this restaurant
+      const cornerMenus = dateMenus[restaurantId] as Record<string, unknown>;
+      if (!cornerMenus || typeof cornerMenus !== 'object') continue;
+      
+      const validCornerIds = cornerOrderByRestaurant.get(restaurantId)!;
+      for (const cornerId of Object.keys(cornerMenus)) {
+        if (!validCornerIds.has(cornerId)) {
+          console.warn(
+            `[Menu Validation] Unknown cornerId "${cornerId}" for restaurant "${restaurantId}" in date ${dateKey}. ` +
+            `Valid IDs: ${Array.from(validCornerIds).join(', ')}`
+          );
+        }
+      }
+    }
+  }
+}
+
 function loadMenusByDate(): Record<string, Record<string, unknown>> | null {
   if (cachedMenusByDate) {
     return cachedMenusByDate;
@@ -192,6 +241,10 @@ function loadMenusByDate(): Record<string, Record<string, unknown>> | null {
     const content = fs.readFileSync(menuPath, 'utf-8');
     cachedMenusByDate = JSON.parse(content);
     console.log(`Loaded menus for ${Object.keys(cachedMenusByDate!).length} dates`);
+    
+    // Validate menu data against canonical restaurant/corner IDs
+    validateMenuData(cachedMenusByDate!);
+    
     return cachedMenusByDate;
   } catch (error) {
     console.error('Error loading menus by date:', error);
