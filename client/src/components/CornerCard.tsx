@@ -62,9 +62,9 @@ export function CornerCard({
     const baseUrl = `/d/${dayKey}/restaurant/${restaurantId}/corner/${cornerId}`;
     const params = new URLSearchParams();
     
-    if (!isToday) {
+    if (!isToday && selectedTime5Min) {
       params.set('time5min', selectedTime5Min);
-    } else if (availableTimestamps.length > 0) {
+    } else if (isToday && availableTimestamps.length > 0) {
       const targetTime = timeState.displayTime.getTime();
       let closestTs = availableTimestamps[0];
       let minDiff = Math.abs(new Date(availableTimestamps[0]).getTime() - targetTime);

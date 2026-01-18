@@ -346,7 +346,7 @@ export default function Home() {
                 key={restaurant.id}
                 restaurant={restaurant}
                 menus={menuData?.[restaurant.id] || {}}
-                waitingData={waitingData || []}
+                waitingData={(isToday || selectedTime5Min) ? (waitingData || []) : []}
                 dayKey={selectedDate}
                 referenceTime={referenceTime}
               />
