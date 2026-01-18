@@ -124,7 +124,7 @@ Break Time 14:30~15:30
 토요일: 중식 10:00~14:00 / 라면 10:00~18:00
 일요일/공휴일 운영 없음
 문의 02-2220-1883`,
-    cornerOrder: ['western', 'korean', 'instant', 'ramen'],
+    cornerOrder: ['breakfast_1000', 'western', 'korean', 'instant', 'cupbap', 'ramen'],
   },
   {
     id: 'materials',
@@ -134,7 +134,7 @@ Break Time 14:30~15:30
 토요일: 중식 11:30~13:30
 일요일/공휴일 운영 없음
 문의 070-4773-4161`,
-    cornerOrder: ['set_meal', 'single_dish'],
+    cornerOrder: ['set_meal', 'single_dish', 'rice_bowl', 'dinner'],
   },
   {
     id: 'life_science',
@@ -144,6 +144,6 @@ Break Time 14:30~15:30
 토요일: 중식 11:30~13:30
 일요일/공휴일 운영 없음
 문의 02-2298-8797`,
-    cornerOrder: ['dam_a', 'pangeos'],
+    cornerOrder: ['dam_a_lunch', 'pangeos_lunch', 'dam_a_dinner'],
   },
 ];

@@ -1,0 +1,115 @@
+You are implementing the NEXT update scope for the existing HY-eat Replit project.
+
+ABSOLUTE CONSTRAINT (non-negotiable):
+- Keep the current UI/visual design and layout EXACTLY the same.
+- Do not redesign, do not change spacing/typography/component structure, and do not introduce new screens.
+- Only change internal data flow, logic, and configuration.
+
+IMPORTANT NEW PRE-STEP (must do first):
+We are about to change corner names and add new corners as part of the schedule-based system.
+Therefore, BEFORE implementing the schedule update, remove/neutralize the existing dummy menu datasets so they do not conflict with the new corner structure.
+
+Menu dummy data removal requirements:
+1) Identify where dummy menu data currently lives (e.g., /data/menus/*.json, hardcoded arrays, seed files, etc.).
+2) Remove/neutralize it in a safe way:
+   - Preferred: Keep the files but set their content to empty arrays / empty objects (so git history remains clean and rollback is easy).
+   - Ensure provider returns “no data” for menus by default.
+3) Ensure both list and detail views no longer rely on old hardcoded menu names.
+   - The UI must still render the same skeleton, but menu fields should show missing-data markers:
+     - Menu name: "데이터 없음"
+     - Wait time: "-"
+     - Congestion: "미제공"
+   - Clicking a card is still allowed and detail should also show the same missing-data markers.
+
+AFTER the menu dummy data is neutralized, implement THIS UPDATE SCOPE:
+
+A) “Always show all corners” + Active/Inactive status by time
+- For each restaurant, ALWAYS render all corners in the UI (do not hide corners based on time).
+- Each corner has operating time windows (possibly multiple windows per day) and may have break windows.
+- A corner is ACTIVE (green dot) if the reference time is within an operating window AND not within a break window.
+- Otherwise it is INACTIVE (gray dot).
+- Only two states: green active, gray inactive. No intermediate “upcoming” states.
+
+B) Time dropdown as the reference time (menu-alarm behavior)
+- Use the existing time selection dropdown (if present) as the reference time that drives Active/Inactive.
+- For ANY date (past/today/future), dropdown time determines which corners are active/gray.
+- If no time is selected:
+  - For today’s date: reference time defaults to real current time (local time)
+  - For non-today dates: default reference time = 12:00 (internal default only, no UI change)
+
+C) Sorting
+- Within each restaurant section, sort corners so ACTIVE corners appear first.
+- Keep stable original order within each status group.
+
+D) Status is schedule-driven only
+- Corner status depends ONLY on schedule (not on presence of menu data).
+- Menu/wait/congestion values remain missing by default for now (because we neutralized dummy menu data).
+  - Show "데이터 없음" / "-" / "미제공" in the existing UI fields.
+- Clicking remains allowed; detail also uses the URL date context and shows missing-data markers.
+
+E) Refresh cadence
+- Recompute active/gray status every 10 minutes.
+- Also recompute immediately when user changes dropdown time or navigates to a different date URL.
+
+F) Day-type rules (Korea)
+- Weekday = Monday–Friday
+- Saturday has its own schedule
+- Sunday and Korean public holidays are closed (all corners inactive) unless explicitly specified later.
+- Holiday should be based on the Korean public holiday calendar:
+  - If a holiday library is available, use it.
+  - If not, implement `isHoliday(dateKey)` as a stub returning false for now, but keep it isolated so it can be replaced later without touching UI logic.
+
+Operating schedules to encode (each comma-separated item is a DIFFERENT corner with the same hours):
+
+1) 한양플라자(학생식당)
+- Weekday (Mon–Fri):
+  - 천원의 아침밥: 08:20–10:20
+  - 양식: 11:00–14:30
+  - 한식: 11:00–14:30
+  - 즉석: 11:00–14:30
+  - 오늘의 컵밥: 16:00–18:00
+  - 라면: 12:00–18:00 with break 14:30–15:30
+- Saturday:
+  - 양식: 10:00–14:00
+  - 라면: 10:00–18:00
+- Sunday & KR public holidays: closed
+
+2) 신소재공학관
+- Weekday:
+  - 정식: 11:30–13:30
+  - 일품: 11:30–13:30
+  - 덮밥: 11:30–13:30
+  - 석식: 17:00–18:30
+- Saturday:
+  - 정식: 11:30–13:30
+- Sunday & KR public holidays: closed
+
+3) 생활과학관
+- Weekday:
+  - 중식 Dam-A: 11:30–14:00
+  - 중식 Pangeos: 11:30–14:00
+  - 석식 Dam-A: 17:00–18:30
+- Saturday:
+  - 중식 Dam-A: 11:30–13:30
+- Sunday & KR public holidays: closed
+
+Architecture / cleanliness requirements:
+- Add a schedule/domain module (with beginner-friendly comments) that exports:
+  - getServiceDayType(dateKey): 'WEEKDAY'|'SATURDAY'|'SUNDAY'|'HOLIDAY'
+  - isCornerActive({dateKey, timeHHMM, schedule, isHoliday}): boolean
+- Keep schedule logic out of presentational UI components.
+- Keep the list of corners per restaurant stable and not derived from menu datasets.
+- Provider/controller layer should return corners annotated with isActive and with missing-data markers for menu fields.
+
+Validation checklist:
+- Old dummy menu names do not appear anywhere after neutralization.
+- UI remains identical but menu fields show "데이터 없음" / "-" / "미제공" by default.
+- Corners always render; active corners move to top within restaurant.
+- Break time makes 라면 inactive during 14:30–15:30 on weekdays.
+- Dropdown time changes active/gray immediately; otherwise refresh every 10 minutes.
+- Sundays/holidays show all corners but all gray.
+
+Deliverable summary:
+- Specify which files were changed for dummy data neutralization.
+- Specify which files were added/changed for schedule logic and corner configuration.
+- Add short notes on how to later re-introduce real menu data by updating only the provider/datasets.
