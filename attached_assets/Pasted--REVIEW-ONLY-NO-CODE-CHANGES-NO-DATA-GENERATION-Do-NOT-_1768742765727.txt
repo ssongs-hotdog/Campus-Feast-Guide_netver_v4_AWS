@@ -1,0 +1,41 @@
+🚫 REVIEW ONLY — NO CODE CHANGES, NO DATA GENERATION.
+Do NOT modify code, add files, or generate CSVs. This request is strictly for inspection, reasoning, and reporting.
+
+Context:
+We have removed all PoC CSV waiting datasets, and the app is now running in a clean “skeleton mode” with graceful no-data behavior.
+We plan to next introduce TEST dummy data that mimics what a real production service would eventually receive.
+
+I want you to review and report on the following:
+
+A) What data inputs would this service realistically receive in production?
+- List the minimal and sufficient data sources required for the service to function as designed.
+- Validate whether the following assumption is correct:
+  1) Real-time or time-indexed waiting queue data per corner
+  2) Date-based menu data per corner
+- If additional data inputs are required (now or in foreseeable extensions), list them and explain why.
+
+B) For each required data input, specify the exact variables that matter
+For each dataset (e.g., waiting data, menu data), clearly enumerate:
+- Required fields (must-have)
+- Optional or derived fields
+- Fields that are NOT needed (and should not be included in test data)
+
+Focus on what is actually used by:
+- server logic,
+- shared domain logic,
+- dataProvider,
+- and UI rendering.
+
+C) Dummy data design guidance (for a tester who will create CSV fixtures)
+Without generating data, provide guidance for someone who will create test CSV datasets:
+- What structural rules must be respected (IDs, time granularity, date format, coverage)?
+- What common mistakes would break the app or cause misleading behavior?
+- What patterns should be reflected to make the dummy data realistic (e.g., lunch peaks, corner-specific behavior)?
+- What simplifications are acceptable for testing purposes?
+
+D) Validation mindset
+Explain how we should judge whether a dummy dataset is “good enough”:
+- What behaviors in the UI/API should be observed if the data is correct?
+- What warning signs indicate malformed or poorly designed test data?
+
+Again: this is analysis and reporting only — no code or data changes.
