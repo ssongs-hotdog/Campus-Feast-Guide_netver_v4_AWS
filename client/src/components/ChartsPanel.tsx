@@ -7,6 +7,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { RESTAURANTS, type WaitingData } from '@shared/types';
 import { getCornerDisplayName } from '@shared/cornerDisplayNames';
 import { getTodayKey } from '@/lib/dateUtils';
+import { getAllWaitTimes } from '@/lib/data/dataProvider';
 
 interface ChartsPanelProps {
   isOpen: boolean;
@@ -34,9 +35,9 @@ export function ChartsPanel({ isOpen, onClose, selectedDate }: ChartsPanelProps)
   const { data: allData } = useQuery<WaitingData[]>({
     queryKey: ['/api/waiting/all', selectedDate],
     queryFn: async () => {
-      const res = await fetch(`/api/waiting/all?date=${selectedDate}`);
-      if (!res.ok) throw new Error('Failed to fetch all waiting data');
-      return res.json();
+      const result = await getAllWaitTimes(selectedDate);
+      if (result.error) throw new Error(result.error);
+      return result.data || [];
     },
     staleTime: 1000 * 60 * 5,
   });

@@ -1,0 +1,45 @@
+🚫 SCOPE LOCK — MODIFY ONLY THE MINIMUM NECESSARY PARTS.
+Do NOT refactor, reformat, rename unrelated things, or touch UI/visual behavior. Do NOT change any existing logic that is already working. Only implement the specific single-entrypoint cleanup described below.
+
+Goal:
+Eliminate the last remaining client-side direct fetch() that bypasses dataProvider, while preserving identical runtime behavior (same endpoint, same queryKey, same staleTime, same UI output).
+
+Current issue:
+client/src/components/ChartsPanel.tsx uses a direct fetch to:
+  /api/waiting/all?date=${selectedDate}
+inside a React Query queryFn. This is the only remaining bypass.
+
+Required change (minimal):
+1) Add a thin wrapper function in:
+   client/src/lib/data/dataProvider.ts
+   Suggested name: getAllWaitTimes(dayKey: DayKey)
+   - It must call: /api/waiting/all?date=${dayKey}
+   - It must return the same response pattern used by existing dataProvider functions (e.g., DataResponse<T> or the repo’s established pattern).
+   - Error handling must match getWaitTimes(): non-OK responses should be represented the same way (so React Query can surface errors consistently).
+
+2) Update ONLY the relevant queryFn block in:
+   client/src/components/ChartsPanel.tsx
+   - Replace the inline fetch() queryFn with a call to getAllWaitTimes(selectedDate).
+   - Keep the existing queryKey EXACTLY the same (e.g., ['/api/waiting/all', selectedDate]).
+   - Keep staleTime EXACTLY the same.
+   - Ensure error propagation behavior stays the same as other pages:
+     if the provider returns an error field, throw an Error so React Query enters the error state.
+   - Do not change any chart rendering logic, props, styling, component structure, or any other code.
+
+Hard constraints:
+- No UI/visual changes.
+- No changes to other files unless strictly required by TypeScript imports/types for this wrapper.
+- No changes to endpoints, query keys, caching settings, or data shapes.
+- Do not touch any other dataProvider functions besides adding this one function.
+
+Acceptance checklist:
+- There is no direct fetch() in ChartsPanel.tsx anymore for /api/waiting/all.
+- All client data access is now routed through dataProvider as a single entrypoint.
+- Charts behave exactly the same as before (same data, same refresh behavior, same loading/error behavior).
+- Build/TypeScript passes with no new warnings.
+
+After the change:
+Please provide a short report listing:
+- Files modified
+- The exact new function signature added to dataProvider
+- Confirmation that queryKey and staleTime remained unchanged

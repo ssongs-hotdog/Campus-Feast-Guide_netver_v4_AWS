@@ -214,6 +214,43 @@ export async function getWaitTimes(
 }
 
 /**
+ * Fetches all wait time data for a specific date (unfiltered).
+ * Used by ChartsPanel for displaying historical trends.
+ * 
+ * @param dayKey - The date
+ * @returns Array of all waiting data items for the date
+ */
+export async function getAllWaitTimes(
+  dayKey: DayKey
+): Promise<DataResponse<WaitingDataItem[]>> {
+  try {
+    const res = await fetch(`/api/waiting/all?date=${dayKey}`);
+    
+    if (!res.ok) {
+      return { 
+        data: [], 
+        hasData: false, 
+        error: `Failed to fetch all wait times: ${res.status}` 
+      };
+    }
+    
+    const data = await res.json();
+    
+    return { 
+      data, 
+      hasData: Array.isArray(data) && data.length > 0 
+    };
+  } catch (error) {
+    console.error('Error fetching all wait times:', error);
+    return { 
+      data: [], 
+      hasData: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    };
+  }
+}
+
+/**
  * Checks if data exists for a given date.
  * Useful for showing "no data" states without loading full data.
  * 
