@@ -101,12 +101,23 @@ The codebase is organized into clearly separated layers:
 
 ## Recent Changes (2026-01-18)
 
-### Architecture Refactoring
-- Implemented URL-based routing with date in path (`/d/YYYY-MM-DD`)
-- Created date utility module using real system date (no hardcoded TODAY_DATE)
-- Separated concerns into data provider, domain logic, and presentation layers
-- Added beginner-friendly comments to all major files
-- UI components now receive date from URL, making navigation refresh-safe and shareable
+### Schedule-Based Active/Inactive Status System
+- Added schedule domain module (`client/src/lib/domain/schedule.ts`)
+- Corners now show active (green dot) or inactive (gray dot) based on operating hours
+- Active corners are sorted to appear first in each restaurant section
+- Reference time: KST current time for today, dropdown time for other dates
+- 10-minute auto-refresh for today's active status
+- Break time support (e.g., 라면 14:30-15:30 on weekdays)
+- Day-type rules: WEEKDAY (Mon-Fri), SATURDAY, SUNDAY, HOLIDAY
+
+### Corner Configuration (New)
+- 한양플라자: breakfast_1000, western, korean, instant, cupbap, ramen
+- 신소재공학관: set_meal, single_dish, rice_bowl, dinner
+- 생활과학관: dam_a_lunch, pangeos_lunch, dam_a_dinner
+
+### Menu Data Neutralized
+- `data/menus_by_date.json` emptied to `{}` to prevent conflicts with new corner structure
+- UI shows placeholder values by default until real menu data is added
 
 ### Placeholder UI for Missing Data
 - UI always renders the same structure regardless of data availability
@@ -121,20 +132,33 @@ The codebase is organized into clearly separated layers:
 - Detail pages are always accessible (even without data)
 - Payment button only appears when menu data exists
 
+### How to Add Schedule for New Corners
+1. Add corner ID to `RESTAURANTS[].cornerOrder` in `shared/types.ts`
+2. Add corner display name to `CORNER_DISPLAY_NAMES` in `RestaurantSection.tsx` and `CornerDetail.tsx`
+3. Add schedule config to `CORNER_SCHEDULES` in `client/src/lib/domain/schedule.ts`
+
+### How to Add Korean Holiday Support
+1. Implement `isHoliday(dateKey)` in `client/src/lib/domain/schedule.ts`
+2. Options: use a holiday library, maintain a static list, or fetch from an API
+3. Currently returns `false` (stub)
+
 ### Files Added
 - `client/src/lib/dateUtils.ts` - Date utility functions
 - `client/src/lib/data/dataProvider.ts` - Data fetching abstraction
 - `client/src/lib/domain/waitTime.ts` - Wait time estimation logic
+- `client/src/lib/domain/schedule.ts` - Schedule configuration and active status logic
 - `shared/dataTypes.ts` - Shared type definitions
 
 ### Files Modified
+- `shared/types.ts` - Updated RESTAURANTS with new corner IDs
 - `client/src/App.tsx` - Updated routing to /d/YYYY-MM-DD format
-- `client/src/pages/Home.tsx` - Reads date from URL, always renders restaurant sections
+- `client/src/pages/Home.tsx` - Reference time computation, 10-minute refresh
 - `client/src/pages/CornerDetail.tsx` - URL-driven date handling with placeholder support
-- `client/src/components/CornerCard.tsx` - Supports optional menu data with placeholders
-- `client/src/components/RestaurantSection.tsx` - Always renders one card per corner
+- `client/src/components/CornerCard.tsx` - Added isActive prop with status indicator
+- `client/src/components/RestaurantSection.tsx` - Sorts corners by active status
 - `client/src/components/CongestionBar.tsx` - Added noData prop for "미제공" state
 - `client/src/lib/timeContext.tsx` - Simplified, date management moved to URL
+- `data/menus_by_date.json` - Emptied to neutralize old dummy data
 
 ## Netlify Deployment
 

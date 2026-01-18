@@ -179,31 +179,45 @@ export default function Home() {
     : !isToday ? selectedTime5Min : null;
 
   // Reference time for schedule-based active/inactive status
-  // For today: use current real time (Korea timezone)
+  // For today: use Korea Standard Time (KST, UTC+9)
   // For other dates: use dropdown time or default to 12:00
   const [scheduleRefreshKey, setScheduleRefreshKey] = useState(0);
   
-  // Format current time as HH:MM for schedule comparison
-  const getCurrentTimeHHMM = useCallback(() => {
-    const now = new Date();
-    return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+  // Format current time as HH:MM in Korea timezone (KST, UTC+9)
+  const getCurrentTimeKST = useCallback(() => {
+    // Use Intl.DateTimeFormat to get time in Korea timezone
+    const formatter = new Intl.DateTimeFormat('ko-KR', {
+      timeZone: 'Asia/Seoul',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    const parts = formatter.formatToParts(new Date());
+    const hour = parts.find(p => p.type === 'hour')?.value || '12';
+    const minute = parts.find(p => p.type === 'minute')?.value || '00';
+    return `${hour}:${minute}`;
   }, []);
 
   const referenceTime = useMemo(() => {
     if (isToday) {
-      // For today, use current real time
+      // For today, use current Korea time (KST)
       // scheduleRefreshKey triggers re-computation every 10 minutes
       void scheduleRefreshKey; // Dependency marker
-      return getCurrentTimeHHMM();
+      return getCurrentTimeKST();
     } else {
       // For other dates, use dropdown time (or 12:00 default which is already the default value)
       return selectedTime5Min;
     }
-  }, [isToday, selectedTime5Min, scheduleRefreshKey, getCurrentTimeHHMM]);
+  }, [isToday, selectedTime5Min, scheduleRefreshKey, getCurrentTimeKST]);
 
-  // Refresh schedule every 10 minutes for today
+  // Refresh schedule every 10 minutes for today only
+  // Clear interval immediately when leaving today view
   useEffect(() => {
-    if (!isToday) return;
+    if (!isToday) {
+      // Not today - no interval needed, reset key to ensure fresh state when returning
+      setScheduleRefreshKey(0);
+      return;
+    }
     
     const interval = setInterval(() => {
       setScheduleRefreshKey(prev => prev + 1);
