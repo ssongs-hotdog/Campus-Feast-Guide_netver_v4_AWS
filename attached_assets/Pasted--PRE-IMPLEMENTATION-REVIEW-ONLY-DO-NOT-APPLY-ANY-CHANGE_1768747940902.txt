@@ -1,0 +1,82 @@
+🚫 PRE-IMPLEMENTATION REVIEW ONLY — DO NOT APPLY ANY CHANGES YET.
+This message is to inform you of a planned update and ask for an architecture/risk review BEFORE any implementation.
+Do NOT modify any code, do NOT create/modify any data files, do NOT generate patches/diffs, and do NOT execute the changes now.
+
+I want you to analyze and report:
+1) Whether the update described below is safe and reasonable to apply in the current codebase.
+2) What risks/edge cases I should consider (types, backward compatibility, UI behavior, routing, caching, etc.).
+3) What exactly changes in the menu dataset schema (menus_by_date.json / /api/menu response shape).
+4) What a dummy-data generator must account for after this change (rules, pitfalls, validation checks).
+5) A clear go/no-go recommendation, and what acceptance checks I should run after implementing.
+
+ONLY AFTER you provide this analysis (and still without changing code), I will decide whether to proceed.
+
+────────────────────────────────────────────────────────────
+🚨 IMPLEMENTATION REQUEST — LIMITED SCOPE ONLY (DO NOT TOUCH ANYTHING ELSE)
+You must modify ONLY what is strictly necessary to support the special-case behavior for ONE corner:
+hanyang_plaza / breakfast_1000 (천원의 아침밥).
+Do NOT change global UI styling, layouts, typography, spacing, colors, component structures, routing, or any other corner behavior.
+Keep the existing UI visuals identical except for the additions described below.
+
+Context
+- Today, each corner’s menu data assumes a single mainMenuName and a single items[] list.
+- For breakfast_1000 only, we want to support TWO main menus (derived from “[백반식] …” and “[간편식] …”).
+- The server currently returns menu JSON as pass-through (/api/menu), and the client renders CornerCard (home list) + CornerDetail (detail page).
+- We also want to reserve a UI placeholder for a future real-time dataset: “remaining meal tickets” (잔여 식수) for breakfast_1000 only.
+
+Goals
+A) Data Model Upgrade (breakfast_1000 only)
+1) Support breakfast_1000 having either:
+   - 2 main menus (main #1 and main #2) each with its own items list, OR
+   - 1 main menu (only main #1) with its items list
+2) Non-breakfast corners must remain unchanged and still use the existing single mainMenuName + items[] shape.
+
+Recommended approach (choose one and implement cleanly):
+- Option 1 (preferred): extend MenuItem with an optional “variants” field ONLY used by breakfast_1000:
+  variants?: Array<{ mainMenuName: string; items: string[] }>
+  - For normal corners, variants is undefined.
+  - For breakfast_1000, variants has length 1 or 2.
+  - Keep the existing mainMenuName/items fields for backward compatibility and existing rendering where appropriate.
+
+B) Home Screen (CornerCard) Rendering Rule
+- For breakfast_1000 only:
+  - If there are TWO main menus, display: "Main1, Main2" (comma-separated) in the exact same place where mainMenuName is currently shown.
+  - If there is ONE main menu, display only that one cleanly (no comma, no empty placeholders).
+- For all other corners: no changes.
+
+C) Detail Screen (CornerDetail) Rendering Rule — IMPORTANT
+Current detail UI shows ONE “menu block” containing:
+- photo placeholder (left)
+- main menu name + composition items (right)
+
+For breakfast_1000 ONLY, change the detail page so that:
+1) If there are TWO main menus, render TWO independent menu blocks stacked vertically.
+   - Block #1 corresponds to Main1 + its items list
+   - Block #2 corresponds to Main2 + its items list
+2) If there is ONE main menu, render only ONE menu block (same structure).
+3) Add a new text label inside EACH breakfast_1000 menu block at the BOTTOM-RIGHT:
+   - “잔여 식수: --명”
+   Notes:
+   - This is a placeholder for future real-time data.
+   - Do NOT implement data fetching now.
+   - Keep “--” literally as the placeholder value.
+4) The menu blocks must reuse the existing block style/layout (no redesign). Simply duplicate the existing block component/markup for breakfast variants.
+
+D) Constraints & Quality Bar
+- Minimal changes only; do not refactor unrelated code.
+- Keep TypeScript types correct and consistent across shared/types and client.
+- Ensure the app continues to work even when breakfast_1000 has only ONE main menu.
+- Ensure other corners render exactly as before.
+- Maintain graceful behavior when there is no menu data (“데이터 없음”) for any date/corner.
+
+Deliverables (when implementation is later approved)
+1) Briefly list the exact files you would need to change.
+2) Summarize the new/updated type shape for breakfast_1000.
+3) Confirm with a checklist:
+   - CornerCard shows “Main1, Main2” for breakfast_1000 when two mains exist
+   - CornerCard shows only “Main1” when only one main exists
+   - CornerDetail shows 2 stacked blocks for breakfast_1000 when two mains exist
+   - CornerDetail shows 1 block for breakfast_1000 when one main exists
+   - Each breakfast block shows “잔여 식수: --명” at bottom-right
+   - No visual/layout changes for other corners
+────────────────────────────────────────────────────────────
