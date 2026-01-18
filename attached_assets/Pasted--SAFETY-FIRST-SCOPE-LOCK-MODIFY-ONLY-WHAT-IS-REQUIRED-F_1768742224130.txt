@@ -1,0 +1,39 @@
+🚫 SAFETY FIRST + SCOPE LOCK — MODIFY ONLY WHAT IS REQUIRED FOR THIS CHANGE.
+If removing these CSV files would cause ANY boot/runtime errors, failing endpoints, or UI crashes, DO NOT proceed with the update; instead revert/rollback to the immediate pre-change state and report what failed.
+
+Do NOT refactor, rename, reformat, or touch unrelated working code. Do NOT change any UI/visual behavior. Only remove the specific PoC CSV waiting dataset so the app runs with an empty waiting-data cache (“skeleton mode”).
+
+Goal:
+Remove the current PoC CSV waiting dataset file that was previously added for testing, leaving a clean service-base skeleton where the server starts with no waiting data and all waiting-related endpoints return empty results (graceful no-data behavior).
+
+What to remove:
+- Delete the active CSV file used as the primary waiting data source:
+  data/hy_eat_queue_3days_combined.csv
+
+Optional cleanup (only if it does NOT affect runtime behavior):
+- If safe, also remove the backup and unused legacy CSV files in data/ to avoid confusion:
+  - data/hy_eat_queue_3days_combined_backup.csv
+  - data/waiting_1min_KST_2026-01-15.csv
+  - data/waiting_peak_popularity_realistic_v2.csv
+BUT do not remove anything that is referenced at runtime besides the primary CSV above. If unsure, only remove the primary CSV.
+
+Hard constraints:
+- Do NOT change server code logic. Do NOT change loadAllWaitingData(), parseCSV(), endpoints, or client code.
+- The server must continue to boot successfully and behave as follows:
+  - /api/dates returns an empty dates array
+  - /api/waiting/timestamps returns []
+  - /api/waiting returns []
+  - /api/waiting/all returns []
+- The UI must not crash; it should display existing “no data / 미제공” placeholders.
+
+Acceptance checklist:
+- data/hy_eat_queue_3days_combined.csv is removed from the repository.
+- App boots without errors.
+- Waiting endpoints return empty results (as described).
+- No other code files are modified.
+
+After completion, report:
+- Which files were deleted (exact paths)
+- Confirmation that no code files were changed
+- Quick sanity check results for the four endpoints above
+- If rollback happened: what failed and what was restored
