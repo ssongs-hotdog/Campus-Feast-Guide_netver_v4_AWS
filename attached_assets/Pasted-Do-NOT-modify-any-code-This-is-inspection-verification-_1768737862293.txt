@@ -1,0 +1,41 @@
+Do NOT modify any code. This is inspection + verification ONLY.
+
+I have already applied the Step A+B refactor (waiting data via dataProvider + single source of truth for wait-time calculation).
+Now I want you to VERIFY the current architecture is correct and stable as a service-ready base.
+
+Please do the following checks and report back (no changes):
+
+1) Confirm current data intake structure (exact flow)
+- Menu data:
+  - Which client function is called (dataProvider function name + file)?
+  - Which API endpoint(s) are hit?
+  - What is the canonical in-memory shape returned to UI?
+- Waiting data (queue_len + est_wait_time_min):
+  - Which dataProvider function is called (name + file)?
+  - Which API endpoint(s) are hit and with what query params?
+  - Where does raw queue_len come from (CSV path) and when is it loaded/cached?
+  - Where is est_wait_time_min computed and attached?
+
+2) Confirm “single source of truth” for wait-time logic
+- Identify the ONE canonical wait-time function location (file + exported function name).
+- Confirm both server and client import from this same module.
+- Confirm there is no remaining duplicate implementation in server/routes.ts or client/domain that could diverge.
+
+3) Confirm UI layer remains clean (no logic leakage)
+- Check CornerCard, CongestionBar, RestaurantSection, Home.tsx:
+  - They should NOT compute wait time.
+  - They should only render values from WaitingData / provider results.
+
+4) Confirm stability & base-readiness
+- Are there any hardcoded IDs, menu names, or corner-specific hacks inside UI components?
+- Is dataProvider now the single entry point for client data fetching (menus + waiting)?
+- Are types centralized (shared/types.ts) and consistent?
+- Is caching behavior clear and safe (server caches CSV/JSON once; changes require restart)?
+
+5) Provide a short “architecture verdict”
+- 3–5 bullets: what is solid, what is risky, and what should be improved next (suggestions only, no code changes).
+
+Output format:
+- Use a concise checklist with ✅/⚠️/❌
+- Include exact file paths and function names for each item
+- If anything is ambiguous, point out exactly what you couldn’t verify from the code
