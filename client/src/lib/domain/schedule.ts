@@ -301,7 +301,7 @@ export type CornerMenuDataMap = Record<string, unknown>;
  * @param restaurantId - The restaurant ID
  * @param cornerOrder - Array of corner IDs in display order
  * @param dateKey - Date to check
- * @param timeHHMM - Reference time
+ * @param timeHHMM - Reference time (null = no selection, all corners inactive)
  * @param menuData - Optional menu data for this restaurant (keyed by cornerId)
  *                   Used for corners with requiresMenuDataForActive flag
  * @returns Array of corner statuses
@@ -310,10 +310,15 @@ export function getCornerStatuses(
   restaurantId: string,
   cornerOrder: string[],
   dateKey: DayKey,
-  timeHHMM: string,
+  timeHHMM: string | null,
   menuData?: CornerMenuDataMap,
 ): CornerStatus[] {
   return cornerOrder.map(cornerId => {
+    // If no time selected (null), all corners are inactive
+    if (timeHHMM === null) {
+      return { cornerId, isActive: false };
+    }
+    
     // Get schedule-based active status
     const baseIsActive = isCornerActive({ restaurantId, cornerId, dateKey, timeHHMM });
     

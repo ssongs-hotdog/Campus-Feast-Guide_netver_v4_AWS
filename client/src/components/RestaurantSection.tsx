@@ -31,7 +31,7 @@ interface RestaurantSectionProps {
   menus: Record<string, MenuItem>;
   waitingData: WaitingData[];
   dayKey: DayKey;
-  referenceTime: string;  // "HH:MM" format
+  referenceTime: string | null;  // "HH:MM" format, or null for no selection (all inactive)
 }
 
 export function RestaurantSection({ restaurant, menus, waitingData, dayKey, referenceTime }: RestaurantSectionProps) {

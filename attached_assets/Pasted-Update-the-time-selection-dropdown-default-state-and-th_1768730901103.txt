@@ -1,0 +1,43 @@
+Update the time selection dropdown default state and the Active/Inactive behavior for non-today dates.
+
+Goal:
+- On past/future date pages, the time dropdown should start with NO selection and show a placeholder "-" (single dash).
+- When no time is selected on past/future dates, ALL corners must be INACTIVE (gray).
+- Only after the user explicitly selects a time should Active/Inactive be computed from operating schedules.
+
+Required changes:
+
+1) Time dropdown default (UI unchanged)
+- Remove the current default selected time (e.g., "11:00").
+- Represent “no selection” as null/undefined in state.
+- Show placeholder text "-" when nothing is selected.
+- Keep styling/layout exactly the same.
+
+2) Reference-time rules by date type
+- If a time is selected:
+  - Use the selected time (HH:MM) as the reference time for schedule-based Active/Inactive on ANY date.
+- If no time is selected:
+  - For NON-TODAY dates (past/future): do NOT apply an internal default time.
+    - Instead, force ALL corners to INACTIVE (gray).
+  - (Keep TODAY behavior unchanged unless already specified elsewhere; do not redesign UI.)
+
+3) Sorting behavior
+- Keep existing sorting logic:
+  - Active corners first within each restaurant.
+  - If all are inactive (non-today with no selection), preserve the stable original corner order.
+
+Constraints:
+- Do NOT change UI/visual design/layout.
+- Do NOT introduce new controls.
+- Only adjust state/default logic and the status computation.
+
+Validation checklist:
+- Visiting any non-today /d/YYYY-MM-DD page shows time dropdown placeholder "-" initially.
+- With placeholder "-" (no selection), all corners render but are gray/inactive.
+- After selecting a time, corners update immediately: active = green if within operating hours (and not in break).
+- Switching dates resets selection to "-" for non-today pages (unless you already intentionally persist it).
+- No UI layout changes.
+
+Deliverable:
+- Indicate which component owns the time dropdown state.
+- Indicate where the “non-today + no selection => all inactive” rule is implemented.

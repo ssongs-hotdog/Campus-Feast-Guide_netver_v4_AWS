@@ -163,12 +163,14 @@ export default function Home() {
         if (!res.ok) throw new Error('Failed to fetch waiting data');
         return res.json();
       } else {
+        // selectedTime5Min is guaranteed non-null here due to enabled check
         const res = await fetch(`/api/waiting?date=${selectedDate}&time=${selectedTime5Min}&aggregate=5min`);
         if (!res.ok) throw new Error('Failed to fetch waiting data');
         return res.json();
       }
     },
-    enabled: !!selectedDate && (isToday ? !!currentTimestamp : true),
+    // For non-today: only fetch when a time is selected (not null)
+    enabled: !!selectedDate && (isToday ? !!currentTimestamp : !!selectedTime5Min),
     staleTime: 60000,
     placeholderData: (previousData) => previousData,
   });
@@ -176,13 +178,12 @@ export default function Home() {
   const displayDate = formatDayKeyForDisplay(selectedDate, todayKey);
   const hasActiveTicket = ticket && (ticket.status === 'stored' || ticket.status === 'active');
 
+  // Display timestamp: only show when data is loaded
+  // For non-today with no selection (null), don't show timestamp
   const loadedTimestamp = isToday && waitingData?.[0]?.timestamp 
     ? formatTime(new Date(waitingData[0].timestamp))
-    : !isToday ? selectedTime5Min : null;
+    : (!isToday && selectedTime5Min) ? selectedTime5Min : null;
 
-  // Reference time for schedule-based active/inactive status
-  // For today: use Korea Standard Time (KST, UTC+9)
-  // For other dates: use dropdown time or default to 12:00
   const [scheduleRefreshKey, setScheduleRefreshKey] = useState(0);
   
   // Format current time as HH:MM in Korea timezone (KST, UTC+9)
@@ -200,6 +201,9 @@ export default function Home() {
     return `${hour}:${minute}`;
   }, []);
 
+  // Reference time for schedule-based active/inactive status
+  // - Today: always use current Korea time (KST)
+  // - Non-today: use selected time, or null if no selection (all corners inactive)
   const referenceTime = useMemo(() => {
     if (isToday) {
       // For today, use current Korea time (KST)
@@ -207,7 +211,7 @@ export default function Home() {
       void scheduleRefreshKey; // Dependency marker
       return getCurrentTimeKST();
     } else {
-      // For other dates, use dropdown time (or 12:00 default which is already the default value)
+      // For non-today dates: null = no selection = all corners inactive
       return selectedTime5Min;
     }
   }, [isToday, selectedTime5Min, scheduleRefreshKey, getCurrentTimeKST]);
@@ -280,7 +284,7 @@ export default function Home() {
                 {selectedDate < todayKey ? '시간 선택 (통계 데이터 제공)' : '시간 선택 (예측 데이터 제공)'}
               </span>
               <div className="flex items-center gap-2">
-                <span className="font-medium" data-testid="text-selected-time">{selectedTime5Min}</span>
+                <span className="font-medium" data-testid="text-selected-time">{selectedTime5Min ?? '-'}</span>
                 {isTimeSelectorOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               </div>
             </button>
@@ -291,14 +295,15 @@ export default function Home() {
                   {selectedDate < todayKey ? '시간 선택 (통계 데이터 제공)' : '시간 선택 (예측 데이터 제공)'}
                 </label>
                 <select
-                  value={selectedTime5Min}
+                  value={selectedTime5Min ?? ''}
                   onChange={(e) => {
-                    setSelectedTime5Min(e.target.value);
+                    setSelectedTime5Min(e.target.value || null);
                     setIsTimeSelectorOpen(false);
                   }}
                   className="w-full p-3 bg-background border border-border rounded-lg text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary"
                   data-testid="select-time-5min"
                 >
+                  <option value="">-</option>
                   {TIME_OPTIONS.map((time) => (
                     <option key={time} value={time}>
                       {time}

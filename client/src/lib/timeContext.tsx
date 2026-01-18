@@ -22,8 +22,9 @@ interface TimeContextValue {
   goToRealtime: () => void;
   availableTimestamps: string[];
   setAvailableTimestamps: (ts: string[]) => void;
-  selectedTime5Min: string;
-  setSelectedTime5Min: (time: string) => void;
+  /** Selected time for non-today dates. null = no selection (all corners inactive) */
+  selectedTime5Min: string | null;
+  setSelectedTime5Min: (time: string | null) => void;
   todayKey: DayKey;
 }
 
@@ -42,7 +43,8 @@ export function TimeProvider({ children }: { children: React.ReactNode }) {
   });
 
   const [availableTimestamps, setAvailableTimestamps] = useState<string[]>([]);
-  const [selectedTime5Min, setSelectedTime5Min] = useState<string>('11:00');
+  // Default to null (no selection) for non-today dates - all corners show inactive
+  const [selectedTime5Min, setSelectedTime5Min] = useState<string | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
   const todayKey = getTodayKey();
