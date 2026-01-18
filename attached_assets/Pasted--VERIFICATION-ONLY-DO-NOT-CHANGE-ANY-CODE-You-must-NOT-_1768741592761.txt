@@ -1,0 +1,32 @@
+🚫 VERIFICATION ONLY — DO NOT CHANGE ANY CODE.
+You must NOT modify, refactor, delete files, or apply any updates. Do NOT generate patches/diffs. Only inspect the current codebase and REPORT findings.
+
+Context / Question:
+I believe the project still uses a dummy waiting-queue dataset provided via CSV (previous PoC dataset). I want you to verify:
+1) Whether the CSV-based dummy dataset still exists and is currently used at runtime,
+2) Whether it can be removed safely,
+3) If removed, whether the remaining architecture becomes a “cleaner service-base skeleton” (i.e., a well-structured base where swapping CSV→API→DB→real-time data is straightforward).
+
+Please perform an inspection-only review and provide:
+
+A) Current reality check (is CSV still present and used?)
+- Identify whether the waiting data pipeline still reads from a CSV file.
+- List the exact file path(s) of any CSV dataset(s) (e.g., data/*.csv) and whether they are referenced by server code at startup.
+- Cite the relevant server modules/functions that load the CSV (file path + nearest line references), and describe the runtime flow (startup load, caching map, endpoints served).
+
+B) Removal feasibility (without implementing removal)
+- If the CSV file(s) were deleted, what would break at build/runtime?
+- Which endpoints would fail (e.g., /api/waiting, /api/waiting/all, /api/dates, /api/waiting/timestamps), and how?
+- Are there any fallback paths, stubs, or “no data” behaviors that would keep the UI working, or would the app hard-crash?
+
+C) Service-base skeleton impact
+- Would removing the CSV dataset make the architecture “more beautiful/clean” as a service base, or would it reduce the usefulness of the PoC (e.g., demoability, tests, local dev)?
+- Identify what minimal alternative would be needed to keep the skeleton valid for dev/demo without real data (e.g., empty in-memory store, mock provider, sample fixture).
+  (High-level description only; do NOT implement.)
+
+D) Recommendation
+- Provide a clear recommendation:
+  - “Keep the CSV for now” or “Safe to remove now”
+- Justify using architecture principles (single entrypoint, separation of concerns, future migration), and note any risks.
+
+Again: inspection/reporting only — no code changes.
