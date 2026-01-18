@@ -1,0 +1,55 @@
+🚨 TEST-ONLY APPLY REQUEST — MINIMAL, SAFE, AND REVERSIBLE
+Please DO NOT refactor any code. Do NOT change UI design. Do NOT touch routing or business logic.
+This is ONLY to apply a provided dummy menu dataset file for testing and then report results.
+If anything unexpected happens (build error, runtime error, UI break, type error), STOP and rollback to the previous state immediately.
+
+Goal
+- Replace the current menu dataset file with the provided dummy dataset JSON
+- Verify that menus render correctly for 2026-01-12 ~ 2026-01-24
+- Especially verify the breakfast_1000 special-case behavior (variants blocks + per-block payment + remaining tickets placeholder)
+- Produce a short verification report with screenshots (if possible) and a checklist.
+
+Input File (provided by user)
+- menus_by_date_2026-01-12_to_2026-01-24.json
+(Apply its contents into: data/menus_by_date.json)
+
+Steps (safe procedure)
+1) Backup the existing menu file (even if empty):
+   - Copy data/menus_by_date.json → data/menus_by_date.json.bak
+
+2) Apply the dummy dataset:
+   - Replace/overwrite data/menus_by_date.json with the contents of menus_by_date_2026-01-12_to_2026-01-24.json
+
+3) Run the app and do sanity checks:
+   - Confirm server starts without errors
+   - Confirm /api/menu?date=2026-01-12 returns populated data
+   - Confirm /api/menu?date=2026-01-24 returns populated data
+   - Confirm /api/menu?date=2026-01-18 (Sunday) returns empty or missing (expected)
+
+4) UI checklist (must match current UI; no redesign)
+Home (/d/2026-01-12):
+   - Confirm each restaurant section shows menus (not "데이터 없음") where data exists
+   - For hanyang_plaza / breakfast_1000:
+       * If variants exist: main title shows "Main1, Main2" comma-separated
+       * If only 1 variant exists: shows only "Main1"
+CornerDetail for breakfast_1000 (/d/2026-01-12 → click breakfast_1000):
+   - If 2 variants: TWO stacked menu blocks rendered
+   - Each block shows:
+       * correct main menu name for that variant
+       * items list for that variant
+       * bottom-right label: "잔여 식수: --명"
+       * its own "결제하기" button
+   - Clicking each block’s "결제하기" creates a ticket using THAT variant’s mainMenuName and shows priceWon=1000 on the ticket page
+CornerDetail for a normal corner (e.g., hanyang_plaza/korean):
+   - Still shows exactly ONE menu block as before
+   - No "잔여 식수" label
+   - "결제하기" behavior unchanged
+
+5) Report back (no extra changes)
+- List what you changed (should only be the JSON file swap + backup)
+- Confirm no code files changed
+- Provide pass/fail for each checklist item
+- If any item fails, rollback by restoring data/menus_by_date.json.bak → data/menus_by_date.json and report the failure.
+
+Reminder
+- This is a temporary test. After verification, keep the backup so we can revert instantly.
