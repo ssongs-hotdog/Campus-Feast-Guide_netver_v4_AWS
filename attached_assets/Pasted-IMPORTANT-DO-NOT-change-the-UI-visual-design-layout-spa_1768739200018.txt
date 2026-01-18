@@ -1,0 +1,91 @@
+IMPORTANT: DO NOT change the UI/visual design/layout/spacing/typography. Do NOT change any user-facing labels.
+Do NOT change API response shapes or endpoint semantics. This is a refactor + de-hardcoding only.
+
+Before starting:
+- Create a safe rollback point (new git commit on main, or a backup branch). If anything fails, revert to that commit.
+
+GOAL (This update closes the last 3 base-architecture gaps):
+P0) Ensure dataProvider is the single client entry point (Home.tsx must not directly fetch menus/waiting/timestamps)
+P1) Remove server hardcoded AVAILABLE_DATES and derive available dates dynamically from loaded/cached waiting data (CSV)
+P2) Remove ChartsPanel hardcoded corner mappings/default IDs and use canonical shared config instead
+
+Work in 3 parts IN ORDER, and after each part, quickly sanity-check behavior without changing UI.
+
+────────────────────────────────────────────────────────────
+PART 1 (P0): Home.tsx must use dataProvider ONLY (no behavior change)
+────────────────────────────────────────────────────────────
+Current problem:
+- Home.tsx still bypasses dataProvider with direct fetch calls for:
+  - /api/menu?date=...
+  - /api/waiting?date=...&time=...&aggregate=...
+  - /api/waiting/timestamps?date=...
+
+Required change:
+1) In client/src/lib/data/dataProvider.ts, ensure there are provider functions for ALL of these:
+   - getMenus(dayKey: string)
+   - getWaitTimes(dayKey: string, timeKey?: string, aggregate?: string)
+   - getAvailableTimestamps(dayKey: string)
+   (Keep naming consistent with existing functions; do not change endpoints.)
+
+2) Update client/src/pages/Home.tsx to call ONLY these provider functions.
+   - Keep React Query queryKey values and enabled conditions logically identical to current behavior
+   - Do NOT change data shapes that components receive
+   - This is purely moving the fetch logic behind the provider abstraction
+
+3) Confirm after Part 1:
+   - The app loads menus and waiting data exactly as before
+   - There are no remaining fetch('/api/...') calls in Home.tsx for menu/waiting/timestamps
+   - UI looks identical
+
+────────────────────────────────────────────────────────────
+PART 2 (P1): Make AVAILABLE_DATES dynamic on the server (no API shape change)
+────────────────────────────────────────────────────────────
+Current problem:
+- server has a hardcoded AVAILABLE_DATES = ['2026-01-14','2026-01-15','2026-01-16'] which will not scale.
+
+Required change:
+1) Remove the hardcoded AVAILABLE_DATES constant.
+2) Derive available dates dynamically from the already-loaded waiting cache (the CSV-derived structure),
+   e.g. Object.keys(cachedDataByDate) or equivalent canonical cache.
+3) Expose/consume this date list in the same way the app currently expects:
+   - If there is an existing endpoint returning available dates/timestamps, keep its response shape identical.
+   - Do NOT introduce breaking changes.
+4) Confirm after Part 2:
+   - Adding new dates to the CSV (in the future) would automatically become discoverable without editing code.
+   - Existing dates continue to work exactly as before.
+
+────────────────────────────────────────────────────────────
+PART 3 (P2): Remove ChartsPanel hardcoded corner mappings/default IDs (no UI change)
+────────────────────────────────────────────────────────────
+Current problem:
+- client/src/components/ChartsPanel.tsx contains hardcoded corner mappings and default IDs (e.g. 'hanyang_plaza', 'ramen').
+
+Required change:
+1) Replace any hardcoded corner display mapping with the canonical shared source:
+   - shared/cornerDisplayNames.ts (or the single canonical display-name map you already consolidated)
+2) Replace any hardcoded default restaurantId/cornerId with canonical config-driven defaults:
+   - Use RESTAURANTS (shared/types.ts) and pick:
+     - defaultRestaurantId = first RESTAURANTS[0].restaurantId (or current selected restaurant if exists)
+     - defaultCornerId = first cornerId from that restaurant’s cornerOrder
+   Ensure the behavior remains stable (no empty chart on first render).
+3) Confirm after Part 3:
+   - Charts still render as before (same chart types, same layout, same labels, no styling change).
+   - Display names are consistent with the rest of the app and future corner additions won’t require edits here.
+
+────────────────────────────────────────────────────────────
+GLOBAL CONSTRAINTS / TEST CHECKLIST (must verify)
+────────────────────────────────────────────────────────────
+- ZERO UI/visual changes (layout, spacing, typography, colors)
+- ZERO endpoint/response-shape changes
+- Date routing still works: /d/YYYY-MM-DD
+- Time selection behavior remains unchanged (including placeholder and inactive behavior rules)
+- Menus load the same as before
+- Waiting data loads the same as before (queue_len + est_wait_time_min precomputed on server)
+- No console errors
+
+DELIVERABLE
+At the end, provide:
+1) A list of files changed grouped by Part 1/2/3
+2) A short verification note for each part (what you checked, what remained unchanged)
+3) The exact place where dynamic available dates are derived (file + function)
+4) Confirmation that Home.tsx has no direct fetch calls for menu/waiting/timestamps

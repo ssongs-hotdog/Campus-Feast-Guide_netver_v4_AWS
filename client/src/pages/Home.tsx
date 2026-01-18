@@ -22,6 +22,7 @@ import { useTimeContext } from '@/lib/timeContext';
 import { useTicketContext } from '@/lib/ticketContext';
 import { RESTAURANTS, formatTime, type WaitingData, type MenuData } from '@shared/types';
 import { addDays, formatDayKeyForDisplay, isValidDayKey, type DayKey } from '@/lib/dateUtils';
+import { getMenus, getWaitTimes, getAvailableTimestamps } from '@/lib/data/dataProvider';
 
 function Banner() {
   const [imageError, setImageError] = useState(false);
@@ -108,15 +109,12 @@ export default function Home() {
     setLocation(`/d/${nextDate}`);
   }, [selectedDate, setLocation]);
 
-  const { data: menuData } = useQuery<MenuData>({
+  const { data: menuData } = useQuery<MenuData | null>({
     queryKey: ['/api/menu', selectedDate],
     queryFn: async () => {
-      const res = await fetch(`/api/menu?date=${selectedDate}`);
-      if (!res.ok) {
-        if (res.status === 404) return null;
-        throw new Error('Failed to fetch menu data');
-      }
-      return res.json();
+      const result = await getMenus(selectedDate);
+      if (result.error) throw new Error(result.error);
+      return result.data as MenuData | null;
     },
     enabled: !!selectedDate,
   });
@@ -124,9 +122,9 @@ export default function Home() {
   const { data: timestampsData } = useQuery<{ timestamps: string[] }>({
     queryKey: ['/api/waiting/timestamps', selectedDate],
     queryFn: async () => {
-      const res = await fetch(`/api/waiting/timestamps?date=${selectedDate}`);
-      if (!res.ok) throw new Error('Failed to fetch timestamps');
-      return res.json();
+      const result = await getAvailableTimestamps(selectedDate);
+      if (result.error) throw new Error(result.error);
+      return { timestamps: result.data || [] };
     },
     enabled: !!selectedDate,
   });
@@ -159,17 +157,15 @@ export default function Home() {
       : ['/api/waiting', selectedDate, selectedTime5Min, '5min'],
     queryFn: async () => {
       if (isToday) {
-        const res = await fetch(`/api/waiting?date=${selectedDate}&time=${encodeURIComponent(currentTimestamp!)}`);
-        if (!res.ok) throw new Error('Failed to fetch waiting data');
-        return res.json();
+        const result = await getWaitTimes(selectedDate, currentTimestamp!);
+        if (result.error) throw new Error(result.error);
+        return result.data || [];
       } else {
-        // selectedTime5Min is guaranteed non-null here due to enabled check
-        const res = await fetch(`/api/waiting?date=${selectedDate}&time=${selectedTime5Min}&aggregate=5min`);
-        if (!res.ok) throw new Error('Failed to fetch waiting data');
-        return res.json();
+        const result = await getWaitTimes(selectedDate, selectedTime5Min!, '5min');
+        if (result.error) throw new Error(result.error);
+        return result.data || [];
       }
     },
-    // For non-today: only fetch when a time is selected (not null)
     enabled: !!selectedDate && (isToday ? !!currentTimestamp : !!selectedTime5Min),
     staleTime: 60000,
     placeholderData: (previousData) => previousData,

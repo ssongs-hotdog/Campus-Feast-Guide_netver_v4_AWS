@@ -139,7 +139,11 @@ export async function getAvailableTimestamps(
     const res = await fetch(`/api/waiting/timestamps?date=${dayKey}`);
     
     if (!res.ok) {
-      return { data: [], hasData: false };
+      return { 
+        data: [], 
+        hasData: false, 
+        error: `Failed to fetch timestamps: ${res.status}` 
+      };
     }
     
     const result = await res.json();
@@ -151,7 +155,11 @@ export async function getAvailableTimestamps(
     };
   } catch (error) {
     console.error('Error fetching timestamps:', error);
-    return { data: [], hasData: false };
+    return { 
+      data: [], 
+      hasData: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    };
   }
 }
 
@@ -182,7 +190,11 @@ export async function getWaitTimes(
     const res = await fetch(url);
     
     if (!res.ok) {
-      return { data: [], hasData: false };
+      return { 
+        data: [], 
+        hasData: false, 
+        error: `Failed to fetch wait times: ${res.status}` 
+      };
     }
     
     const data = await res.json();
@@ -193,7 +205,11 @@ export async function getWaitTimes(
     };
   } catch (error) {
     console.error('Error fetching wait times:', error);
-    return { data: [], hasData: false };
+    return { 
+      data: [], 
+      hasData: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    };
   }
 }
 

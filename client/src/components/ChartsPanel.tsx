@@ -5,8 +5,8 @@ import { Label } from '@/components/ui/label';
 import { BarChart3, X } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { RESTAURANTS, type WaitingData } from '@shared/types';
-
-const TODAY_DATE = '2026-01-15';
+import { getCornerDisplayName } from '@shared/cornerDisplayNames';
+import { getTodayKey } from '@/lib/dateUtils';
 
 interface ChartsPanelProps {
   isOpen: boolean;
@@ -14,23 +14,16 @@ interface ChartsPanelProps {
   selectedDate: string;
 }
 
-const CORNER_NAMES: Record<string, string> = {
-  western: '양식',
-  korean: '한식',
-  instant: '즉석',
-  ramen: '라면',
-  set_meal: '정식',
-  single_dish: '일품',
-  dam_a: 'Dam-A',
-  pangeos: 'Pangeos',
-};
+const DEFAULT_RESTAURANT_ID = RESTAURANTS[0]?.id ?? '';
+const DEFAULT_CORNER_ID = RESTAURANTS[0]?.cornerOrder[0] ?? '';
 
 export function ChartsPanel({ isOpen, onClose, selectedDate }: ChartsPanelProps) {
-  const [selectedRestaurant, setSelectedRestaurant] = useState('hanyang_plaza');
-  const [selectedCorner, setSelectedCorner] = useState('ramen');
+  const [selectedRestaurant, setSelectedRestaurant] = useState(DEFAULT_RESTAURANT_ID);
+  const [selectedCorner, setSelectedCorner] = useState(DEFAULT_CORNER_ID);
 
-  const isToday = selectedDate === TODAY_DATE;
-  const isPrevDay = selectedDate < TODAY_DATE;
+  const todayKey = getTodayKey();
+  const isToday = selectedDate === todayKey;
+  const isPrevDay = selectedDate < todayKey;
 
   const panelTitle = isPrevDay 
     ? '전날 이용 통계' 
@@ -128,7 +121,7 @@ export function ChartsPanel({ isOpen, onClose, selectedDate }: ChartsPanelProps)
                 data-testid="select-corner"
               >
                 {availableCorners.map(c => (
-                  <option key={c} value={c}>{CORNER_NAMES[c] || c}</option>
+                  <option key={c} value={c}>{getCornerDisplayName(c)}</option>
                 ))}
               </select>
             </div>

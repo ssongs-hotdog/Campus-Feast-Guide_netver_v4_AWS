@@ -39,8 +39,16 @@ interface CachedDataByDate {
 
 let cachedDataByDate: Record<string, CachedDataByDate> | null = null;
 
-const AVAILABLE_DATES = ['2026-01-14', '2026-01-15', '2026-01-16'];
 const TODAY_DATE = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+
+/**
+ * Get available dates from the cached waiting data.
+ * This dynamically derives dates from loaded CSV data instead of hardcoding.
+ */
+function getAvailableDates(): string[] {
+  const cache = loadAllWaitingData();
+  return Object.keys(cache).sort();
+}
 
 function parseCSV(content: string): WaitingDataRow[] {
   const lines = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n');
@@ -90,7 +98,18 @@ function loadAllWaitingData(): Record<string, CachedDataByDate> {
     
     cachedDataByDate = {};
     
-    for (const dateStr of AVAILABLE_DATES) {
+    // Derive unique dates from timestamps dynamically (no hardcoding)
+    const dateSet = new Set<string>();
+    for (const row of allData) {
+      // Extract date portion from ISO timestamp (YYYY-MM-DD)
+      const dateStr = row.timestamp.split('T')[0];
+      if (dateStr) {
+        dateSet.add(dateStr);
+      }
+    }
+    
+    // Group data by date
+    for (const dateStr of Array.from(dateSet)) {
       const dateData = allData.filter(row => row.timestamp.startsWith(dateStr));
       const timestampSet = new Set<string>();
       dateData.forEach(row => timestampSet.add(row.timestamp));
@@ -99,7 +118,8 @@ function loadAllWaitingData(): Record<string, CachedDataByDate> {
       cachedDataByDate[dateStr] = { data: dateData, timestamps };
     }
     
-    console.log(`Loaded ${allData.length} waiting data rows for ${AVAILABLE_DATES.length} dates`);
+    const derivedDates = Object.keys(cachedDataByDate).sort();
+    console.log(`Loaded ${allData.length} waiting data rows for ${derivedDates.length} dates: ${derivedDates.join(', ')}`);
     
     return cachedDataByDate;
   } catch (error) {
@@ -259,7 +279,7 @@ export async function registerRoutes(
 ): Promise<Server> {
   
   app.get('/api/dates', (_req: Request, res: Response) => {
-    res.json({ dates: AVAILABLE_DATES, today: TODAY_DATE });
+    res.json({ dates: getAvailableDates(), today: TODAY_DATE });
   });
 
   app.get('/api/menu', (req: Request, res: Response) => {
