@@ -4,16 +4,33 @@
  * Purpose: Displays a single restaurant with all its menu corners.
  * Each corner is rendered as a CornerCard with its menu and waiting data.
  * 
+ * Key behavior:
+ * - ALWAYS renders one card per corner (even when no data exists)
+ * - When menu data is missing, CornerCard shows placeholder text
+ * - When waiting data is missing, CornerCard shows "-" and "미제공"
+ * 
  * Props:
  * - restaurant: Restaurant information (name, location, hours)
- * - menus: Menu items keyed by corner ID
- * - waitingData: Array of waiting data for all corners
+ * - menus: Menu items keyed by corner ID (may be empty)
+ * - waitingData: Array of waiting data for all corners (may be empty)
  * - dayKey: The current date being viewed
  */
 import { CornerCard } from './CornerCard';
 import { InfoPopover } from './InfoPopover';
 import type { RestaurantInfo, MenuItem, WaitingData } from '@shared/types';
 import type { DayKey } from '@/lib/dateUtils';
+
+// Corner display names for placeholder cards when menu data is missing
+const CORNER_DISPLAY_NAMES: Record<string, string> = {
+  korean: '한식',
+  western: '양식',
+  instant: '분식',
+  ramen: '라면',
+  set_meal: '정식',
+  single_dish: '단품',
+  dam_a: '담아',
+  pangeos: '팡거스',
+};
 
 interface RestaurantSectionProps {
   restaurant: RestaurantInfo;
@@ -28,8 +45,6 @@ export function RestaurantSection({ restaurant, menus, waitingData, dayKey }: Re
       .filter((w) => w.restaurantId === restaurant.id)
       .map((w) => [w.cornerId, w])
   );
-
-  const hasAnyMenus = restaurant.cornerOrder.some(cornerId => menus[cornerId]);
 
   return (
     <section className="mb-6" data-testid={`section-restaurant-${restaurant.id}`}>
@@ -49,26 +64,22 @@ export function RestaurantSection({ restaurant, menus, waitingData, dayKey }: Re
         </div>
       </div>
       <div className="flex flex-col gap-3">
-        {hasAnyMenus ? (
-          restaurant.cornerOrder.map((cornerId) => {
-            const menu = menus[cornerId];
-            if (!menu) return null;
-            return (
-              <CornerCard
-                key={cornerId}
-                menu={menu}
-                waitingData={waitingMap.get(cornerId)}
-                dayKey={dayKey}
-              />
-            );
-          })
-        ) : (
-          <div className="p-4 bg-muted/30 rounded-lg text-center">
-            <p className="text-sm text-muted-foreground">
-              메뉴 데이터가 없습니다
-            </p>
-          </div>
-        )}
+        {restaurant.cornerOrder.map((cornerId) => {
+          const menu = menus[cornerId];
+          const cornerDisplayName = menu?.cornerDisplayName || CORNER_DISPLAY_NAMES[cornerId] || cornerId;
+          
+          return (
+            <CornerCard
+              key={cornerId}
+              menu={menu || null}
+              waitingData={waitingMap.get(cornerId)}
+              dayKey={dayKey}
+              restaurantId={restaurant.id}
+              cornerId={cornerId}
+              cornerDisplayName={cornerDisplayName}
+            />
+          );
+        })}
       </div>
     </section>
   );

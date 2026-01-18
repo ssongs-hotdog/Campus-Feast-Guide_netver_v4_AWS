@@ -5,9 +5,16 @@
  * When clicked, navigates to the detail page with the correct date in the URL.
  * 
  * Props:
- * - menu: The menu item data for this corner
+ * - menu: The menu item data for this corner (optional - shows placeholder if missing)
  * - waitingData: Optional waiting/congestion data for this corner
  * - dayKey: The current date being viewed (passed from parent)
+ * - restaurantId: The restaurant ID (needed when menu is missing)
+ * - cornerId: The corner ID (needed when menu is missing)
+ * - cornerDisplayName: Display name for the corner (needed when menu is missing)
+ * 
+ * Placeholder behavior:
+ * - When menu is missing, shows "데이터 없음" for menu name
+ * - When waiting data is missing, shows "-" for wait time and "미제공" for congestion
  */
 import { useLocation } from 'wouter';
 import { Card } from '@/components/ui/card';
@@ -18,20 +25,34 @@ import type { MenuItem, WaitingData } from '@shared/types';
 import type { DayKey } from '@/lib/dateUtils';
 
 interface CornerCardProps {
-  menu: MenuItem;
+  menu?: MenuItem | null;
   waitingData?: WaitingData;
   dayKey: DayKey;
+  restaurantId: string;
+  cornerId: string;
+  cornerDisplayName: string;
 }
 
-export function CornerCard({ menu, waitingData, dayKey }: CornerCardProps) {
+export function CornerCard({ 
+  menu, 
+  waitingData, 
+  dayKey, 
+  restaurantId,
+  cornerId,
+  cornerDisplayName 
+}: CornerCardProps) {
   const [, setLocation] = useLocation();
   const { availableTimestamps, timeState, selectedTime5Min, todayKey } = useTimeContext();
-  const estWait = waitingData?.est_wait_time_min ?? 0;
+  
+  // Check if we have actual data
+  const hasMenuData = !!menu;
+  const hasWaitingData = !!waitingData;
+  const estWait = waitingData?.est_wait_time_min;
   
   const isToday = dayKey === todayKey;
 
   const handleClick = () => {
-    const baseUrl = `/d/${dayKey}/restaurant/${menu.restaurantId}/corner/${menu.cornerId}`;
+    const baseUrl = `/d/${dayKey}/restaurant/${restaurantId}/corner/${cornerId}`;
     const params = new URLSearchParams();
     
     if (!isToday) {
@@ -59,33 +80,41 @@ export function CornerCard({ menu, waitingData, dayKey }: CornerCardProps) {
     <Card
       className="p-4 cursor-pointer hover-elevate active-elevate-2 transition-all duration-150"
       onClick={handleClick}
-      data-testid={`card-corner-${menu.cornerId}`}
+      data-testid={`card-corner-${cornerId}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <Badge 
             variant="secondary" 
             className="mb-2 text-xs font-medium px-2 py-0.5"
-            data-testid={`badge-corner-${menu.cornerId}`}
+            data-testid={`badge-corner-${cornerId}`}
           >
-            {menu.cornerDisplayName}
+            {menu?.cornerDisplayName || cornerDisplayName}
           </Badge>
           <h3 
-            className="text-lg font-semibold text-foreground truncate"
-            data-testid={`text-menu-${menu.cornerId}`}
+            className={`text-lg font-semibold truncate ${hasMenuData ? 'text-foreground' : 'text-muted-foreground'}`}
+            data-testid={`text-menu-${cornerId}`}
           >
-            {menu.mainMenuName}
+            {hasMenuData ? menu.mainMenuName : '데이터 없음'}
           </h3>
         </div>
         <div className="w-24 flex-shrink-0">
-          <CongestionBar estWaitTime={estWait} size="md" />
+          <CongestionBar 
+            estWaitTime={hasWaitingData ? estWait : undefined} 
+            size="md" 
+            noData={!hasWaitingData}
+          />
         </div>
       </div>
       <p 
         className="mt-3 text-sm text-muted-foreground"
-        data-testid={`text-wait-${menu.cornerId}`}
+        data-testid={`text-wait-${cornerId}`}
       >
-        예상 대기시간: <span className="font-medium text-foreground transition-opacity duration-150">{estWait}분</span>
+        예상 대기시간: {hasWaitingData ? (
+          <span className="font-medium text-foreground transition-opacity duration-150">{estWait}분</span>
+        ) : (
+          <span className="font-medium text-muted-foreground">-</span>
+        )}
       </p>
     </Card>
   );

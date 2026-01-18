@@ -178,9 +178,6 @@ export default function Home() {
     ? formatTime(new Date(waitingData[0].timestamp))
     : !isToday ? selectedTime5Min : null;
 
-  const hasMenuData = menuData !== null && menuData !== undefined;
-  const hasWaitingData = timestampsData?.timestamps?.length ?? 0 > 0;
-
   return (
     <div className="min-h-screen bg-background pb-24">
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border px-4 py-3">
@@ -269,16 +266,7 @@ export default function Home() {
           <Banner />
         </div>
 
-        {!hasMenuData && !hasWaitingData ? (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground text-sm">
-              데이터가 없습니다
-            </p>
-            <p className="text-xs text-muted-foreground mt-2">
-              이 날짜의 메뉴 및 대기 데이터가 아직 제공되지 않습니다
-            </p>
-          </div>
-        ) : isWaitingLoading && !waitingData ? (
+        {isWaitingLoading && !waitingData && !menuData ? (
           <div className="space-y-4">
             {RESTAURANTS.map((r) => (
               <div key={r.id} className="animate-pulse">

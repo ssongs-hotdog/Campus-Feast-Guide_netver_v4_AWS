@@ -10,6 +10,11 @@
  * - time5min: HH:MM for historical/predicted data
  * 
  * The date is now derived from the URL path, making the page fully URL-driven.
+ * 
+ * Placeholder behavior:
+ * - When menu data is missing, shows "데이터 없음" for menu name
+ * - When waiting data is missing, shows "-" for wait time and "미제공" for congestion
+ * - The page always renders the same structure even without data
  */
 import { useRoute, useLocation, useSearch } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
@@ -31,6 +36,18 @@ import {
   type MenuData 
 } from '@shared/types';
 import { isValidDayKey, type DayKey } from '@/lib/dateUtils';
+
+// Corner display names for placeholder when menu data is missing
+const CORNER_DISPLAY_NAMES: Record<string, string> = {
+  korean: '한식',
+  western: '양식',
+  instant: '분식',
+  ramen: '라면',
+  set_meal: '정식',
+  single_dish: '단품',
+  dam_a: '담아',
+  pangeos: '팡거스',
+};
 
 export default function CornerDetail() {
   const [matchNew, paramsNew] = useRoute('/d/:dayKey/restaurant/:restaurantId/corner/:cornerId');
@@ -113,9 +130,13 @@ export default function CornerDetail() {
     (w) => w.restaurantId === restaurantId && w.cornerId === cornerId
   );
 
-  const estWait = cornerWaiting?.est_wait_time_min ?? 0;
-  const queueLen = cornerWaiting?.queue_len ?? 0;
-  const level = getCongestionLevel(estWait);
+  // Check data availability
+  const hasMenuData = !!menu;
+  const hasWaitingData = !!cornerWaiting;
+  
+  const estWait = cornerWaiting?.est_wait_time_min;
+  const queueLen = cornerWaiting?.queue_len;
+  const level = hasWaitingData && estWait !== undefined ? getCongestionLevel(estWait) : null;
   
   const loadedTimestamp = isToday && waitingData?.[0]?.timestamp 
     ? formatTime(new Date(waitingData[0].timestamp))
@@ -133,37 +154,12 @@ export default function CornerDetail() {
 
   const hasExistingTicket = ticket && (ticket.status === 'stored' || ticket.status === 'active');
 
-  if (!menu || !restaurant) {
-    return (
-      <div className="min-h-screen bg-background">
-        <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border px-4 py-3">
-          <div className="flex items-center gap-3 max-w-lg mx-auto">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={handleBack}
-              data-testid="button-back"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <h1 className="text-base font-semibold text-foreground">메뉴 정보</h1>
-            </div>
-          </div>
-        </header>
-        <main className="max-w-lg mx-auto px-4 py-12">
-          <div className="text-center">
-            <p className="text-muted-foreground text-sm">
-              메뉴를 찾을 수 없습니다
-            </p>
-            <p className="text-xs text-muted-foreground mt-2">
-              이 날짜의 메뉴 데이터가 아직 제공되지 않습니다
-            </p>
-          </div>
-        </main>
-      </div>
-    );
-  }
+  // Get display names - use data if available, otherwise use placeholders
+  const restaurantName = restaurant?.name || '식당';
+  const cornerDisplayName = menu?.cornerDisplayName || CORNER_DISPLAY_NAMES[cornerId] || cornerId;
+  const menuName = hasMenuData ? menu.mainMenuName : '데이터 없음';
+  const price = hasMenuData ? menu.priceWon : null;
+  const menuItems = hasMenuData ? menu.items : [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -178,8 +174,8 @@ export default function CornerDetail() {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
-            <h1 className="text-base font-semibold text-foreground">{restaurant.name}</h1>
-            <p className="text-xs text-muted-foreground">{menu.cornerDisplayName}</p>
+            <h1 className="text-base font-semibold text-foreground">{restaurantName}</h1>
+            <p className="text-xs text-muted-foreground">{cornerDisplayName}</p>
           </div>
         </div>
       </header>
@@ -194,27 +190,40 @@ export default function CornerDetail() {
           <div className="flex items-center justify-between mb-3">
             <div>
               <p className="text-sm text-muted-foreground">예상 대기시간</p>
-              <p className="text-2xl font-bold text-foreground">{estWait}분</p>
+              <p className={`text-2xl font-bold ${hasWaitingData ? 'text-foreground' : 'text-muted-foreground'}`}>
+                {hasWaitingData ? `${estWait}분` : '-'}
+              </p>
             </div>
             <div className="flex items-center gap-2 text-muted-foreground">
               <Users className="w-4 h-4" />
-              <span className="text-sm" data-testid="text-queue-len">대기 {queueLen}명</span>
+              <span className="text-sm" data-testid="text-queue-len">
+                대기 {hasWaitingData ? `${queueLen}명` : '-'}
+              </span>
             </div>
           </div>
           <div className="mb-2">
-            <CongestionBar estWaitTime={estWait} size="md" />
+            <CongestionBar estWaitTime={estWait} size="md" noData={!hasWaitingData} />
           </div>
-          <Badge 
-            variant="secondary"
-            className="mt-1"
-            style={{ 
-              backgroundColor: `${CONGESTION_COLORS[level]}20`,
-              color: CONGESTION_COLORS[level],
-              borderColor: CONGESTION_COLORS[level],
-            }}
-          >
-            {CONGESTION_LABELS[level]}
-          </Badge>
+          {hasWaitingData && level ? (
+            <Badge 
+              variant="secondary"
+              className="mt-1"
+              style={{ 
+                backgroundColor: `${CONGESTION_COLORS[level]}20`,
+                color: CONGESTION_COLORS[level],
+                borderColor: CONGESTION_COLORS[level],
+              }}
+            >
+              {CONGESTION_LABELS[level]}
+            </Badge>
+          ) : (
+            <Badge 
+              variant="secondary"
+              className="mt-1 text-muted-foreground"
+            >
+              미제공
+            </Badge>
+          )}
         </Card>
 
         <Card className="p-4 mb-6" data-testid="card-menu-info">
@@ -223,17 +232,17 @@ export default function CornerDetail() {
               <span className="text-muted-foreground text-sm">사진</span>
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="text-lg font-bold text-foreground mb-1" data-testid="text-menu-name">
-                {menu.mainMenuName}
+              <h2 className={`text-lg font-bold mb-1 ${hasMenuData ? 'text-foreground' : 'text-muted-foreground'}`} data-testid="text-menu-name">
+                {menuName}
               </h2>
-              <p className="text-xl font-semibold text-primary mb-2" data-testid="text-price">
-                {formatPrice(menu.priceWon)}
+              <p className={`text-xl font-semibold mb-2 ${hasMenuData ? 'text-primary' : 'text-muted-foreground'}`} data-testid="text-price">
+                {price !== null ? formatPrice(price) : '-'}
               </p>
-              {menu.items.length > 0 && (
+              {menuItems.length > 0 && (
                 <div className="mt-2">
                   <p className="text-xs text-muted-foreground mb-1">구성</p>
                   <ul className="text-sm text-foreground space-y-0.5">
-                    {menu.items.map((item, idx) => (
+                    {menuItems.map((item, idx) => (
                       <li key={idx} className="flex items-start gap-1">
                         <span className="text-muted-foreground">•</span>
                         <span>{item}</span>
@@ -246,7 +255,7 @@ export default function CornerDetail() {
           </div>
         </Card>
 
-        {isToday && (
+        {isToday && hasMenuData && (
           hasExistingTicket ? (
             <Button 
               variant="outline"

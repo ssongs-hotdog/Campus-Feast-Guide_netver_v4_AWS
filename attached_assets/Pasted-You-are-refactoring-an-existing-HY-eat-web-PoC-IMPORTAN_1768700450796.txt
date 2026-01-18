@@ -1,0 +1,68 @@
+You are refactoring an existing HY-eat web PoC. IMPORTANT: Keep the current UI/visual design and layout EXACTLY the same (no redesign, no spacing/typography changes unless strictly necessary for the requested behavior). The goal is to build a clean, service-ready base architecture where UI is stable and data/logic are modular.
+
+Context / Intent
+- The main UI is already considered final and must remain unchanged.
+- We want a scalable base for future real-time integrations (queue counts from cameras, payment module, operational data).
+- For now, we are still using local dummy JSON (Option B), but we want the code structured so later switching to API/DB is easy without touching UI components.
+
+Key Requirements (must implement)
+1) Date routing & navigation (service-ready)
+- The app must use URL-based date routing: /d/YYYY-MM-DD
+- Prev/Next date buttons should navigate by changing the URL date.
+- The “today” baseline must be derived from the user’s actual current date (local time), not a hardcoded Jan 15 baseline.
+- If user visits root (/) redirect to /d/<todayKey>.
+
+2) Data-provider driven rendering (UI must not know data availability)
+- Implement a data provider layer (e.g., src/data/ or lib/data/) that exposes functions like:
+  - getDayData(dateKey: string): returns the day’s restaurant/corner/menu data or a “no-data” status.
+- UI components should always receive a consistent shape of data (avoid UI-level branching like `if (!data) show empty page`).
+- Remove/avoid the current “full-page empty state” for missing dates.
+  Instead, the UI should render the SAME screen structure as days with data.
+
+3) “No data” behavior inside the SAME UI skeleton (corner-count placeholders)
+- When a date has no menu/wait/congestion data:
+  - Still render the same restaurant and corner sections/cards in the list view.
+  - The number of placeholder menu cards must equal the number of corners (exactly one per corner).
+  - For each placeholder card:
+    - Menu name field: display "데이터 없음" (or equivalent existing language used in the UI)
+    - Estimated wait time field: display "-" (dash) instead of a number
+    - Congestion indicator/label: show "미제공" (and use a neutral/gray visual state if your existing UI supports it without redesign)
+- Keep restaurant name, fixed restaurant info UI, corner name chips/badges, etc. consistent with the current design.
+
+4) Detail page must match selected date (and support “no data” placeholders)
+- When clicking a menu card from any date, the detail view must show data for that same dateKey (fix the bug where detail always shows “today” data).
+- For no-data placeholder items, detail page should still open (do NOT block clicks).
+  - It should render the same detail UI but show:
+    - Menu name: "데이터 없음"
+    - Wait time: "-"
+    - Congestion: "미제공"
+    - Any other dynamic fields: show "미제공" or "-" consistently
+- The detail route should include dateKey and item id (recommended):
+  - /d/YYYY-MM-DD/menu/<menuId>
+  so it is shareable and reproducible.
+
+5) Clean modular architecture for future upgrades (very important)
+- Separate concerns into clear modules:
+  - data layer: reading local JSON now, later replace with API (same function signatures)
+  - domain layer: wait-time calculation logic (even if currently stubbed)
+  - UI layer: purely presentational components
+- No hardcoded menu names inside UI components. All menu names must come from data provider outputs.
+- Add beginner-friendly comments in each module explaining:
+  - what the module does
+  - what can change later (e.g., “replace this JSON loader with API fetch”)
+  - how dateKey is computed
+
+Implementation Guidance (do not change UI)
+- Keep the current styling and existing components.
+- Only adjust code structure and data flow to achieve the behaviors above.
+- If you need to add types/interfaces, do so in a shared types file (e.g., shared/types.ts).
+- Ensure navigation/selection state is driven by the URL (dateKey, menuId).
+- Preserve existing Korean labels where they already exist; only add the new strings: "데이터 없음", "미제공", "-" as required.
+
+Deliverables
+- Updated code with the refactor and bug fixes implemented.
+- Brief checklist in comments or a short note summarizing what changed and where:
+  - date routing entry point
+  - data provider functions
+  - placeholder generation for missing dates (corner-count)
+  - detail page date alignment fix
