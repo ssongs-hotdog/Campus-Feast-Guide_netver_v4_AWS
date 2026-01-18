@@ -1,3 +1,20 @@
+/**
+ * routes.ts - API Route Definitions
+ * 
+ * Purpose: Defines all REST API endpoints for the HY-eat application.
+ * This is the server-side data access layer that serves:
+ * - Menu data (from JSON files)
+ * - Waiting/queue data (from CSV files)
+ * - Timestamp listings for data navigation
+ * 
+ * How to add new endpoints:
+ * 1. Add a new app.get() or app.post() call inside registerRoutes()
+ * 2. Use the loadWaitingData() or loadMenusByDate() helpers to access data
+ * 
+ * How to switch to a real database:
+ * 1. Replace the file-loading functions with database queries
+ * 2. The API response format should stay the same
+ */
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
@@ -20,8 +37,8 @@ interface CachedDataByDate {
 }
 
 let cachedDataByDate: Record<string, CachedDataByDate> | null = null;
+
 const AVAILABLE_DATES = ['2026-01-14', '2026-01-15', '2026-01-16'];
-const TODAY_DATE = '2026-01-15';
 
 function parseCSV(content: string): WaitingDataRow[] {
   const lines = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n');

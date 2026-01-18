@@ -1,5 +1,18 @@
+/**
+ * Home.tsx - Main Home Page
+ * 
+ * Purpose: Displays the main view of all restaurants and their menu/waiting data
+ * for a specific date. The date is determined by the URL path (/d/YYYY-MM-DD).
+ * 
+ * Key features:
+ * - URL-driven date navigation (refresh-safe, shareable)
+ * - Shows menu data for each restaurant corner
+ * - Displays real-time or historical congestion data
+ * - Supports previous/next date navigation
+ */
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useRoute, useLocation } from 'wouter';
 import { ChevronLeft, ChevronRight, Ticket, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BottomTimePanel } from '@/components/BottomTimePanel';
@@ -7,8 +20,8 @@ import { ChartsPanel, ChartsPanelTrigger } from '@/components/ChartsPanel';
 import { RestaurantSection } from '@/components/RestaurantSection';
 import { useTimeContext } from '@/lib/timeContext';
 import { useTicketContext } from '@/lib/ticketContext';
-import { RESTAURANTS, formatDateWithLabel, formatTime, type WaitingData, type MenuData } from '@shared/types';
-import { useLocation } from 'wouter';
+import { RESTAURANTS, formatTime, type WaitingData, type MenuData } from '@shared/types';
+import { addDays, formatDayKeyForDisplay, isValidDayKey, type DayKey } from '@/lib/dateUtils';
 
 function Banner() {
   const [imageError, setImageError] = useState(false);
@@ -44,8 +57,6 @@ function Banner() {
   );
 }
 
-const TODAY_DATE = '2026-01-15';
-
 const TIME_OPTIONS_5MIN = (() => {
   const options: string[] = [];
   for (let h = 11; h <= 14; h++) {
@@ -58,30 +69,54 @@ const TIME_OPTIONS_5MIN = (() => {
 })();
 
 export default function Home() {
+  const [, params] = useRoute('/d/:dayKey');
   const [, setLocation] = useLocation();
+  
   const { 
     timeState, 
     setAvailableTimestamps,
-    selectedDate,
     selectedTime5Min,
     setSelectedTime5Min,
-    isToday,
-    canGoPrev,
-    canGoNext,
-    goPrevDate,
-    goNextDate,
+    todayKey,
   } = useTimeContext();
   const { ticket } = useTicketContext();
   const [isChartsOpen, setIsChartsOpen] = useState(false);
   const [isTimeSelectorOpen, setIsTimeSelectorOpen] = useState(false);
 
+  // Validate dayKey from URL - redirect to today if missing or invalid
+  const rawDayKey = params?.dayKey || '';
+  const selectedDate: DayKey = isValidDayKey(rawDayKey) ? rawDayKey : todayKey;
+
+  // Redirect to today if dayKey is missing or invalid
+  useEffect(() => {
+    if (!rawDayKey || !isValidDayKey(rawDayKey)) {
+      setLocation(`/d/${todayKey}`, { replace: true });
+    }
+  }, [rawDayKey, todayKey, setLocation]);
+
+  const isToday = selectedDate === todayKey;
+
+  const goPrevDate = useCallback(() => {
+    const prevDate = addDays(selectedDate, -1);
+    setLocation(`/d/${prevDate}`);
+  }, [selectedDate, setLocation]);
+
+  const goNextDate = useCallback(() => {
+    const nextDate = addDays(selectedDate, 1);
+    setLocation(`/d/${nextDate}`);
+  }, [selectedDate, setLocation]);
+
   const { data: menuData } = useQuery<MenuData>({
     queryKey: ['/api/menu', selectedDate],
     queryFn: async () => {
       const res = await fetch(`/api/menu?date=${selectedDate}`);
-      if (!res.ok) throw new Error('Failed to fetch menu data');
+      if (!res.ok) {
+        if (res.status === 404) return null;
+        throw new Error('Failed to fetch menu data');
+      }
       return res.json();
     },
+    enabled: !!selectedDate,
   });
 
   const { data: timestampsData } = useQuery<{ timestamps: string[] }>({
@@ -91,6 +126,7 @@ export default function Home() {
       if (!res.ok) throw new Error('Failed to fetch timestamps');
       return res.json();
     },
+    enabled: !!selectedDate,
   });
 
   useEffect(() => {
@@ -130,17 +166,20 @@ export default function Home() {
         return res.json();
       }
     },
-    enabled: isToday ? !!currentTimestamp : true,
+    enabled: !!selectedDate && (isToday ? !!currentTimestamp : true),
     staleTime: 60000,
     placeholderData: (previousData) => previousData,
   });
 
-  const displayDate = formatDateWithLabel(selectedDate, TODAY_DATE);
+  const displayDate = formatDayKeyForDisplay(selectedDate, todayKey);
   const hasActiveTicket = ticket && (ticket.status === 'stored' || ticket.status === 'active');
 
   const loadedTimestamp = isToday && waitingData?.[0]?.timestamp 
     ? formatTime(new Date(waitingData[0].timestamp))
     : !isToday ? selectedTime5Min : null;
+
+  const hasMenuData = menuData !== null && menuData !== undefined;
+  const hasWaitingData = timestampsData?.timestamps?.length ?? 0 > 0;
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -150,7 +189,6 @@ export default function Home() {
             variant="ghost" 
             size="icon" 
             className="text-muted-foreground" 
-            disabled={!canGoPrev}
             onClick={goPrevDate}
             data-testid="button-prev-date"
           >
@@ -164,7 +202,6 @@ export default function Home() {
               variant="ghost" 
               size="icon" 
               className="text-muted-foreground"
-              disabled={!canGoNext}
               onClick={goNextDate}
               data-testid="button-next-date"
             >
@@ -193,7 +230,7 @@ export default function Home() {
               data-testid="button-time-selector-toggle"
             >
               <span className="text-muted-foreground">
-                {selectedDate === '2026-01-14' ? '시간 선택 (통계 데이터 제공)' : '시간 선택 (예측 데이터 제공)'}
+                {selectedDate < todayKey ? '시간 선택 (통계 데이터 제공)' : '시간 선택 (예측 데이터 제공)'}
               </span>
               <div className="flex items-center gap-2">
                 <span className="font-medium" data-testid="text-selected-time">{selectedTime5Min}</span>
@@ -204,7 +241,7 @@ export default function Home() {
             {isTimeSelectorOpen && (
               <div className="mt-2 p-3 bg-muted/30 rounded-lg">
                 <label className="block text-sm text-muted-foreground mb-2">
-                  {selectedDate === '2026-01-14' ? '시간 선택 (통계 데이터 제공)' : '시간 선택 (예측 데이터 제공)'}
+                  {selectedDate < todayKey ? '시간 선택 (통계 데이터 제공)' : '시간 선택 (예측 데이터 제공)'}
                 </label>
                 <select
                   value={selectedTime5Min}
@@ -232,13 +269,13 @@ export default function Home() {
           <Banner />
         </div>
 
-        {!timestampsData?.timestamps?.length ? (
+        {!hasMenuData && !hasWaitingData ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground text-sm">
-              데이터 파일을 /data/ 에 추가하세요
+              데이터가 없습니다
             </p>
             <p className="text-xs text-muted-foreground mt-2">
-              waiting_1min_KST_2026-01-15.csv
+              이 날짜의 메뉴 및 대기 데이터가 아직 제공되지 않습니다
             </p>
           </div>
         ) : isWaitingLoading && !waitingData ? (
@@ -267,6 +304,7 @@ export default function Home() {
                 restaurant={restaurant}
                 menus={menuData?.[restaurant.id] || {}}
                 waitingData={waitingData || []}
+                dayKey={selectedDate}
               />
             ))}
           </>

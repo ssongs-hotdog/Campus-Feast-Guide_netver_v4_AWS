@@ -1,8 +1,8 @@
-# HY-eat PoC
+# HY-eat - Hanyang University Cafeteria Congestion Monitor
 
 ## Overview
 
-HY-eat is a mobile-first web application designed for Hanyang University students to check real-time cafeteria wait times and congestion levels. The app displays menu information, estimated wait times based on AI camera data, and allows users to purchase digital meal tickets with QR codes. It features both real-time monitoring and a simulation mode for time-based data exploration.
+HY-eat is a mobile-first web application designed for Hanyang University students to check real-time cafeteria wait times and congestion levels. The app displays menu information, estimated wait times based on queue data, and supports historical data viewing.
 
 ## User Preferences
 
@@ -10,66 +10,119 @@ Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
+### Layered Architecture (Refactored)
+
+The codebase is organized into clearly separated layers:
+
+1. **Data Provider Layer** (`client/src/lib/data/dataProvider.ts`)
+   - Abstracts data fetching from the UI
+   - Easy to swap from JSON files to a real API later
+   - Functions: `getMenus()`, `getMenuDetail()`, `getWaitTimes()`, `getAvailableTimestamps()`
+
+2. **Domain Logic Layer** (`client/src/lib/domain/waitTime.ts`)
+   - Pure, testable business logic
+   - Wait time estimation based on queue length and service rates
+   - Congestion level calculation
+
+3. **Date Utility Layer** (`client/src/lib/dateUtils.ts`)
+   - Real date-based navigation (no hardcoded dates)
+   - Functions: `getTodayKey()`, `addDays()`, `parseDayKeyFromPath()`, `formatDayKeyForDisplay()`
+
+4. **UI Presentation Layer** (pages and components)
+   - No hardcoded menu strings or dates
+   - Receives data from the data provider layer
+   - URL-driven date navigation
+
 ### Frontend Architecture
 - **Framework**: React 18 with TypeScript, using Vite as the build tool
 - **Routing**: Wouter for lightweight client-side routing
-- **State Management**: React Context for global state (time mode, tickets), TanStack Query for server state
+  - `/d/YYYY-MM-DD` - Main view for a specific date
+  - `/d/YYYY-MM-DD/restaurant/:restaurantId/corner/:cornerId` - Menu detail
+  - `/ticket` - Ticket management
+  - `/` - Redirects to today's date
+- **State Management**: React Context for time state, TanStack Query for server state
 - **UI Components**: shadcn/ui component library with Radix UI primitives
-- **Styling**: Tailwind CSS with custom design tokens for Hanyang University branding
+- **Styling**: Tailwind CSS with custom design tokens
 
 ### Backend Architecture
 - **Runtime**: Node.js with Express
 - **API Design**: RESTful endpoints serving JSON data
-- **Data Source**: CSV file parsing for wait time data, JSON files for menu data
+- **Data Source**: Date-indexed JSON files and CSV data in `/data/`
 - **Build System**: esbuild for server bundling, Vite for client bundling
 
 ### Key Design Patterns
+- **URL-Driven Dates**: Date is in the URL (`/d/YYYY-MM-DD`), making navigation refresh-safe and shareable
 - **Mobile-First Design**: Optimized for smartphone viewports with card-based layouts
-- **Time Simulation**: Dual-mode system supporting real-time data and historical simulation with playback controls
-- **Context Providers**: TimeProvider manages display time state, TicketProvider handles digital ticket lifecycle
-- **5-Level Congestion System**: Color-coded congestion indicators (green to red) based on wait times
+- **Time Simulation**: Dual-mode system supporting real-time data and historical simulation
+- **5-Level Congestion System**: Color-coded indicators (green to red) based on wait times
 
 ### Data Flow
-1. CSV wait time data is parsed on the server via `/api/waiting` endpoint
-2. Menu data served from static JSON via `/api/menu` endpoint
-3. Frontend queries data based on current display time (real-time or simulated)
-4. Local storage persists ticket state across sessions
+1. User navigates to `/d/YYYY-MM-DD`
+2. Frontend calls data provider functions (which fetch from `/api/menu?date=` and `/api/waiting?date=`)
+3. Data is displayed; if no data exists for the date, "no data" UI is shown (layout preserved)
+4. Clicking a menu card navigates to detail with date in URL path
 
 ### Page Structure
-- **Home** (`/`): Restaurant sections with corner cards showing menus and congestion
-- **Corner Detail** (`/restaurant/:restaurantId/corner/:cornerId`): Detailed view with purchase option
+- **Home** (`/d/YYYY-MM-DD`): Restaurant sections with corner cards showing menus and congestion
+- **Corner Detail** (`/d/YYYY-MM-DD/restaurant/:restaurantId/corner/:cornerId`): Detailed view with purchase option (today only)
 - **Ticket** (`/ticket`): Digital ticket management with QR code generation
+
+## Data Files
+
+### Menu Data
+- Location: `data/menus_by_date.json`
+- Format: Keyed by date (YYYY-MM-DD), then by restaurant ID, then by corner ID
+- To add a new date: Add a new top-level key with the date string
+
+### Waiting Data
+- Location: `data/hy_eat_queue_3days_combined.csv`
+- Format: CSV with columns: timestamp, restaurantId, cornerId, queue_len, data_type
+- Timestamps in ISO 8601 format with timezone
+
+### How to Add New Date Data
+1. Add menu data: Edit `data/menus_by_date.json`, add a new date key
+2. Add waiting data: Append rows to CSV with the new date's timestamps
+
+### How to Switch to a Real API
+1. Edit `client/src/lib/data/dataProvider.ts`
+2. Change the fetch URLs to point to your real API endpoints
+3. Adjust response parsing if needed
+4. The rest of the app doesn't need to change!
 
 ## External Dependencies
 
 ### Database
 - PostgreSQL configured via Drizzle ORM (schema in `shared/schema.ts`)
-- Currently using in-memory storage for user data with database schema ready for migration
+- Currently using in-memory storage
 
 ### Third-Party Libraries
 - **QRCode**: Client-side QR code generation for meal tickets
-- **date-fns**: Date formatting and manipulation
 - **Zod**: Schema validation for API data
 
-### Data Sources
-- CSV file: `data/waiting_peak_popularity_realistic_v2.csv` containing timestamped wait time data
-- JSON file: `data/menu.json` containing restaurant and menu information
+## Recent Changes (2026-01-18)
 
-## Recent Changes (2026-01-15)
-- Renamed application from "H-Eat" to "HY-eat"
-- Fixed main/detail page congestion data mismatch by passing ISO timestamp as query parameter
-- Replaced shadcn Select with native HTML select in ChartsPanel for reliable overlay behavior
-- Centered the "통계" button horizontally in the bottom panel
-- Fixed CSV parsing to handle CRLF line endings correctly
-- Fixed time playback loop to stop cleanly at the last timestamp
-- Fixed ticket countdown lifecycle to maintain 30-minute timer correctly
-- Implemented complete flow: browse → detail → payment → ticket → QR activation
+### Architecture Refactoring
+- Implemented URL-based routing with date in path (`/d/YYYY-MM-DD`)
+- Created date utility module using real system date (no hardcoded TODAY_DATE)
+- Separated concerns into data provider, domain logic, and presentation layers
+- Added beginner-friendly comments to all major files
+- UI components now receive date from URL, making navigation refresh-safe and shareable
 
-### Build & Development
-- Replit-specific plugins for development (cartographer, dev-banner, runtime-error-overlay)
-- TypeScript with path aliases (`@/` for client, `@shared/` for shared code)
+### Files Added
+- `client/src/lib/dateUtils.ts` - Date utility functions
+- `client/src/lib/data/dataProvider.ts` - Data fetching abstraction
+- `client/src/lib/domain/waitTime.ts` - Wait time estimation logic
+- `shared/dataTypes.ts` - Shared type definitions
 
-## Netlify Deployment (2026-01-16)
+### Files Modified
+- `client/src/App.tsx` - Updated routing to /d/YYYY-MM-DD format
+- `client/src/pages/Home.tsx` - Reads date from URL, uses data provider
+- `client/src/pages/CornerDetail.tsx` - URL-driven date handling
+- `client/src/components/CornerCard.tsx` - Passes dayKey via URL
+- `client/src/components/RestaurantSection.tsx` - Passes dayKey to children
+- `client/src/lib/timeContext.tsx` - Simplified, date management moved to URL
+
+## Netlify Deployment
 
 ### Configuration Files
 - `netlify.toml`: Build configuration, functions directory, and redirects
@@ -87,8 +140,3 @@ Preferred communication style: Simple, everyday language.
 
 ### Data Files
 - CSV and JSON data files in `data/` are bundled with the serverless function via `included_files`
-
-### Key Differences from Replit
-- Server runs as serverless functions instead of persistent Express server
-- No WebSocket support (Netlify serverless limitation)
-- Each API request is stateless (no in-memory caching between requests)

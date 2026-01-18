@@ -1,25 +1,38 @@
+/**
+ * CornerCard.tsx - Menu Corner Card Component
+ * 
+ * Purpose: Displays a single menu corner card with congestion information.
+ * When clicked, navigates to the detail page with the correct date in the URL.
+ * 
+ * Props:
+ * - menu: The menu item data for this corner
+ * - waitingData: Optional waiting/congestion data for this corner
+ * - dayKey: The current date being viewed (passed from parent)
+ */
 import { useLocation } from 'wouter';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CongestionBar } from './CongestionBar';
 import { useTimeContext } from '@/lib/timeContext';
 import type { MenuItem, WaitingData } from '@shared/types';
+import type { DayKey } from '@/lib/dateUtils';
 
 interface CornerCardProps {
   menu: MenuItem;
   waitingData?: WaitingData;
+  dayKey: DayKey;
 }
 
-export function CornerCard({ menu, waitingData }: CornerCardProps) {
+export function CornerCard({ menu, waitingData, dayKey }: CornerCardProps) {
   const [, setLocation] = useLocation();
-  const { availableTimestamps, timeState, selectedDate, selectedTime5Min, isToday } = useTimeContext();
+  const { availableTimestamps, timeState, selectedTime5Min, todayKey } = useTimeContext();
   const estWait = waitingData?.est_wait_time_min ?? 0;
+  
+  const isToday = dayKey === todayKey;
 
   const handleClick = () => {
-    const baseUrl = `/restaurant/${menu.restaurantId}/corner/${menu.cornerId}`;
+    const baseUrl = `/d/${dayKey}/restaurant/${menu.restaurantId}/corner/${menu.cornerId}`;
     const params = new URLSearchParams();
-    
-    params.set('date', selectedDate);
     
     if (!isToday) {
       params.set('time5min', selectedTime5Min);
@@ -38,7 +51,8 @@ export function CornerCard({ menu, waitingData }: CornerCardProps) {
       params.set('t', closestTs);
     }
     
-    setLocation(`${baseUrl}?${params.toString()}`);
+    const queryString = params.toString();
+    setLocation(queryString ? `${baseUrl}?${queryString}` : baseUrl);
   };
 
   return (

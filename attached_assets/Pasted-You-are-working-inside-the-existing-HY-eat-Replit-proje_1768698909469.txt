@@ -1,0 +1,106 @@
+You are working inside the existing HY-eat Replit project.
+
+PRIMARY GOAL (non-negotiable):
+Keep the current UI/visual design EXACTLY the same. Do not change layout, styling, spacing, typography, or component structure unless absolutely required for wiring data. The UI must look identical after this refactor.
+
+WHAT I WANT TO ACHIEVE:
+Transform the current PoC codebase (which uses hardcoded menu names and a fixed “today” date) into a clean, maintainable “service-grade base” that is easy to debug, update, and extend.
+
+Specifically, restructure the internal code so that these concerns are clearly separated:
+1) Data ingestion layer: where menu data / queue counts / future real-time inputs come from.
+2) Domain logic layer: where computed values (e.g., estimated wait time based on bottlenecks) are calculated.
+3) Date-to-data mapping layer: where the app selects the correct dataset for the currently selected date.
+4) UI presentation layer: renders the existing UI using only data passed in; no hardcoded menu strings or hardcoded dates in UI components.
+
+CURRENT STAGE / CONSTRAINTS:
+- For now, use option B: date-based JSON dummy datasets (NOT a live API yet).
+- However, design it so switching to a real API later is easy (replace the data provider implementation only).
+- Dates must be based on the real current date/time (no fixed Jan 15 “today”).
+- Users must be able to navigate to previous/next days indefinitely (base capability).
+- Restaurant names / restaurant info / corner names are stable: keep these as the fixed “skeleton” so the UI stays identical.
+- If a selected date has no menu dataset, the UI must still render the same structure but show a clear “NO DATA / data not available yet” state in the menu area (no layout collapse).
+
+ROUTING REQUIREMENT (important for stability):
+- Use date in the URL to preserve state across refresh/share and avoid date-context bugs:
+  Route format must be: /d/YYYY-MM-DD
+  Detail routes must also include the date context (either as path or query), so detail always matches the date.
+
+COMMENTING REQUIREMENT:
+- Add beginner-friendly comments in each major file/module:
+  - At the top of the file: purpose of the file (2–4 lines).
+  - Above key functions: input, output, and “why this exists”.
+  - Keep comments concise and helpful, not noisy.
+
+IMPLEMENTATION PLAN (do this in order, with minimal UI changes):
+A) Introduce shared types / interfaces
+- Create a single source of truth for data shapes:
+  - MenuItem, MenuDetail, Restaurant, Corner, QueueSnapshot, WaitTimeResult, DayKey (YYYY-MM-DD)
+- Place in a shared location (e.g., shared/types.ts).
+
+B) Build a date utility module (real date-based navigation)
+- Create utilities to:
+  - getTodayKey() -> "YYYY-MM-DD"
+  - addDays(dayKey, delta) -> new "YYYY-MM-DD"
+  - parseDayKeyFromUrl()
+- Ensure it uses the user’s local time (Asia/Seoul) if the project already has a timezone notion; otherwise use browser local time.
+
+C) Create a “data provider” abstraction (dummy JSON first)
+- Create functions that UI pages will call:
+  - getMenus(dayKey): Promise<MenuItem[]>
+  - getMenuDetail(dayKey, menuId): Promise<MenuDetail | null>
+  - getQueueSnapshot(dayKey): Promise<QueueSnapshot | null> (can be stubbed)
+  - getWaitTimes(dayKey): Promise<WaitTimeResult | null> (can be stubbed or computed)
+- For now, implement these using date-based JSON files stored in the repo.
+- IMPORTANT: UI components must not import JSON directly; they must call these functions.
+
+D) Organize dummy datasets by date
+- Create a clear folder structure, for example:
+  /data/menus/2026-01-18.json
+  /data/menus/2026-01-19.json
+  (or a single map file, but date-addressable is preferred)
+- If a date file does not exist, the provider returns an empty list and a “no data” signal.
+
+E) Domain logic separation (compute layer)
+- Create a domain module for wait-time estimation (even if simple now):
+  - estimateWaitTime(inputs) -> WaitTimeResult
+- The domain module must be pure and testable (no UI imports).
+- It can be a stub initially but must be cleanly separated for later upgrades.
+
+F) Pages and routing
+- Implement routing so each day is its own URL:
+  - /d/YYYY-MM-DD
+- The “previous/next day” navigation updates the URL accordingly.
+- The page reads dayKey from the URL and loads data through the provider.
+- Detail navigation must preserve dayKey:
+  - /d/YYYY-MM-DD/menu/:menuId
+  (preferred) OR /menu/:menuId?date=YYYY-MM-DD
+- Fix any date-context bugs by making the detail page derive its dayKey from the URL only.
+
+G) UI wiring with strict “UI unchanged” policy
+- Keep the existing UI components and styling identical.
+- Replace hardcoded menu strings with data-driven rendering:
+  - The page passes menus to the list component.
+- Restaurant/corner skeleton remains fixed so layout stays identical.
+- If menus are missing for a date:
+  - Show “NO DATA” (or “Data not available yet”) in the menu list area
+  - Do not remove sections or change spacing; keep the same UI structure.
+
+DELIVERABLES:
+1) Refactored project structure with clear separation:
+   - shared/types
+   - utils/date
+   - data provider layer
+   - domain logic layer
+   - pages/router reading dayKey from URL
+2) UI must look identical to current version.
+3) Beginner-friendly comments added in each major file.
+4) A short summary at the end:
+   - Which files/folders were added/changed
+   - Where dummy datasets live and how to add a new date file
+   - How to later switch from dummy JSON to a real API (what file to replace)
+
+VALIDATION / MANUAL TESTS:
+- Open /d/<today> and confirm UI looks identical and shows today’s menus (if dataset exists).
+- Navigate to previous/next days multiple times; URL updates correctly.
+- If a date has no dataset, UI stays the same but shows NO DATA in menu area.
+- Open a detail URL directly (refresh) and confirm it loads the correct date’s menu detail (or NO DATA if missing).

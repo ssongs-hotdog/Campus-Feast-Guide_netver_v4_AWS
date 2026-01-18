@@ -1,8 +1,17 @@
+/**
+ * timeContext.tsx - Time State Management
+ * 
+ * Purpose: Manages time-related state for the HY-eat app including:
+ * - Current display time (realtime or simulated)
+ * - Available timestamps for data navigation
+ * - Time selection for historical data viewing
+ * 
+ * Note: Date navigation has been moved to URL-based routing.
+ * The selectedDate is now passed in from the URL, not managed here.
+ */
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import type { TimeMode, TimeState } from '@shared/types';
-
-const AVAILABLE_DATES = ['2026-01-14', '2026-01-15', '2026-01-16'];
-const TODAY_DATE = '2026-01-15';
+import { getTodayKey, type DayKey } from './dateUtils';
 
 interface TimeContextValue {
   timeState: TimeState;
@@ -13,15 +22,9 @@ interface TimeContextValue {
   goToRealtime: () => void;
   availableTimestamps: string[];
   setAvailableTimestamps: (ts: string[]) => void;
-  selectedDate: string;
-  setSelectedDate: (date: string) => void;
   selectedTime5Min: string;
   setSelectedTime5Min: (time: string) => void;
-  isToday: boolean;
-  canGoPrev: boolean;
-  canGoNext: boolean;
-  goPrevDate: () => void;
-  goNextDate: () => void;
+  todayKey: DayKey;
 }
 
 const TimeContext = createContext<TimeContextValue | null>(null);
@@ -39,36 +42,10 @@ export function TimeProvider({ children }: { children: React.ReactNode }) {
   });
 
   const [availableTimestamps, setAvailableTimestamps] = useState<string[]>([]);
-  const [selectedDate, setSelectedDateState] = useState<string>(TODAY_DATE);
   const [selectedTime5Min, setSelectedTime5Min] = useState<string>('11:00');
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  const isToday = selectedDate === TODAY_DATE;
-  const dateIndex = AVAILABLE_DATES.indexOf(selectedDate);
-  const canGoPrev = dateIndex > 0;
-  const canGoNext = dateIndex < AVAILABLE_DATES.length - 1;
-
-  const setSelectedDate = useCallback((date: string) => {
-    setSelectedDateState(date);
-    if (date !== TODAY_DATE) {
-      setTimeState(prev => ({ ...prev, isPlaying: false }));
-      setSelectedTime5Min('11:00');
-    }
-  }, []);
-
-  const goPrevDate = useCallback(() => {
-    const idx = AVAILABLE_DATES.indexOf(selectedDate);
-    if (idx > 0) {
-      setSelectedDate(AVAILABLE_DATES[idx - 1]);
-    }
-  }, [selectedDate, setSelectedDate]);
-
-  const goNextDate = useCallback(() => {
-    const idx = AVAILABLE_DATES.indexOf(selectedDate);
-    if (idx < AVAILABLE_DATES.length - 1) {
-      setSelectedDate(AVAILABLE_DATES[idx + 1]);
-    }
-  }, [selectedDate, setSelectedDate]);
+  
+  const todayKey = getTodayKey();
 
   const setMode = useCallback((mode: TimeMode) => {
     setTimeState((prev) => ({ ...prev, mode }));
@@ -97,7 +74,6 @@ export function TimeProvider({ children }: { children: React.ReactNode }) {
       isPlaying: false,
       isDemoSpeed: false,
     });
-    setSelectedDateState(TODAY_DATE);
   }, []);
 
   useEffect(() => {
@@ -162,15 +138,9 @@ export function TimeProvider({ children }: { children: React.ReactNode }) {
         goToRealtime,
         availableTimestamps,
         setAvailableTimestamps,
-        selectedDate,
-        setSelectedDate,
         selectedTime5Min,
         setSelectedTime5Min,
-        isToday,
-        canGoPrev,
-        canGoNext,
-        goPrevDate,
-        goNextDate,
+        todayKey,
       }}
     >
       {children}

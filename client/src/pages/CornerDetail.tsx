@@ -1,3 +1,16 @@
+/**
+ * CornerDetail.tsx - Menu Detail Page
+ * 
+ * Purpose: Displays detailed information about a specific menu corner,
+ * including waiting time, menu details, and payment option (for today only).
+ * 
+ * URL format: /d/YYYY-MM-DD/restaurant/:restaurantId/corner/:cornerId
+ * Query params:
+ * - t: ISO timestamp for today's data
+ * - time5min: HH:MM for historical/predicted data
+ * 
+ * The date is now derived from the URL path, making the page fully URL-driven.
+ */
 import { useRoute, useLocation, useSearch } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Users } from 'lucide-react';
@@ -6,6 +19,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CongestionBar } from '@/components/CongestionBar';
 import { useTicketContext } from '@/lib/ticketContext';
+import { useTimeContext } from '@/lib/timeContext';
 import { 
   RESTAURANTS, 
   formatPrice, 
@@ -16,15 +30,17 @@ import {
   type WaitingData, 
   type MenuData 
 } from '@shared/types';
-
-const TODAY_DATE = '2026-01-15';
+import { isValidDayKey, type DayKey } from '@/lib/dateUtils';
 
 export default function CornerDetail() {
-  const [, params] = useRoute('/restaurant/:restaurantId/corner/:cornerId');
+  const [matchNew, paramsNew] = useRoute('/d/:dayKey/restaurant/:restaurantId/corner/:cornerId');
+  const [matchOld, paramsOld] = useRoute('/restaurant/:restaurantId/corner/:cornerId');
   const [, setLocation] = useLocation();
   const searchString = useSearch();
   const { createTicket, ticket } = useTicketContext();
+  const { todayKey } = useTimeContext();
 
+  const params = matchNew ? paramsNew : paramsOld;
   const restaurantId = params?.restaurantId || '';
   const cornerId = params?.cornerId || '';
   
@@ -33,12 +49,12 @@ export default function CornerDetail() {
   const dateParam = searchParams.get('date') || '';
   const time5minParam = searchParams.get('time5min') || '';
   
-  const effectiveDate = dateParam || TODAY_DATE;
-  if (!dateParam) {
-    console.warn('CornerDetail: date param missing from URL, falling back to today');
-  }
+  // Derive date from URL path, query param, or fallback to today
+  const dayKeyFromPath: DayKey = (matchNew && paramsNew?.dayKey) ? paramsNew.dayKey : '';
+  const rawDate = dayKeyFromPath || dateParam || todayKey;
+  const effectiveDate: DayKey = isValidDayKey(rawDate) ? rawDate : todayKey;
   
-  const isToday = effectiveDate === TODAY_DATE;
+  const isToday = effectiveDate === todayKey;
 
   const restaurant = RESTAURANTS.find((r) => r.id === restaurantId);
 
@@ -46,7 +62,10 @@ export default function CornerDetail() {
     queryKey: ['/api/menu', effectiveDate],
     queryFn: async () => {
       const res = await fetch(`/api/menu?date=${effectiveDate}`);
-      if (!res.ok) throw new Error('Failed to fetch menu data');
+      if (!res.ok) {
+        if (res.status === 404) return null;
+        throw new Error('Failed to fetch menu data');
+      }
       return res.json();
     },
   });
@@ -108,12 +127,40 @@ export default function CornerDetail() {
     setLocation('/ticket');
   };
 
+  const handleBack = () => {
+    setLocation(`/d/${effectiveDate}`);
+  };
+
   const hasExistingTicket = ticket && (ticket.status === 'stored' || ticket.status === 'active');
 
   if (!menu || !restaurant) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">메뉴를 찾을 수 없습니다</p>
+      <div className="min-h-screen bg-background">
+        <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border px-4 py-3">
+          <div className="flex items-center gap-3 max-w-lg mx-auto">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={handleBack}
+              data-testid="button-back"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="text-base font-semibold text-foreground">메뉴 정보</h1>
+            </div>
+          </div>
+        </header>
+        <main className="max-w-lg mx-auto px-4 py-12">
+          <div className="text-center">
+            <p className="text-muted-foreground text-sm">
+              메뉴를 찾을 수 없습니다
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">
+              이 날짜의 메뉴 데이터가 아직 제공되지 않습니다
+            </p>
+          </div>
+        </main>
       </div>
     );
   }
@@ -125,7 +172,7 @@ export default function CornerDetail() {
           <Button 
             variant="ghost" 
             size="icon" 
-            onClick={() => setLocation('/')}
+            onClick={handleBack}
             data-testid="button-back"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -199,7 +246,7 @@ export default function CornerDetail() {
           </div>
         </Card>
 
-        {effectiveDate === '2026-01-15' && (
+        {isToday && (
           hasExistingTicket ? (
             <Button 
               variant="outline"
