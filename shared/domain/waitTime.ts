@@ -15,6 +15,11 @@
 /**
  * Service rates in people per minute for each corner type.
  * Higher values = faster service.
+ * 
+ * Note: These corner IDs must match those in the CSV data files.
+ * CSV uses: dam_a, pangeos, instant, korean, ramen, set_meal, single_dish, western
+ * The newer corner IDs (dam_a_lunch, pangeos_lunch, etc.) are aliases
+ * that may appear in future data.
  */
 const SERVICE_RATE_PEOPLE_PER_MIN: Record<string, number> = {
   western: 4.2,
@@ -27,8 +32,10 @@ const SERVICE_RATE_PEOPLE_PER_MIN: Record<string, number> = {
   single_dish: 2.8,
   rice_bowl: 2.5,
   dinner: 2.8,
+  dam_a: 2.9,
   dam_a_lunch: 2.9,
   dam_a_dinner: 2.9,
+  pangeos: 2.35,
   pangeos_lunch: 2.35,
 };
 
@@ -39,6 +46,7 @@ const SERVICE_RATE_PEOPLE_PER_MIN: Record<string, number> = {
 const OVERHEAD_MIN: Record<string, number> = {
   ramen: 1,
   instant: 1,
+  pangeos: 1,
   pangeos_lunch: 1,
 };
 
@@ -72,7 +80,8 @@ export function computeWaitMinutes(
   let wait = Math.ceil(queueLen / serviceRate + overhead);
 
   const isInstantPlaza = restaurantId === 'hanyang_plaza' && cornerId === 'instant';
-  const isPangeosLife = restaurantId === 'life_science' && cornerId === 'pangeos_lunch';
+  const isPangeosLife = restaurantId === 'life_science' && 
+    (cornerId === 'pangeos' || cornerId === 'pangeos_lunch');
 
   if (isInstantPlaza) {
     wait = Math.min(wait, 18);

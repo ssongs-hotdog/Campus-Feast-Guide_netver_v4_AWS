@@ -12,12 +12,17 @@
 
 import { 
   computeWaitMinutes as sharedComputeWaitMinutes,
+  estimateWaitMinutes as sharedEstimateWaitMinutes,
+  getServiceRate,
+  getOverhead,
   type WaitTimeInput,
 } from '@shared/domain/waitTime';
 
 import { getCongestionLevel, type CongestionLevel } from '@shared/types';
 
 export { sharedComputeWaitMinutes as computeWaitMinutes };
+export { sharedEstimateWaitMinutes as estimateWaitMinutes };
+export { getServiceRate, getOverhead };
 export { type WaitTimeInput };
 export { getCongestionLevel };
 

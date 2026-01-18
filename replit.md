@@ -19,10 +19,12 @@ The codebase is organized into clearly separated layers:
    - Easy to swap from JSON files to a real API later
    - Functions: `getMenus()`, `getMenuDetail()`, `getWaitTimes()`, `getAvailableTimestamps()`
 
-2. **Domain Logic Layer** (`client/src/lib/domain/waitTime.ts`)
+2. **Domain Logic Layer** (`shared/domain/waitTime.ts` + `client/src/lib/domain/`)
    - Pure, testable business logic
    - Wait time estimation based on queue length and service rates
    - Congestion level calculation
+   - `shared/domain/waitTime.ts` - Canonical wait-time calculation (used by both server and client)
+   - `client/src/lib/domain/schedule.ts` - Schedule configuration and active status logic
 
 3. **Date Utility Layer** (`client/src/lib/dateUtils.ts`)
    - Real date-based navigation (no hardcoded dates)
@@ -145,13 +147,15 @@ The codebase is organized into clearly separated layers:
 ### Files Added
 - `client/src/lib/dateUtils.ts` - Date utility functions
 - `client/src/lib/data/dataProvider.ts` - Data fetching abstraction
-- `client/src/lib/domain/waitTime.ts` - Wait time estimation logic
 - `client/src/lib/domain/schedule.ts` - Schedule configuration and active status logic
+- `shared/domain/waitTime.ts` - Canonical wait-time calculation (shared between server and client)
 - `shared/dataTypes.ts` - Shared type definitions
 - `shared/cornerDisplayNames.ts` - Single source of truth for corner display names (Korean)
 
 ### Files Modified
 - `shared/types.ts` - Updated RESTAURANTS with new corner IDs
+- `server/waitModel.ts` - Now re-exports from shared/domain/waitTime.ts
+- `client/src/lib/domain/waitTime.ts` - Now imports from shared/domain/waitTime.ts
 - `client/src/App.tsx` - Updated routing to /d/YYYY-MM-DD format
 - `client/src/pages/Home.tsx` - Reference time computation, 10-minute refresh
 - `client/src/pages/CornerDetail.tsx` - URL-driven date handling with placeholder support
