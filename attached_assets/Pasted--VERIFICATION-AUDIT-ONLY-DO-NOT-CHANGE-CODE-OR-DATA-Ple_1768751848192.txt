@@ -1,0 +1,50 @@
+🚫 VERIFICATION / AUDIT ONLY — DO NOT CHANGE CODE OR DATA
+Please do NOT modify any code, do NOT edit any files, and do NOT refactor.
+This request is ONLY to inspect the current implementation and report findings.
+
+Audit Goals
+1) Confirm whether the currently applied dummy datasets are being consumed correctly end-to-end:
+   - Menu dataset: data/menus_by_date.json (or the currently used menu JSON file)
+   - Waiting dataset: data/hy_eat_queue_3days_combined.csv (currently swapped with the new dummy CSV)
+2) Confirm that UI renders the values sourced from these datasets as intended (no silent drop / mismatch).
+3) Determine whether, when real production data arrives, we can keep exactly the SAME data formats and simply append/accumulate data over time.
+4) Identify any structural risks for long-term data management:
+   - ID matching (restaurantId/cornerId)
+   - timestamp/timezone handling
+   - date discovery logic (/api/dates)
+   - aggregation behavior (1-min data → 5-min aggregate)
+   - caching / reload behavior
+   - dataset growth (file size, performance)
+   - special cases (breakfast_1000 variants, ramen break time, rice_bowl requiresMenuDataForActive)
+5) Provide a clear “OK / Not OK” verdict and concrete recommendations (without implementing them).
+
+What to Inspect (read-only)
+A) Menus
+- Verify /api/menu?date=YYYY-MM-DD returns the expected shape:
+  dateKey → restaurantId → cornerId → MenuItem
+- Verify breakfast_1000 supports:
+  - variants length 1 or 2
+  - fallback behavior when variants missing/empty
+  - CornerCard shows “Main1, Main2”
+  - CornerDetail renders 1~2 blocks and per-variant “결제하기”
+- Verify priceWon usage path (Ticket flow) is stable with current menu JSON
+
+B) Waiting / Queue
+- Verify server loads CSV at startup and populates cachedDataByDate correctly
+- Verify /api/dates returns the dates present in CSV
+- Verify /api/waiting/timestamps, /api/waiting, /api/waiting/all return non-empty for dates that exist
+- Verify timezone parsing and time slot alignment (KST +09:00)
+- Verify computeWaitMinutes is applied consistently
+
+C) Long-term feasibility for real data
+- Can we keep the same schema and append new rows/dates?
+- Any constraints on ordering, deduplication, or timestamp uniqueness?
+- Any concerns about CSV/JSON file size growth and performance?
+- What minimal operational process is recommended (daily append, regenerate, rotate files, etc.)?
+
+Report Format Requested
+1) Dataset Consumption Check (Menus / Waiting): PASS/FAIL + evidence (file paths + endpoints + key types)
+2) Real Data Compatibility: Can we keep the same formats? YES/NO + rationale
+3) Data Management Risks: list top 5 risks and how to mitigate (no code changes)
+4) Recommended Operational Guidelines for real data ingestion (how to produce/validate data before dropping it in)
+5) Final verdict: “Service-base data layer is stable” vs “needs changes”
