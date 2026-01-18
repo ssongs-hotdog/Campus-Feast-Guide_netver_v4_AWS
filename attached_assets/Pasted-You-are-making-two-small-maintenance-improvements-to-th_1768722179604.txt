@@ -1,0 +1,47 @@
+You are making two small maintenance improvements to the existing HY-eat codebase.
+
+ABSOLUTE CONSTRAINT:
+- Do NOT change the UI/visual design/layout at all.
+- Do NOT change any user-facing copy or styling.
+- Only refactor constants and add server-side validation logs.
+
+Before changes:
+- Create a safe rollback point (new git commit / backup branch) so we can revert instantly if needed.
+- Keep changes minimal and isolated.
+
+IMPROVEMENT 1) Consolidate CORNER_DISPLAY_NAMES (remove duplication)
+Goal:
+- CORNER_DISPLAY_NAMES is currently duplicated in:
+  - client/src/components/RestaurantSection.tsx
+  - client/src/pages/CornerDetail.tsx
+- Move it to ONE shared location and import it from both places.
+
+Requirements:
+1) Create a single shared mapping file, e.g.:
+   - shared/cornerDisplayNames.ts  (or shared/constants/corners.ts)
+2) Export a typed object map: Record<CornerId, string> (or equivalent).
+3) Update RestaurantSection.tsx and CornerDetail.tsx to import the mapping instead of defining it locally.
+4) Ensure the displayed Korean names remain EXACTLY the same as before (no changes to the UI output).
+
+IMPROVEMENT 2) Add server-side validation warnings for unknown cornerIds in menus_by_date.json
+Goal:
+- When loading data/menus_by_date.json, warn if any restaurantId or cornerId keys do not match the canonical lists:
+  - Canonical restaurant/corner lists come from shared/types.ts RESTAURANTS[].cornerOrder.
+- This should NOT break the app. It is warnings only.
+
+Requirements:
+1) In server/routes.ts (where loadMenusByDate() reads menus_by_date.json), add a validation step:
+   - Build a set of valid restaurantIds from RESTAURANTS
+   - For each dateKey in the JSON:
+     - For each restaurantId in that date:
+       - If unknown restaurantId: console.warn with dateKey and restaurantId
+       - Else for each cornerId under that restaurantId:
+         - If cornerId not in RESTAURANTS[restaurantId].cornerOrder: console.warn with dateKey, restaurantId, cornerId
+2) Do NOT throw errors. Only log warnings.
+3) Keep runtime cost low (validate once when loading/caching).
+4) Do not change the existing API response shape.
+
+Deliverable:
+- List exactly which files you changed/added.
+- Confirm no UI output changed (names remain identical).
+- Show example warning logs for an unknown cornerId and unknown restaurantId.

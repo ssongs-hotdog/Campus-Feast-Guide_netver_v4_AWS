@@ -36,27 +36,7 @@ import {
   type MenuData 
 } from '@shared/types';
 import { isValidDayKey, type DayKey } from '@/lib/dateUtils';
-
-// Corner display names for placeholder when menu data is missing
-// These match the schedule-based corner names from the spec
-const CORNER_DISPLAY_NAMES: Record<string, string> = {
-  // 한양플라자 corners
-  breakfast_1000: '천원의 아침밥',
-  western: '양식',
-  korean: '한식',
-  instant: '즉석',
-  cupbap: '오늘의 컵밥',
-  ramen: '라면',
-  // 신소재공학관 corners
-  set_meal: '정식',
-  single_dish: '일품',
-  rice_bowl: '덮밥',
-  dinner: '석식',
-  // 생활과학관 corners
-  dam_a_lunch: '중식 Dam-A',
-  pangeos_lunch: '중식 Pangeos',
-  dam_a_dinner: '석식 Dam-A',
-};
+import { CORNER_DISPLAY_NAMES } from '@shared/cornerDisplayNames';
 
 export default function CornerDetail() {
   const [matchNew, paramsNew] = useRoute('/d/:dayKey/restaurant/:restaurantId/corner/:cornerId');
