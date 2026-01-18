@@ -178,6 +178,40 @@ export default function Home() {
     ? formatTime(new Date(waitingData[0].timestamp))
     : !isToday ? selectedTime5Min : null;
 
+  // Reference time for schedule-based active/inactive status
+  // For today: use current real time (Korea timezone)
+  // For other dates: use dropdown time or default to 12:00
+  const [scheduleRefreshKey, setScheduleRefreshKey] = useState(0);
+  
+  // Format current time as HH:MM for schedule comparison
+  const getCurrentTimeHHMM = useCallback(() => {
+    const now = new Date();
+    return `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+  }, []);
+
+  const referenceTime = useMemo(() => {
+    if (isToday) {
+      // For today, use current real time
+      // scheduleRefreshKey triggers re-computation every 10 minutes
+      void scheduleRefreshKey; // Dependency marker
+      return getCurrentTimeHHMM();
+    } else {
+      // For other dates, use dropdown time (or 12:00 default which is already the default value)
+      return selectedTime5Min;
+    }
+  }, [isToday, selectedTime5Min, scheduleRefreshKey, getCurrentTimeHHMM]);
+
+  // Refresh schedule every 10 minutes for today
+  useEffect(() => {
+    if (!isToday) return;
+    
+    const interval = setInterval(() => {
+      setScheduleRefreshKey(prev => prev + 1);
+    }, 10 * 60 * 1000); // 10 minutes
+
+    return () => clearInterval(interval);
+  }, [isToday]);
+
   return (
     <div className="min-h-screen bg-background pb-24">
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border px-4 py-3">
@@ -293,6 +327,7 @@ export default function Home() {
                 menus={menuData?.[restaurant.id] || {}}
                 waitingData={waitingData || []}
                 dayKey={selectedDate}
+                referenceTime={referenceTime}
               />
             ))}
           </>

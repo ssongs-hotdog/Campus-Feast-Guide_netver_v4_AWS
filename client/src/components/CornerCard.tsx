@@ -11,10 +11,15 @@
  * - restaurantId: The restaurant ID (needed when menu is missing)
  * - cornerId: The corner ID (needed when menu is missing)
  * - cornerDisplayName: Display name for the corner (needed when menu is missing)
+ * - isActive: Whether the corner is currently operating (green dot = active, gray = inactive)
  * 
  * Placeholder behavior:
  * - When menu is missing, shows "데이터 없음" for menu name
  * - When waiting data is missing, shows "-" for wait time and "미제공" for congestion
+ * 
+ * Status indicator:
+ * - Green dot: Corner is currently active/operating
+ * - Gray dot: Corner is inactive (outside operating hours or break time)
  */
 import { useLocation } from 'wouter';
 import { Card } from '@/components/ui/card';
@@ -31,6 +36,7 @@ interface CornerCardProps {
   restaurantId: string;
   cornerId: string;
   cornerDisplayName: string;
+  isActive?: boolean;  // Whether corner is currently operating
 }
 
 export function CornerCard({ 
@@ -39,7 +45,8 @@ export function CornerCard({
   dayKey, 
   restaurantId,
   cornerId,
-  cornerDisplayName 
+  cornerDisplayName,
+  isActive = false,
 }: CornerCardProps) {
   const [, setLocation] = useLocation();
   const { availableTimestamps, timeState, selectedTime5Min, todayKey } = useTimeContext();
@@ -86,9 +93,14 @@ export function CornerCard({
         <div className="flex-1 min-w-0">
           <Badge 
             variant="secondary" 
-            className="mb-2 text-xs font-medium px-2 py-0.5"
+            className="mb-2 text-xs font-medium px-2 py-0.5 flex items-center gap-1.5 w-fit"
             data-testid={`badge-corner-${cornerId}`}
           >
+            <span 
+              className={`w-2 h-2 rounded-full flex-shrink-0 ${isActive ? 'bg-green-500' : 'bg-gray-400'}`}
+              data-testid={`status-${cornerId}`}
+              aria-label={isActive ? '운영 중' : '운영 종료'}
+            />
             {menu?.cornerDisplayName || cornerDisplayName}
           </Badge>
           <h3 
