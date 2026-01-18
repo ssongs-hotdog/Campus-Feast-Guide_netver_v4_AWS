@@ -108,6 +108,19 @@ The codebase is organized into clearly separated layers:
 - Added beginner-friendly comments to all major files
 - UI components now receive date from URL, making navigation refresh-safe and shareable
 
+### Placeholder UI for Missing Data
+- UI always renders the same structure regardless of data availability
+- Each restaurant section always shows one card per corner
+- When menu data is missing:
+  - Menu name shows: "데이터 없음"
+  - Price shows: "-"
+- When waiting data is missing:
+  - Wait time shows: "-"
+  - Congestion bar shows gray bars
+  - Congestion label shows: "미제공"
+- Detail pages are always accessible (even without data)
+- Payment button only appears when menu data exists
+
 ### Files Added
 - `client/src/lib/dateUtils.ts` - Date utility functions
 - `client/src/lib/data/dataProvider.ts` - Data fetching abstraction
@@ -116,10 +129,11 @@ The codebase is organized into clearly separated layers:
 
 ### Files Modified
 - `client/src/App.tsx` - Updated routing to /d/YYYY-MM-DD format
-- `client/src/pages/Home.tsx` - Reads date from URL, uses data provider
-- `client/src/pages/CornerDetail.tsx` - URL-driven date handling
-- `client/src/components/CornerCard.tsx` - Passes dayKey via URL
-- `client/src/components/RestaurantSection.tsx` - Passes dayKey to children
+- `client/src/pages/Home.tsx` - Reads date from URL, always renders restaurant sections
+- `client/src/pages/CornerDetail.tsx` - URL-driven date handling with placeholder support
+- `client/src/components/CornerCard.tsx` - Supports optional menu data with placeholders
+- `client/src/components/RestaurantSection.tsx` - Always renders one card per corner
+- `client/src/components/CongestionBar.tsx` - Added noData prop for "미제공" state
 - `client/src/lib/timeContext.tsx` - Simplified, date management moved to URL
 
 ## Netlify Deployment
