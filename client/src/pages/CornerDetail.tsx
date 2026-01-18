@@ -32,8 +32,13 @@ import {
   getCongestionLevel,
   CONGESTION_LABELS,
   CONGESTION_COLORS,
+  getMenuVariants,
+  isBreakfastCorner,
+  hasRealVariants,
   type WaitingData, 
-  type MenuData 
+  type MenuData,
+  type MenuVariant,
+  type MenuItem,
 } from '@shared/types';
 import { isValidDayKey, type DayKey } from '@/lib/dateUtils';
 import { CORNER_DISPLAY_NAMES } from '@shared/cornerDisplayNames';
@@ -131,6 +136,12 @@ export default function CornerDetail() {
     ? formatTime(new Date(waitingData[0].timestamp))
     : !isToday ? (time5minParam || '11:00') : null;
 
+  const handlePaymentForVariant = (variantMenuName: string) => {
+    if (!menu) return;
+    createTicket(restaurantId, cornerId, variantMenuName, menu.priceWon);
+    setLocation('/ticket');
+  };
+
   const handlePayment = () => {
     if (!menu) return;
     createTicket(restaurantId, cornerId, menu.mainMenuName, menu.priceWon);
@@ -149,6 +160,11 @@ export default function CornerDetail() {
   const menuName = hasMenuData ? menu.mainMenuName : '데이터 없음';
   const price = hasMenuData ? menu.priceWon : null;
   const menuItems = hasMenuData ? menu.items : [];
+
+  // Get variants for breakfast_1000 corner (only use when real variants exist in data)
+  const isBreakfast = isBreakfastCorner(cornerId);
+  const hasVariants = isBreakfast && hasMenuData && hasRealVariants(menu);
+  const variants = hasVariants ? getMenuVariants(menu) : [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -215,54 +231,116 @@ export default function CornerDetail() {
           )}
         </Card>
 
-        <Card className="p-4 mb-6" data-testid="card-menu-info">
-          <div className="flex gap-4">
-            <div className="w-24 h-24 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
-              <span className="text-muted-foreground text-sm">사진</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <h2 className={`text-lg font-bold mb-1 ${hasMenuData ? 'text-foreground' : 'text-muted-foreground'}`} data-testid="text-menu-name">
-                {menuName}
-              </h2>
-              <p className={`text-xl font-semibold mb-2 ${hasMenuData ? 'text-primary' : 'text-muted-foreground'}`} data-testid="text-price">
-                {price !== null ? formatPrice(price) : '-'}
-              </p>
-              {menuItems.length > 0 && (
-                <div className="mt-2">
-                  <p className="text-xs text-muted-foreground mb-1">구성</p>
-                  <ul className="text-sm text-foreground space-y-0.5">
-                    {menuItems.map((item, idx) => (
-                      <li key={idx} className="flex items-start gap-1">
-                        <span className="text-muted-foreground">•</span>
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
+        {hasVariants ? (
+          <div className="space-y-4 mb-6">
+            {variants.map((variant, variantIdx) => (
+              <Card key={variantIdx} className="p-4" data-testid={`card-menu-info-variant-${variantIdx}`}>
+                <div className="flex gap-4">
+                  <div className="w-24 h-24 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
+                    <span className="text-muted-foreground text-sm">사진</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-lg font-bold mb-1 text-foreground" data-testid={`text-menu-name-variant-${variantIdx}`}>
+                      {variant.mainMenuName}
+                    </h2>
+                    <p className="text-xl font-semibold mb-2 text-primary" data-testid={`text-price-variant-${variantIdx}`}>
+                      {price !== null ? formatPrice(price) : '-'}
+                    </p>
+                    {variant.items.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-xs text-muted-foreground mb-1">구성</p>
+                        <ul className="text-sm text-foreground space-y-0.5">
+                          {variant.items.map((item, idx) => (
+                            <li key={idx} className="flex items-start gap-1">
+                              <span className="text-muted-foreground">•</span>
+                              <span>{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
+                <div className="flex justify-between items-center mt-4 pt-3 border-t border-border">
+                  <span className="text-sm text-muted-foreground" data-testid={`text-remaining-meals-${variantIdx}`}>
+                    잔여 식수: --명
+                  </span>
+                  {isToday && (
+                    hasExistingTicket ? (
+                      <Button 
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setLocation('/ticket')}
+                        data-testid={`button-view-ticket-variant-${variantIdx}`}
+                      >
+                        주문권 확인
+                      </Button>
+                    ) : (
+                      <Button 
+                        size="sm"
+                        onClick={() => handlePaymentForVariant(variant.mainMenuName)}
+                        data-testid={`button-payment-variant-${variantIdx}`}
+                      >
+                        결제하기
+                      </Button>
+                    )
+                  )}
+                </div>
+              </Card>
+            ))}
           </div>
-        </Card>
+        ) : (
+          <>
+            <Card className="p-4 mb-6" data-testid="card-menu-info">
+              <div className="flex gap-4">
+                <div className="w-24 h-24 bg-muted rounded-lg flex items-center justify-center flex-shrink-0">
+                  <span className="text-muted-foreground text-sm">사진</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className={`text-lg font-bold mb-1 ${hasMenuData ? 'text-foreground' : 'text-muted-foreground'}`} data-testid="text-menu-name">
+                    {menuName}
+                  </h2>
+                  <p className={`text-xl font-semibold mb-2 ${hasMenuData ? 'text-primary' : 'text-muted-foreground'}`} data-testid="text-price">
+                    {price !== null ? formatPrice(price) : '-'}
+                  </p>
+                  {menuItems.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs text-muted-foreground mb-1">구성</p>
+                      <ul className="text-sm text-foreground space-y-0.5">
+                        {menuItems.map((item, idx) => (
+                          <li key={idx} className="flex items-start gap-1">
+                            <span className="text-muted-foreground">•</span>
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Card>
 
-        {isToday && hasMenuData && (
-          hasExistingTicket ? (
-            <Button 
-              variant="outline"
-              className="w-full h-12 text-base"
-              onClick={() => setLocation('/ticket')}
-              data-testid="button-view-ticket"
-            >
-              주문권 확인하기
-            </Button>
-          ) : (
-            <Button 
-              className="w-full h-12 text-base"
-              onClick={handlePayment}
-              data-testid="button-payment"
-            >
-              결제하기 (시뮬)
-            </Button>
-          )
+            {isToday && hasMenuData && (
+              hasExistingTicket ? (
+                <Button 
+                  variant="outline"
+                  className="w-full h-12 text-base"
+                  onClick={() => setLocation('/ticket')}
+                  data-testid="button-view-ticket"
+                >
+                  주문권 확인하기
+                </Button>
+              ) : (
+                <Button 
+                  className="w-full h-12 text-base"
+                  onClick={handlePayment}
+                  data-testid="button-payment"
+                >
+                  결제하기 (시뮬)
+                </Button>
+              )
+            )}
+          </>
         )}
       </main>
     </div>

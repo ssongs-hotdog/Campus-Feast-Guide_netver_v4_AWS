@@ -1,0 +1,100 @@
+🚨 IMPLEMENTATION REQUEST — LIMITED SCOPE ONLY (DO NOT TOUCH ANYTHING ELSE)
+This update is a STRICT special-case for ONE corner only:
+hanyang_plaza / breakfast_1000 (천원의 아침밥).
+Do NOT change any global UI styling, layouts, typography, spacing, colors, routing, component structure, or behavior for any other corner.
+Keep the existing UI visuals identical except for the additions described below.
+
+ROLLBACK SAFETY REQUIREMENT
+- If you encounter unexpected type errors, runtime errors, or any behavior changes outside breakfast_1000,
+  STOP and revert/rollback to the previous working state before reporting back.
+- Keep changes minimal, localized, and easily reversible.
+
+────────────────────────────────────────────────────────────
+CONTEXT
+- Currently each corner’s menu data uses a single mainMenuName and a single items[] list.
+- For breakfast_1000 only, we need to support TWO separate “main menus”, derived from:
+  - Variant #1: first menu name from “[백반식] …”
+  - Variant #2: first menu name from “[간편식] …”
+- The server returns menu JSON as pass-through via /api/menu (no transformation).
+- The client renders CornerCard (home list) and CornerDetail (detail page).
+- We also want to reserve a UI placeholder for a future real-time dataset:
+  “remaining meal tickets” (잔여 식수) for breakfast_1000 only.
+
+GOALS
+A) Data Model Upgrade (breakfast_1000 only, backward compatible)
+1) breakfast_1000 may have:
+   - 2 variants (main #1 and main #2) each with its own items list, OR
+   - 1 variant (only main #1) with its items list
+2) All non-breakfast corners remain unchanged (single mainMenuName + items[]).
+
+IMPLEMENTATION APPROACH (preferred)
+- Extend MenuItem with an OPTIONAL field used only for breakfast_1000:
+  variants?: Array<{ mainMenuName: string; items: string[] }>
+- For normal corners: variants is undefined (do NOT add variants: []).
+- For breakfast_1000: variants length is 1 or 2 ONLY (never empty).
+- Precedence rule (IMPORTANT):
+  - If breakfast_1000 has variants with length >= 1, UI must render from variants.
+  - Otherwise (no variants), fall back to legacy mainMenuName/items.
+- Keep legacy fields (mainMenuName/items) intact for backward compatibility and fallback rendering.
+
+Type-safety / edge-case handling requirements
+- Add explicit guards so variants: [] does NOT break rendering:
+  - Treat empty variants as “no variants” and fall back cleanly.
+- Ensure no “dual schema confusion”:
+  - Only breakfast_1000 is allowed to use variants; all other corners ignore/omit it.
+
+B) Home Screen (CornerCard) Rendering Rule
+- For breakfast_1000 only:
+  - If there are TWO variants: display “Main1, Main2” (comma-separated) in the EXACT same UI location where mainMenuName is currently shown.
+  - If there is ONE variant: display only “Main1” cleanly (no comma, no placeholders).
+  - If there are NO variants: display legacy mainMenuName as before.
+- For all other corners: NO CHANGES.
+
+C) Detail Screen (CornerDetail) Rendering Rule — IMPORTANT
+Current detail UI shows ONE “menu block” containing:
+- photo placeholder (left)
+- main menu name + composition items (right)
+- and currently a single “결제하기” action flow
+
+For breakfast_1000 ONLY, change the detail page so that:
+1) If there are TWO variants: render TWO independent menu blocks stacked vertically.
+   - Block #1 corresponds to variant #1 (Main1 + its items list)
+   - Block #2 corresponds to variant #2 (Main2 + its items list)
+2) If there is ONE variant: render ONE menu block (same structure).
+3) Add a new text label inside EACH breakfast_1000 menu block at the BOTTOM-RIGHT:
+   - “잔여 식수: --명”
+   Notes:
+   - This is a placeholder for future real-time data.
+   - Do NOT implement data fetching now.
+   - Keep “--” literally as the placeholder value.
+4) Payment / ticket creation behavior (RESOLVES the “which variant?” risk):
+   - Each breakfast_1000 variant block must have its OWN “결제하기” button/action.
+   - Clicking “결제하기” on Block #1 must create a ticket using variant #1’s mainMenuName (and the shared priceWon=1000).
+   - Clicking “결제하기” on Block #2 must create a ticket using variant #2’s mainMenuName (and the shared priceWon=1000).
+   - If only one variant exists, only one “결제하기” is shown (same as before).
+5) The menu blocks must reuse the existing block style/layout (NO redesign). Simply duplicate the existing block markup for breakfast variants and keep the visual style consistent.
+
+D) Constraints & Quality Bar
+- Minimal changes only; do not refactor unrelated code.
+- Keep TypeScript types correct and consistent across shared/types and client.
+- Ensure the app works when breakfast_1000 has:
+  - 2 variants
+  - 1 variant
+  - no variants (legacy fallback)
+- Ensure other corners render EXACTLY as before (no layout/behavior change).
+- Maintain graceful behavior when there is no menu data (“데이터 없음”) for any date/corner.
+
+DELIVERABLES (after implementation)
+1) List the exact files changed.
+2) Summarize the final type shape for MenuItem/MenuVariant and how breakfast_1000 uses it.
+3) Confirm with a checklist:
+   - CornerCard shows “Main1, Main2” for breakfast_1000 when 2 variants exist
+   - CornerCard shows only “Main1” when only 1 variant exists
+   - CornerCard fallback works when variants missing/empty
+   - CornerDetail shows 2 stacked menu blocks for breakfast_1000 when 2 variants exist
+   - CornerDetail shows 1 menu block for breakfast_1000 when 1 variant exists
+   - Each breakfast block shows “잔여 식수: --명” at bottom-right
+   - Each breakfast block has its own “결제하기” and generates a ticket with that variant’s name
+   - Other corners unchanged (no “잔여 식수”, no extra blocks, no extra payment buttons)
+   - No TypeScript errors, no runtime errors
+────────────────────────────────────────────────────────────

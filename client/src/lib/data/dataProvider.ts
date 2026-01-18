@@ -19,6 +19,14 @@
 import type { DayKey } from '../dateUtils';
 
 /**
+ * Menu variant for corners with multiple main dishes (e.g., breakfast_1000).
+ */
+export interface MenuVariantData {
+  mainMenuName: string;
+  items: string[];
+}
+
+/**
  * Menu item from the API/data source.
  * Matches the structure in menus_by_date.json
  */
@@ -29,6 +37,7 @@ export interface MenuItemData {
   mainMenuName: string;
   priceWon: number;
   items: string[];
+  variants?: MenuVariantData[];
 }
 
 /**

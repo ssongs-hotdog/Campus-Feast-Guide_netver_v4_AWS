@@ -27,6 +27,7 @@ import { Badge } from '@/components/ui/badge';
 import { CongestionBar } from './CongestionBar';
 import { useTimeContext } from '@/lib/timeContext';
 import type { MenuItem, WaitingData } from '@shared/types';
+import { getMenuVariants, isBreakfastCorner, hasRealVariants } from '@shared/types';
 import type { DayKey } from '@/lib/dateUtils';
 
 interface CornerCardProps {
@@ -57,6 +58,21 @@ export function CornerCard({
   const estWait = waitingData?.est_wait_time_min;
   
   const isToday = dayKey === todayKey;
+
+  // Get display name for menu - handle breakfast variants
+  const getMenuDisplayName = (): string => {
+    if (!hasMenuData) return '데이터 없음';
+    if (isBreakfastCorner(cornerId) && hasRealVariants(menu)) {
+      const variants = getMenuVariants(menu);
+      if (variants.length >= 2) {
+        return `${variants[0].mainMenuName}, ${variants[1].mainMenuName}`;
+      } else if (variants.length === 1) {
+        return variants[0].mainMenuName;
+      }
+    }
+    return menu!.mainMenuName;
+  };
+  const menuDisplayName = getMenuDisplayName();
 
   const handleClick = () => {
     const baseUrl = `/d/${dayKey}/restaurant/${restaurantId}/corner/${cornerId}`;
@@ -107,7 +123,7 @@ export function CornerCard({
             className={`text-lg font-semibold truncate ${hasMenuData ? 'text-foreground' : 'text-muted-foreground'}`}
             data-testid={`text-menu-${cornerId}`}
           >
-            {hasMenuData ? menu.mainMenuName : '데이터 없음'}
+            {menuDisplayName}
           </h3>
         </div>
         <div className="w-24 flex-shrink-0">

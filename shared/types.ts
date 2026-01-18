@@ -6,6 +6,11 @@ export interface WaitingData {
   est_wait_time_min: number;
 }
 
+export interface MenuVariant {
+  mainMenuName: string;
+  items: string[];
+}
+
 export interface MenuItem {
   restaurantId: string;
   cornerId: string;
@@ -13,6 +18,23 @@ export interface MenuItem {
   mainMenuName: string;
   priceWon: number;
   items: string[];
+  variants?: MenuVariant[];
+}
+
+export function getMenuVariants(menu: MenuItem | null | undefined): MenuVariant[] {
+  if (!menu) return [];
+  if (menu.variants && menu.variants.length > 0) {
+    return menu.variants;
+  }
+  return [];
+}
+
+export function hasRealVariants(menu: MenuItem | null | undefined): boolean {
+  return !!(menu?.variants && menu.variants.length > 0);
+}
+
+export function isBreakfastCorner(cornerId: string): boolean {
+  return cornerId === 'breakfast_1000';
 }
 
 export interface MenuData {

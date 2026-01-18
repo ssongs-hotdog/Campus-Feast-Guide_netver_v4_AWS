@@ -34,6 +34,14 @@ export interface Corner {
 }
 
 /**
+ * Menu variant for corners that offer multiple main dishes (e.g., breakfast_1000).
+ */
+export interface MenuVariant {
+  mainMenuName: string;
+  items: string[];
+}
+
+/**
  * Menu item served at a specific corner.
  * This is the main menu for a day at a particular corner.
  */
@@ -44,6 +52,7 @@ export interface MenuItem {
   mainMenuName: string;
   priceWon: number;
   items: string[];  // Side dishes or additional items
+  variants?: MenuVariant[];  // Optional: for corners with multiple main menus (breakfast_1000)
 }
 
 /**
