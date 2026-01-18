@@ -1,0 +1,59 @@
+🚨 TEST-ONLY APPLY (WAITING/QUEUE CSV) — SAFE, MINIMAL, ROLLBACKABLE
+Do NOT refactor any code. Do NOT change UI. Do NOT change APIs or domain logic.
+This is ONLY to apply a provided dummy waiting/queue CSV dataset for testing and then report results.
+If anything unexpected happens (server crash, runtime error, UI break, API errors), STOP and rollback immediately.
+
+Input File (provided by user)
+- hy_eat_queue_2026-01-12_to_2026-01-17_1min.csv
+
+Target (current server expects this exact path/name)
+- data/hy_eat_queue_3days_combined.csv
+
+Steps (safe procedure)
+1) Backup any existing CSV (if present):
+   - If data/hy_eat_queue_3days_combined.csv exists:
+     copy it to data/hy_eat_queue_3days_combined.csv.bak
+
+2) Apply the new dataset:
+   - Copy/overwrite:
+     hy_eat_queue_2026-01-12_to_2026-01-17_1min.csv
+     → data/hy_eat_queue_3days_combined.csv
+
+3) Server restart requirement (CSV is loaded at startup)
+   - Restart the server/app so loadAllWaitingData() reloads the CSV.
+   - Confirm logs show CSV loaded successfully (not “CSV file not found”).
+
+4) API sanity checks (must reflect new dates)
+   - Call /api/dates
+     Expected: dates includes 2026-01-12 through 2026-01-17 (sorted)
+   - Call /api/waiting/timestamps?date=2026-01-12
+     Expected: timestamps populated (many entries)
+   - Call /api/waiting/all?date=2026-01-12
+     Expected: non-empty array with fields including timestamp, restaurantId, cornerId, queue_len, est_wait_time_min
+   - (Optional) Call /api/waiting?date=2026-01-12&time=12:00&aggregate=5min
+     Expected: returns aggregated data; values look reasonable around lunch peak.
+
+5) UI verification (no redesign)
+Home page:
+- Navigate to /d/2026-01-12 and select a time (e.g., 12:00).
+  Expected:
+  - Active/Inactive dots reflect operating hours (ramen break window, etc.)
+  - Cards show estimated wait times (numbers) instead of “-” where data exists
+  - Congestion bars show variation (not all identical)
+ChartsPanel:
+- Should display lines/trends for queue_len and est_wait_time_min for the selected restaurant/corner.
+- Confirm no console errors.
+
+6) Report back (no extra changes)
+- Confirm only the CSV file was swapped (plus backup).
+- Provide pass/fail for:
+  - /api/dates includes 2026-01-12~2026-01-17
+  - timestamps populated for at least one date
+  - /api/waiting/all returns non-empty
+  - UI shows non-empty wait times when a valid time is selected
+- If any check fails: rollback by restoring the backup CSV and report the error.
+
+Rollback instructions
+- Restore:
+  data/hy_eat_queue_3days_combined.csv.bak → data/hy_eat_queue_3days_combined.csv
+- Restart server again.
