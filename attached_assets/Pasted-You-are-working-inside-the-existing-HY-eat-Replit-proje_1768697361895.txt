@@ -1,0 +1,56 @@
+You are working inside the existing HY-eat Replit project.
+
+GOAL (must not change UI/visual design):
+Fix a bug where on Yesterday/Today/Tomorrow pages, clicking a menu card opens a detail view that always shows TODAY’s menu data. The detail view must show the menu item that matches the date the user was browsing.
+
+NON-NEGOTIABLE CONSTRAINTS:
+- Do NOT change the current UI layout, styling, spacing, typography, or component structure beyond what is strictly necessary to fix the bug.
+- Keep the exact same design and user flow; only fix data/date mapping for the detail page.
+- Keep existing components; prefer adding minimal props/route params rather than rewriting screens.
+
+DIAGNOSIS (what’s likely happening):
+The detail page is reading menu data from a “today” source (hardcoded or default store state) instead of using the selected date context from the list page. The selected date context is lost during navigation.
+
+REQUIRED FIX (implementation approach):
+1) Make the selected date an explicit part of navigation into the detail view.
+   - When a user clicks a menu card on a date page, navigate to the detail route while carrying the date.
+   - Use one of these options (pick the one that fits current routing best):
+     A) Query param: /menu/:menuId?date=YYYY-MM-DD
+     B) Path param: /d/:date/menu/:menuId
+   - Prefer A (query param) if routing changes are harder, because it’s minimal.
+
+2) On the detail page, derive the active date ONLY from the URL (query or params), not from a “today” constant.
+   - Parse the date from the URL.
+   - If date is missing, fallback gracefully to “today” and display a subtle console warning (no UI changes).
+
+3) Use the parsed date to select the correct menu item.
+   - Ensure the detail page selects the menu item from the dataset belonging to that date (yesterday/today/tomorrow), not from a shared “today” array.
+   - The selection should be: menu = menusByDate[date].find(m => m.id === menuId)
+   - If not found, show an existing “not found”/empty state if already present; otherwise render a minimal text message without changing layout.
+
+4) Ensure list pages pass the correct date consistently.
+   - Yesterday page passes yesterdayDate, Today page passes todayDate, Tomorrow page passes tomorrowDate.
+   - If there is a “simulation time” feature, ensure the same computed date is used both for list rendering and for the navigation parameter.
+
+WHAT TO CHANGE (be specific and minimal):
+- Identify the component that handles clicking a menu card (e.g., MenuCard / MenuList item).
+  - Update its onClick handler to include the date in navigation.
+- Identify the detail page component (e.g., MenuDetail / DetailView).
+  - Update data loading/selection so it uses the URL-provided date.
+- If a router file exists, update the route definition only as needed to accept query/params.
+- Do NOT refactor unrelated files.
+
+VALIDATION CHECKLIST:
+- On Yesterday page, click any menu → detail shows yesterday’s corresponding menu name/category/wait time.
+- On Tomorrow page, click any menu → detail shows tomorrow’s corresponding menu.
+- Today page behavior remains unchanged (still correct).
+- Browser refresh on a detail URL still shows correct data (because date is in URL).
+- No visual changes to UI.
+
+DELIVERABLE:
+- Implement the fix in code.
+- Provide a short summary:
+  - Which files were changed
+  - What route format was chosen (query param or path param)
+  - How date is parsed and how the correct menu is selected
+  - Quick manual test steps and expected results
