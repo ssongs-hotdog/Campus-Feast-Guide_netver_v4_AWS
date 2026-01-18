@@ -134,7 +134,7 @@ The codebase is organized into clearly separated layers:
 
 ### How to Add Schedule for New Corners
 1. Add corner ID to `RESTAURANTS[].cornerOrder` in `shared/types.ts`
-2. Add corner display name to `CORNER_DISPLAY_NAMES` in `RestaurantSection.tsx` and `CornerDetail.tsx`
+2. Add corner display name to `CORNER_DISPLAY_NAMES` in `shared/cornerDisplayNames.ts`
 3. Add schedule config to `CORNER_SCHEDULES` in `client/src/lib/domain/schedule.ts`
 
 ### How to Add Korean Holiday Support
@@ -148,6 +148,7 @@ The codebase is organized into clearly separated layers:
 - `client/src/lib/domain/waitTime.ts` - Wait time estimation logic
 - `client/src/lib/domain/schedule.ts` - Schedule configuration and active status logic
 - `shared/dataTypes.ts` - Shared type definitions
+- `shared/cornerDisplayNames.ts` - Single source of truth for corner display names (Korean)
 
 ### Files Modified
 - `shared/types.ts` - Updated RESTAURANTS with new corner IDs

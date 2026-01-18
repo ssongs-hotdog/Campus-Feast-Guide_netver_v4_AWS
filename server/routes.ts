@@ -40,6 +40,7 @@ interface CachedDataByDate {
 let cachedDataByDate: Record<string, CachedDataByDate> | null = null;
 
 const AVAILABLE_DATES = ['2026-01-14', '2026-01-15', '2026-01-16'];
+const TODAY_DATE = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
 
 function parseCSV(content: string): WaitingDataRow[] {
   const lines = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n');
