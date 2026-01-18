@@ -1,0 +1,63 @@
+🚫 ARCHITECTURE REVIEW ONLY — DO NOT CHANGE ANY CODE OR DATA
+This request is strictly for internal inspection and analysis.
+Do NOT modify code, do NOT refactor, do NOT edit any files, do NOT generate patches/diffs, and do NOT apply updates.
+Please only read the repository and report your findings.
+
+Goal
+I want a professional “service-base architecture” audit:
+- Is the current structure clean and coherent as a long-term service base?
+- Are there any structural issues, hidden coupling, or design debt that will hurt us later?
+- Is the separation of UI / domain logic / data access actually enforced in practice?
+- Are there any obvious improvements that are recommended (but do NOT implement them)?
+
+Audit Scope (what to analyze)
+1) Layering / Separation of Concerns
+- UI components: purely render, minimal logic leakage?
+- Data access: dataProvider as single client entrypoint? any remaining bypasses?
+- Domain logic: single source of truth (wait time, schedule rules, congestion)?
+- Server responsibilities: data ingestion (CSV/JSON), caching, endpoints: clean boundaries?
+
+2) Data Contracts & Type System
+- shared/types.ts as canonical contract between server/client?
+- API response shapes consistent and stable?
+- Special cases isolated (breakfast_1000 variants, ramen break, rice_bowl menu-dependent active)?
+- Error handling consistency (DataResponse, react-query patterns)
+
+3) Routing & State Model
+- Date routing (/d/YYYY-MM-DD) behavior consistent and robust?
+- Time selection behavior matches policy (today vs past/future)?
+- “No time selected → all inactive” invariant enforced?
+
+4) Reliability / Operational Readiness
+- Startup caching: predictable? failure modes safe?
+- Missing data behavior: graceful placeholders everywhere?
+- Observability: warnings/logging for bad IDs/data?
+- Performance risks: file size growth, memory, client query volume?
+
+5) Maintainability / Extensibility
+- How hard is it to replace CSV/JSON with DB/API later?
+- What parts are most likely to break when we add real-time updates?
+- Where is the design most brittle?
+
+Deliverables (report format)
+A) Architecture Verdict
+- PASS / PASS WITH MINOR ISSUES / NEEDS WORK
+- 3–5 bullet justification
+
+B) Strengths (what is already solid)
+- List the top 5
+
+C) Weaknesses / Risks (prioritized)
+- List top 5 with severity (High/Med/Low) and WHY
+
+D) Recommended Improvements (non-blocking, do not implement)
+- List 5–10 improvements, each with:
+  - scope (client/server/shared)
+  - expected benefit
+  - risk level
+  - “must do now?” (yes/no)
+
+E) One-page “Future-proofing” Notes
+- What to keep invariant as we migrate to real data / real-time
+
+Please keep the report concrete: cite file paths / modules / key functions when making claims.
