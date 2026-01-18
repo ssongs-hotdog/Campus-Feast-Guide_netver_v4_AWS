@@ -39,6 +39,16 @@ export interface CornerSchedule {
     weekday?: TimeWindow[];
     saturday?: TimeWindow[];
   };
+  /**
+   * If true, this corner requires menu data to be considered active.
+   * When set:
+   * - Active = schedule-based active AND menu data exists for this corner
+   * - If menu data is missing, the corner is INACTIVE (gray) even during operating hours
+   * 
+   * Use case: Corners that operate irregularly and use menu data presence as the "open today" signal.
+   * Default: false (schedule-only active status)
+   */
+  requiresMenuDataForActive?: boolean;
 }
 
 /** All schedules keyed by restaurantId, then cornerId */
@@ -97,6 +107,8 @@ export const CORNER_SCHEDULES: ScheduleConfig = {
     rice_bowl: {
       weekday: [{ start: '11:30', end: '13:30' }],
       // No saturday - closed
+      // This corner operates irregularly - menu data presence signals "open today"
+      requiresMenuDataForActive: true,
     },
     dinner: {
       weekday: [{ start: '17:00', end: '18:30' }],
@@ -280,6 +292,9 @@ export interface CornerStatus {
   isActive: boolean;
 }
 
+/** Menu data map keyed by cornerId for a single restaurant */
+export type CornerMenuDataMap = Record<string, unknown>;
+
 /**
  * Get active status for all corners in a restaurant.
  * 
@@ -287,6 +302,8 @@ export interface CornerStatus {
  * @param cornerOrder - Array of corner IDs in display order
  * @param dateKey - Date to check
  * @param timeHHMM - Reference time
+ * @param menuData - Optional menu data for this restaurant (keyed by cornerId)
+ *                   Used for corners with requiresMenuDataForActive flag
  * @returns Array of corner statuses
  */
 export function getCornerStatuses(
@@ -294,11 +311,28 @@ export function getCornerStatuses(
   cornerOrder: string[],
   dateKey: DayKey,
   timeHHMM: string,
+  menuData?: CornerMenuDataMap,
 ): CornerStatus[] {
-  return cornerOrder.map(cornerId => ({
-    cornerId,
-    isActive: isCornerActive({ restaurantId, cornerId, dateKey, timeHHMM }),
-  }));
+  return cornerOrder.map(cornerId => {
+    // Get schedule-based active status
+    const baseIsActive = isCornerActive({ restaurantId, cornerId, dateKey, timeHHMM });
+    
+    // Check if this corner requires menu data to be active
+    const schedule = CORNER_SCHEDULES[restaurantId]?.[cornerId];
+    const requiresMenuData = schedule?.requiresMenuDataForActive ?? false;
+    
+    // Apply the menu data rule if required
+    let finalIsActive = baseIsActive;
+    if (requiresMenuData) {
+      const hasMenuData = menuData?.[cornerId] != null;
+      finalIsActive = baseIsActive && hasMenuData;
+    }
+    
+    return {
+      cornerId,
+      isActive: finalIsActive,
+    };
+  });
 }
 
 /**

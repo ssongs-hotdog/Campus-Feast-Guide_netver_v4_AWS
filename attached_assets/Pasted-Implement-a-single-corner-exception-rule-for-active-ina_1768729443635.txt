@@ -1,0 +1,46 @@
+Implement a single-corner exception rule for active/inactive status.
+
+ABSOLUTE CONSTRAINT:
+- Do NOT change the UI/visual design/layout.
+- Keep the existing schedule-based active/gray logic for all other corners unchanged.
+- Apply this rule ONLY to the specified corner.
+
+Requirement:
+For the corner:
+- restaurantId: "materials" (신소재공학관)
+- cornerId: "rice_bowl" (덮밥)
+
+Active/Inactive override rule:
+- This corner should be ACTIVE (green) ONLY when BOTH conditions are true:
+  1) The reference time is within its operating schedule window (existing schedule rule)
+  2) Menu data exists for this exact dateKey + restaurantId + cornerId
+     i.e., menusByDate[dateKey]?.[restaurantId]?.[cornerId] is present
+- If menu data is missing for that date, force this corner to INACTIVE (gray),
+  even if the time is within the operating schedule.
+
+Notes:
+- This is needed because this corner operates irregularly on some days, and menu data presence is the signal for “open today”.
+- Do NOT apply this behavior to any other corner.
+
+Implementation guidance (keep it clean):
+1) Add an optional per-corner “requiresMenuDataForActive” flag (or equivalent) in the canonical corner config.
+   - Default: false for all corners
+   - Set true only for materials/rice_bowl
+2) In the status computation layer (NOT inside presentational UI components), compute:
+   - baseIsActive = schedule-based active rule
+   - hasMenuData = Boolean(menuData[restaurantId]?.[cornerId])
+   - finalIsActive =
+       if requiresMenuDataForActive: baseIsActive && hasMenuData
+       else: baseIsActive
+3) Keep sorting logic consistent (active corners first). This corner should follow the finalIsActive state.
+
+Validation checklist:
+- For materials/rice_bowl:
+  - Within schedule + menu data present => ACTIVE (green)
+  - Within schedule + menu data missing => INACTIVE (gray)
+  - Outside schedule => INACTIVE regardless of menu data
+- All other corners: unchanged behavior (schedule-only active/gray)
+
+Deliverable:
+- Specify the file(s) where the per-corner flag is defined and where finalIsActive is computed.
+- Confirm UI output did not change other than the intended status behavior for this corner.

@@ -42,15 +42,17 @@ export function RestaurantSection({ restaurant, menus, waitingData, dayKey, refe
   );
 
   // Compute active status for all corners and sort (active first)
+  // Pass menus to getCornerStatuses for corners with requiresMenuDataForActive flag
   const sortedCorners = useMemo(() => {
     const statuses = getCornerStatuses(
       restaurant.id,
       restaurant.cornerOrder,
       dayKey,
       referenceTime,
+      menus, // For corners like materials/rice_bowl that require menu data
     );
     return sortCornersByStatus(statuses);
-  }, [restaurant.id, restaurant.cornerOrder, dayKey, referenceTime]);
+  }, [restaurant.id, restaurant.cornerOrder, dayKey, referenceTime, menus]);
 
   return (
     <section className="mb-6" data-testid={`section-restaurant-${restaurant.id}`}>
