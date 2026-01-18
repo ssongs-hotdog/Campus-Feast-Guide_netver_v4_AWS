@@ -1,0 +1,45 @@
+🚫 IMPORTANT — VERIFICATION ONLY. DO NOT CHANGE ANY CODE.
+You must NOT modify, refactor, or apply any updates. Do NOT generate patches, diffs, or edit suggestions as code. Your job is strictly to inspect the current codebase and REPORT findings only.
+
+You previously produced an Architecture Verification Report and flagged three base-readiness risks:
+1) Home.tsx bypassing the dataProvider (multiple fetch patterns),
+2) ChartsPanel.tsx having hardcoded corner mappings/defaults,
+3) Server-side AVAILABLE_DATES being hardcoded (non-dynamic date discovery).
+
+I have now completed the debugging/refactor work to address all three issues.
+
+Now I want a STRICT “verification-only” assessment: only inspect and report.
+
+Please produce a “Service-Base Architecture Readiness Audit” with the following scope and deliverables:
+
+A) Confirm the fixes are actually applied
+- Verify Home.tsx (and any page-level components) exclusively use the single entrypoint dataProvider functions for:
+  - menus, wait-times, timestamps, and any other data needed by UI pages.
+- Verify ChartsPanel no longer contains hardcoded cornerId → displayName mappings or hardcoded defaults that can drift from shared sources.
+  - It should derive identifiers, ordering, and display names from canonical shared modules (e.g., shared/types, shared/cornerDisplayNames, RESTAURANTS[].cornerOrder, etc.).
+- Verify the server no longer uses hardcoded AVAILABLE_DATES, and instead discovers available dateKeys dynamically from the waiting dataset (CSV or aggregated timestamps) in a deterministic way.
+
+B) Verify “service-base” principles are satisfied (beyond the 3 fixes)
+Please check for any remaining architectural smells or violations, such as:
+- Any other direct fetch() calls bypassing dataProvider (search across client).
+- Any UI-layer business logic creeping in (computations, mapping logic, branching that belongs to domain/server/provider).
+- Duplicate implementations of wait-time computation or congestion-level logic outside canonical shared modules.
+- Inconsistent ID usage (restaurantId/cornerId mismatch), hardcoded display names, or multiple sources of truth.
+- Tight coupling to dummy data (e.g., assumptions of fixed restaurants/corners/dates) that would break CSV→API→DB migration.
+- Caching behavior correctness and clarity (what requires restart, what is runtime) and whether it matches the intended expansion path.
+
+C) Provide an explicit verdict with evidence
+- Verdict: “PASS as service-base” or “NOT PASS” (no vague wording).
+- If PASS: list the key invariants now held by the codebase.
+- If NOT PASS: list each blocking issue with:
+  - file path + line numbers (or closest references),
+  - why it violates service-base readiness,
+  - severity (blocker / high / medium / low).
+
+D) Optional but helpful: lightweight verification checks
+Without changing code, suggest 3–5 quick manual checks (API calls or UI interactions) that I can run to validate:
+- date routing works for past/future,
+- time selection rules behave as agreed,
+- menu placeholders still render correctly when menu data is missing,
+- dynamic available dates are consistent with actual CSV contents,
+- wait-time values remain consistent with computeWaitMinutes().
