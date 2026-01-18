@@ -57,11 +57,13 @@ function Banner() {
   );
 }
 
-const TIME_OPTIONS_5MIN = (() => {
+// Time options for the time selector dropdown (single source of truth)
+// Range: 08:00 to 18:00 in 10-minute increments
+const TIME_OPTIONS = (() => {
   const options: string[] = [];
-  for (let h = 11; h <= 14; h++) {
-    for (let m = 0; m < 60; m += 5) {
-      if (h === 14 && m > 0) break;
+  for (let h = 8; h <= 18; h++) {
+    for (let m = 0; m < 60; m += 10) {
+      if (h === 18 && m > 0) break; // Stop at 18:00
       options.push(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
     }
   }
@@ -297,7 +299,7 @@ export default function Home() {
                   className="w-full p-3 bg-background border border-border rounded-lg text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary"
                   data-testid="select-time-5min"
                 >
-                  {TIME_OPTIONS_5MIN.map((time) => (
+                  {TIME_OPTIONS.map((time) => (
                     <option key={time} value={time}>
                       {time}
                     </option>
