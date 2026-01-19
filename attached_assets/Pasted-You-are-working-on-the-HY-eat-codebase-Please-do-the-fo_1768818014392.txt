@@ -1,0 +1,106 @@
+You are working on the HY-eat codebase. Please do the following work in a safe, structured way.
+
+IMPORTANT:
+1) Before changing anything, do a brief self-review report (what files will change, risk assessment, and exact plan).
+2) Then implement.
+3) Keep API contracts stable (do not break the existing WaitingDataItem[] shape).
+4) Goal: Today tab must NOT keep showing stale DB values. If no fresh data exists, it must show placeholders (empty response) automatically.
+
+============================================================
+A) Cleanup: Remove weird test rows in DB (Option A) — with backup
+============================================================
+
+Context:
+- UI currently shows ramen/korean because waiting_snapshots contains old test rows.
+- We want a clean “skeleton” state until real ingestion starts.
+
+Task:
+1) Create a backup table for safety (same schema as waiting_snapshots) if not exists:
+   - waiting_snapshots_backup
+
+2) Move (copy) today's rows (KST date) into backup, then delete them from main table.
+   - Use KST date filtering: DATE(timestamp AT TIME ZONE 'Asia/Seoul') = <todayKey>
+   - IMPORTANT: determine todayKey in KST (Asia/Seoul). Do NOT use UTC toISOString().split.
+
+SQL outline (adjust as needed):
+- CREATE TABLE IF NOT EXISTS waiting_snapshots_backup (LIKE waiting_snapshots INCLUDING ALL);
+- INSERT INTO waiting_snapshots_backup SELECT * FROM waiting_snapshots WHERE DATE(timestamp AT TIME ZONE 'Asia/Seoul') = $today;
+- DELETE FROM waiting_snapshots WHERE DATE(timestamp AT TIME ZONE 'Asia/Seoul') = $today;
+
+After cleanup, verify:
+- SELECT COUNT(*) FROM waiting_snapshots WHERE DATE(timestamp AT TIME ZONE 'Asia/Seoul') = $today;  --> should be 0
+
+
+============================================================
+B) Fix: “Stale latest” must become placeholder on Today tab
+============================================================
+
+Problem:
+- /api/waiting/latest returns the latest timestamp rows for today, but if ingestion stops, it continues to show the last snapshot forever.
+- We want: if the latest timestamp is older than a staleness threshold, return [] so the UI shows placeholders.
+
+Required behavior:
+- For Today tab DB mode (USE_DB_WAITING=true):
+  - If there is no DB data for today: return [].
+  - If there is DB data but latestTimestamp is “stale”: return [].
+  - If latestTimestamp is fresh: return WaitingDataItem[] as usual.
+
+Define staleness threshold:
+- Default: 90 seconds (works well with 30s polling; allows for one missed ingest).
+- Make it configurable via env var:
+  - WAITING_STALE_SECONDS (default 90)
+
+Implementation requirements:
+1) Server-side staleness gating:
+   - In GET /api/waiting/latest?date=YYYY-MM-DD
+   - Compute ageSec = (now - latestTimestamp) in seconds
+   - If ageSec > staleThresholdSec => log and return [] (HTTP 200)
+   - Log format examples:
+     - [Latest] STALE: date=2026-01-19 latest=... ageSec=... thresholdSec=...
+     - [Latest] OK: date=... latest=... rows=... ageSec=...
+   - Keep response shape identical (array of WaitingDataItem). For stale => [].
+
+2) Client-side must actually show placeholders when server returns []:
+   - Check if React Query is keeping previous data (keepPreviousData / placeholderData).
+   - Ensure Today live query does NOT keep rendering the previous array when new fetch returns [].
+   - If needed, set keepPreviousData=false for the live endpoint query, or explicitly handle empty array as “no data” in UI rendering for the Today tab.
+
+3) Do NOT change ingestion semantics in this step.
+   - We keep partial snapshot semantics as-is. This update is only about “staleness => placeholder”.
+
+Files likely involved (confirm in your pre-review):
+- server/routes.ts (latest endpoint logic + logging)
+- server/storage.ts (if helpful for KST today key or time parsing, but minimal changes preferred)
+- client query options only if needed to prevent keep-previous behavior (minimal)
+
+============================================================
+C) Acceptance tests (must pass)
+============================================================
+
+1) After cleanup:
+- Today tab shows placeholders for ALL corners (no random ramen/korean values).
+- curl /api/waiting/latest?date=<KST today> returns [].
+
+2) Freshness test:
+- Insert a test ingestion with timestamp = now (KST) and one corner.
+- Within 30s polling, Today tab shows that corner’s value.
+
+3) Staleness test:
+- Wait > staleThresholdSec (e.g., set WAITING_STALE_SECONDS=10 temporarily for testing).
+- Without new ingestions, /api/waiting/latest returns [] after it becomes stale.
+- Today tab returns to placeholders automatically (no “stuck at 12:30” behavior).
+
+4) No regressions:
+- USE_DB_WAITING=false => file-based path unchanged.
+- Historical tabs unchanged (still file-based in this phase).
+
+============================================================
+D) Deliverables
+============================================================
+
+- Short implementation report: what changed, why, and where.
+- Exact SQL executed for cleanup (or the script/commands used).
+- The final staleness threshold behavior and how to adjust it (WAITING_STALE_SECONDS).
+- Proof via curl examples and brief notes.
+
+Proceed with the implementation after your pre-review report.
