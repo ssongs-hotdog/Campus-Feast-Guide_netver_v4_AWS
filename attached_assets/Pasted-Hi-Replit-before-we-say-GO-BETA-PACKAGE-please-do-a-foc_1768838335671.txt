@@ -1,0 +1,66 @@
+Hi Replit — before we say “GO BETA PACKAGE”, please do a focused review and report only (no code changes yet) on the 3 items below. I need concrete answers + exact implementation recommendations that won’t break the current UI contracts.
+
+1) Historical reads policy: DB-first vs File-first
+
+We’re moving to Option A (DB as the single source of truth) for beta (2026-01-20) and beyond.
+
+Question: For /api/waiting, /api/waiting/timestamps, /api/waiting/all, should we implement:
+
+DB-first + file fallback, or
+
+file-first + DB fallback when file empty?
+
+I want you to:
+
+Recommend the safest policy for beta (especially for 2026-01-20).
+
+Explain edge cases: partial file data existing while DB has full data.
+
+Provide the exact conditional logic you will implement (pseudo-code is fine).
+
+Recommend env flags (USE_DB_HISTORICAL) default values for beta.
+
+2) /api/waiting/timestamps contract compatibility (UI risk)
+
+You proposed returning 5-min buckets like “HH:MM” from DB.
+
+Question: Does the current client/UI expect:
+
+raw timestamps, or
+
+already-bucketed 5-min time strings?
+
+Please:
+
+Audit the client usage of /api/waiting/timestamps and report what it expects (file + line references).
+
+Confirm whether changing the meaning to “5-min buckets” will break any UI paths (Home / CornerDetail / charts).
+
+If there’s risk, propose a backward-compatible solution (e.g., keep raw timestamps and add a separate bucket endpoint, or keep response shape but transform safely).
+
+3) Simulator operational plan in Replit environment
+
+We will run a simulator on 2026-01-20 only, posting every 30 seconds, during active operating hours per corner, and stopping at KST midnight.
+
+Question: Where and how will the simulator run reliably?
+Please:
+
+Propose the exact run method (Replit Shell command, package.json script, or other).
+
+Explain how we keep it running for a full day and how to monitor logs.
+
+Confirm where INGESTION_TOKEN will be provided (secrets/env) and that it is never logged.
+
+Describe the stop condition logic (KST date change) and what happens after stop.
+
+Output format I want from you
+
+Recommendation summary (3 bullets, one per item)
+
+Risk assessment (what could break, and how you prevent it)
+
+Concrete implementation plan (file list + high-level diffs/pseudocode)
+
+Acceptance tests (curl + UI verification steps)
+
+Reminder: Do NOT implement yet — just review and report so we can confidently approve “GO BETA PACKAGE”.
