@@ -69,7 +69,10 @@ let globalCache: GlobalCache = {
 let cacheInitialized = false;
 
 const USE_DB_WAITING = process.env.USE_DB_WAITING === 'true';
-const WAITING_STALE_SECONDS = parseInt(process.env.WAITING_STALE_SECONDS || '90', 10);
+const WAITING_STALE_SECONDS = (() => {
+  const val = parseInt(process.env.WAITING_STALE_SECONDS || '90', 10);
+  return isNaN(val) ? 90 : val;
+})();
 
 function getTodayDateKey(): string {
   return getKSTDateKey();

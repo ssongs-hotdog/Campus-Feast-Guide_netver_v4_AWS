@@ -169,8 +169,17 @@ CREATE TABLE waiting_snapshots (
 - Otherwise: Uses existing `/api/waiting` endpoint (no polling for non-today)
 - 30s polling only activates for live DB mode on today tab
 
+**Staleness Threshold**:
+- `WAITING_STALE_SECONDS` env var controls data freshness (default: 90 seconds)
+- If latest DB snapshot is older than threshold, `/api/waiting/latest` returns `[]`
+- This prevents "stuck at old timestamp" behavior when ingestion stops
+- Logs: `[Latest] STALE: date=... latest=... ageSec=... thresholdSec=...`
+
 **Rollback**:
 - Set `USE_DB_WAITING=false` to immediately revert to file-based behavior
+
+**Backup Table**:
+- `waiting_snapshots_backup` stores deleted test/cleanup rows for recovery
 
 ### Phase Status Summary
 - ✅ Phase 2A: Shadow write to DB (ingestion endpoint)
