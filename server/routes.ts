@@ -69,6 +69,7 @@ let globalCache: GlobalCache = {
 let cacheInitialized = false;
 
 const USE_DB_WAITING = process.env.USE_DB_WAITING === 'true';
+const WAITING_STALE_SECONDS = parseInt(process.env.WAITING_STALE_SECONDS || '90', 10);
 
 function getTodayDateKey(): string {
   return getKSTDateKey();
@@ -558,6 +559,16 @@ export async function registerRoutes(
         return res.json([]);
       }
 
+      const latestTime = new Date(latestTimestamp!).getTime();
+      const nowTime = Date.now();
+      const ageSec = Math.floor((nowTime - latestTime) / 1000);
+      
+      if (ageSec > WAITING_STALE_SECONDS) {
+        const latency = Date.now() - startTime;
+        console.log(`[Latest] STALE: date=${dateParam} latest=${latestTimestamp} ageSec=${ageSec} thresholdSec=${WAITING_STALE_SECONDS} latencyMs=${latency}`);
+        return res.json([]);
+      }
+
       const result: WaitingDataRow[] = rows.map(row => ({
         timestamp: latestTimestamp!,
         restaurantId: row.restaurantId,
@@ -568,7 +579,7 @@ export async function registerRoutes(
       }));
 
       const latency = Date.now() - startTime;
-      console.log(`[Latest] OK: date=${dateParam} ts=${latestTimestamp} rows=${rows.length} latencyMs=${latency}`);
+      console.log(`[Latest] OK: date=${dateParam} ts=${latestTimestamp} rows=${rows.length} ageSec=${ageSec} latencyMs=${latency}`);
       
       return res.json(result);
     } catch (error) {
