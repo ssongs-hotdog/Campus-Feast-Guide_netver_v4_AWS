@@ -1,0 +1,107 @@
+You are working on the HY-eat codebase. Implement Phase 2B (Today Read Switch) in a stable, incremental, production-minded way.
+
+IMPORTANT RULES
+1) Keep ALL existing GET endpoints and response contracts backward-compatible.
+2) Do NOT change the ingestion endpoint behavior from Phase 2A except adding any necessary shared utilities (no breaking changes).
+3) Today tab should read near-real-time waiting data from PostgreSQL with 30s polling. Historical/future tabs must remain file-based (current skeleton behavior).
+4) Use a feature flag USE_DB_WAITING (default false). When false, the app must behave exactly as it does now.
+5) Timezone correctness is critical: all "today/date" logic and DB date filtering must be based on Asia/Seoul (KST), not UTC.
+6) Prefer minimal, clean diffs. Add logs for observability. Provide a verification checklist and curl commands after implementation.
+
+TARGET BEHAVIOR
+- When USE_DB_WAITING=true AND the selected date is "today" (KST):
+  - Home and CornerDetail should fetch waiting data from a new endpoint: GET /api/waiting/latest?date=YYYY-MM-DD
+  - The client polls every 30 seconds (refetchInterval=30000) and does NOT refetch in background tabs.
+- When USE_DB_WAITING=false OR the selected date is not today:
+  - Existing behavior remains: file-based endpoints and existing logic (including aggregate=5min for historical).
+- Menus remain non-real-time and file-based.
+
+PHASE 2B IMPLEMENTATION TASKS
+
+A) Server: KST-safe date utilities (must-do)
+1) Create a single helper for “KST today key”:
+   - Example: getKSTDateKey(): string -> "YYYY-MM-DD" using Asia/Seoul time.
+   - Replace any UTC-based TODAY_DATE usage with this helper wherever “today” is computed.
+2) Ensure any DB date filtering uses DATE(timestamp AT TIME ZONE 'Asia/Seoul').
+
+B) Server: Add GET /api/waiting/latest?date=YYYY-MM-DD
+1) Add a new endpoint in server/routes.ts:
+   - Route: GET /api/waiting/latest
+   - Query param: date (optional). If omitted, use KST today key.
+2) Feature flag gating:
+   - If process.env.USE_DB_WAITING !== 'true', do NOT query the DB.
+   - Instead, fall back to existing file-based logic for that date and return the same shape as existing /api/waiting output.
+3) Response shape requirement (VERY IMPORTANT):
+   - Return EXACTLY WaitingDataItem[] (array) matching the existing /api/waiting response items:
+     { timestamp: string, restaurantId: string, cornerId: string, queue_len: number, est_wait_time_min: number, data_type?: 'observed'|'predicted' }
+   - Do NOT wrap inside {timestamp,data}. Keep it a plain array (Option A) to minimize client churn.
+4) DB query semantics:
+   - Find the latest timestamp for the requested KST date:
+     SELECT MAX(timestamp) ... WHERE DATE(timestamp AT TIME ZONE 'Asia/Seoul') = $1
+   - Then fetch all rows for that exact timestamp and KST date.
+   - Convert DB rows into WaitingDataItem[] with:
+     - timestamp serialized as ISO8601 with +09:00 if possible (or keep consistent with existing output expectations)
+     - est_wait_time_min computed server-side using computeWaitMinutes(queue_len, restaurantId, cornerId)
+     - data_type from DB (default 'observed' if null)
+5) Robustness + fallback:
+   - If DB is unavailable or query fails, log a clear error:
+     [Latest] DB_FAIL: <message>
+   - Then fall back to file-based data for that date (existing cache logic) and return the latest snapshot from file if available, otherwise [].
+6) Logging:
+   - On successful DB read:
+     [Latest] OK: date=<YYYY-MM-DD> ts=<timestamp> rows=<N> latencyMs=<ms>
+   - On fallback:
+     [Latest] FALLBACK_TO_FILE: reason=<...>
+7) Keep existing endpoints unchanged:
+   - /api/waiting, /api/waiting/timestamps, /api/dates, /api/menu must continue working as-is.
+
+C) Server: Add /api/health with DB + lastIngestion (recommended before enabling flag)
+1) Add GET /api/health endpoint (or extend if exists) returning:
+   {
+     status: "ok",
+     timestamp: "<ISO>",
+     db: "connected" | "disconnected",
+     lastIngestion: "<ISO+09:00>" | null,
+     secondsSinceLastIngestion: number | null
+   }
+2) Compute lastIngestion from DB:
+   SELECT MAX(created_at) FROM waiting_snapshots
+   - If DB unavailable, db="disconnected" and lastIngestion=null.
+3) This endpoint must NEVER break liveness: always return 200, even if DB disconnected.
+
+D) Client: Switch Today reads to /api/waiting/latest behind feature flag + keep polling 30s
+1) Maintain the existing today-only polling behavior, but change the URL when both:
+   - USE_DB_WAITING is enabled (client can learn via a lightweight config endpoint OR reuse an existing env-to-client mechanism)
+   - selected date isToday (KST)
+2) Minimal approach:
+   - Add an endpoint GET /api/config that returns:
+     { useDbWaiting: boolean }
+   - Or if you already have a config pattern, reuse it.
+3) Update Home.tsx and CornerDetail.tsx:
+   - For today path, queryFn should call /api/waiting/latest?date=<selectedDate> when useDbWaiting=true.
+   - Otherwise keep the existing /api/waiting?date=...&time=... logic.
+   - Keep polling interval exactly 30000ms for today only, and refetchIntervalInBackground=false.
+4) Preserve React Query cache sanity:
+   - Use distinct queryKey for latest endpoint, e.g. ['/api/waiting/latest', selectedDate]
+   - Keep staleTime appropriate for today (prefer staleTime: 0).
+5) Do NOT change historical views behavior.
+
+E) Tests / Verification output (must provide)
+After implementation, provide:
+1) A short file list of changed files and what changed.
+2) Curl commands to verify:
+   - USE_DB_WAITING=false: /api/waiting/latest falls back to file and returns [] (given skeleton).
+   - USE_DB_WAITING=true + after ingesting a batch: /api/waiting/latest returns latest rows.
+   - /api/health shows db status and lastIngestion.
+3) Manual UI checklist:
+   - Today tab updates within 30s after a new ingestion.
+   - Switching to a historical date stops polling and uses existing aggregate logic.
+4) Rollback plan:
+   - Set USE_DB_WAITING=false (and optionally remove config exposure) to immediately revert to file-based.
+
+CONSTRAINTS / NOTES
+- Do NOT introduce WebSockets/SSE in Phase 2B.
+- Maintain strong timezone correctness (Asia/Seoul) for "today" and DB date filtering.
+- Keep menus pipeline untouched.
+
+Proceed to implement Phase 2B now.

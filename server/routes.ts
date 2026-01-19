@@ -22,7 +22,16 @@
  */
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
-import { storage, upsertWaitingSnapshots, getWaitingSnapshotCount } from "./storage";
+import { 
+  storage, 
+  upsertWaitingSnapshots, 
+  getWaitingSnapshotCount, 
+  getKSTDateKey,
+  getKSTISOTimestamp,
+  getLatestWaitingByDate,
+  getLastIngestionTime,
+  checkDbConnection,
+} from "./storage";
 import * as fs from "fs";
 import * as path from "path";
 import { computeWaitMinutes } from "./waitModel";
@@ -59,7 +68,11 @@ let globalCache: GlobalCache = {
 
 let cacheInitialized = false;
 
-const TODAY_DATE = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+const USE_DB_WAITING = process.env.USE_DB_WAITING === 'true';
+
+function getTodayDateKey(): string {
+  return getKSTDateKey();
+}
 
 function getAvailableDates(): string[] {
   ensureCacheInitialized();
@@ -204,7 +217,7 @@ function ensureCacheInitialized(): void {
 
 function loadWaitingData(date?: string): { data: WaitingDataRow[]; timestamps: string[] } {
   ensureCacheInitialized();
-  const targetDate = date || TODAY_DATE;
+  const targetDate = date || getTodayDateKey();
   
   if (globalCache.waiting[targetDate]) {
     return globalCache.waiting[targetDate];
@@ -366,7 +379,7 @@ export async function registerRoutes(
   });
 
   app.get('/api/dates', (_req: Request, res: Response) => {
-    res.json({ dates: getAvailableDates(), today: TODAY_DATE });
+    res.json({ dates: getAvailableDates(), today: getTodayDateKey() });
   });
 
   app.get('/api/menu', (req: Request, res: Response) => {
@@ -377,7 +390,7 @@ export async function registerRoutes(
       return res.status(404).json({ error: 'Menu data not found' });
     }
     
-    const targetDate = dateParam || TODAY_DATE;
+    const targetDate = dateParam || getTodayDateKey();
     const menuData = menusByDate[targetDate];
     
     if (!menuData) {
@@ -465,6 +478,115 @@ export async function registerRoutes(
     const dateParam = req.query.date as string | undefined;
     const { data } = loadWaitingData(dateParam);
     res.json(data);
+  });
+
+  app.get('/api/config', (_req: Request, res: Response) => {
+    res.json({ 
+      useDbWaiting: USE_DB_WAITING,
+      today: getTodayDateKey(),
+    });
+  });
+
+  app.get('/api/health', async (_req: Request, res: Response) => {
+    const now = getKSTISOTimestamp();
+    
+    try {
+      const dbConnected = await checkDbConnection();
+      
+      if (!dbConnected) {
+        return res.json({
+          status: 'ok',
+          timestamp: now,
+          db: 'disconnected',
+          lastIngestion: null,
+          secondsSinceLastIngestion: null,
+        });
+      }
+
+      const lastIngestion = await getLastIngestionTime();
+      const lastIngestionIso = lastIngestion 
+        ? lastIngestion.toISOString().replace('Z', '+00:00')
+        : null;
+      const secondsSinceLastIngestion = lastIngestion 
+        ? Math.floor((Date.now() - lastIngestion.getTime()) / 1000)
+        : null;
+
+      res.json({
+        status: 'ok',
+        timestamp: now,
+        db: 'connected',
+        lastIngestion: lastIngestionIso,
+        secondsSinceLastIngestion,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[Health] DB error: ${errorMessage}`);
+      
+      res.json({
+        status: 'ok',
+        timestamp: now,
+        db: 'disconnected',
+        lastIngestion: null,
+        secondsSinceLastIngestion: null,
+        error: errorMessage,
+      });
+    }
+  });
+
+  app.get('/api/waiting/latest', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    const dateParam = (req.query.date as string) || getTodayDateKey();
+    
+    if (!USE_DB_WAITING) {
+      console.log(`[Latest] FALLBACK_TO_FILE: reason=USE_DB_WAITING disabled`);
+      const { data, timestamps } = loadWaitingData(dateParam);
+      
+      if (data.length === 0) {
+        return res.json([]);
+      }
+      
+      const latestTimestamp = timestamps[timestamps.length - 1];
+      const filtered = data.filter((row) => row.timestamp === latestTimestamp);
+      return res.json(filtered);
+    }
+
+    try {
+      const { rows, latestTimestamp } = await getLatestWaitingByDate(dateParam);
+      
+      if (rows.length === 0) {
+        console.log(`[Latest] OK: date=${dateParam} ts=null rows=0 latencyMs=${Date.now() - startTime}`);
+        return res.json([]);
+      }
+
+      const result: WaitingDataRow[] = rows.map(row => ({
+        timestamp: latestTimestamp!,
+        restaurantId: row.restaurantId,
+        cornerId: row.cornerId,
+        queue_len: row.queueLen,
+        est_wait_time_min: computeWaitMinutes(row.queueLen, row.restaurantId, row.cornerId),
+        data_type: row.dataType || 'observed',
+      }));
+
+      const latency = Date.now() - startTime;
+      console.log(`[Latest] OK: date=${dateParam} ts=${latestTimestamp} rows=${rows.length} latencyMs=${latency}`);
+      
+      return res.json(result);
+    } catch (error) {
+      const latency = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.log(`[Latest] DB_FAIL: ${errorMessage} latencyMs=${latency}`);
+      console.log(`[Latest] FALLBACK_TO_FILE: reason=DB error`);
+      
+      const { data, timestamps } = loadWaitingData(dateParam);
+      
+      if (data.length === 0) {
+        return res.json([]);
+      }
+      
+      const latestTimestamp = timestamps[timestamps.length - 1];
+      const filtered = data.filter((row) => row.timestamp === latestTimestamp);
+      return res.json(filtered);
+    }
   });
 
   app.post('/api/ingest/waiting', async (req: Request, res: Response) => {
