@@ -1,0 +1,112 @@
+🚫 PHASE 1 — PRE-IMPLEMENTATION REVIEW FIRST (DO NOT CHANGE ANY CODE YET)
+Before you implement anything, you MUST first do an internal review and reply with:
+1) A short risk assessment (Top 5 risks + mitigations)
+2) The exact files you will modify and why
+3) A step-by-step implementation plan
+4) A rollback plan (single-commit + git revert)
+ONLY after you finish this review and I explicitly approve, proceed to implementation.
+Do NOT apply any code changes during the review step.
+
+──────────────────────────────────────────────────────────────────────────────
+PHASE 1 IMPLEMENTATION REQUEST (Hot Reload + Today-Only Polling) — LIMITED SCOPE
+Goal: Make file-based data updates reflect WITHOUT server restart, and enable real-time-ish freshness on TODAY view with low operational risk.
+Constraints:
+- Keep ALL existing UI visuals identical.
+- Keep ALL API response shapes identical (non-negotiable).
+- Keep dataProvider.ts interface unchanged.
+- Minimal changes only. Do NOT refactor unrelated code.
+
+A) Server: Admin Hot Reload Endpoint (CSV + Menu JSON) with ATOMIC CACHE SWAP
+1) Add a secure admin endpoint:
+- Method: POST
+- Path: /api/admin/reload
+- Auth: Authorization: Bearer <ADMIN_RELOAD_TOKEN>
+  - Token value must be stored in environment/Secrets as ADMIN_RELOAD_TOKEN (do NOT hardcode in repo).
+  - If token missing or invalid: respond 403 (do NOT use 500).
+  - Do not leak hints in error messages.
+
+2) Implement safe reload with “build new caches then swap atomically”
+- Current behavior: cachedDataByDate and cachedMenusByDate are load-once at startup.
+- New behavior:
+  - Implement reloadWaitingCache(): reads/parses the waiting CSV into a NEW cache object (no global mutation)
+  - Implement reloadMenusCache(): reads/parses menus_by_date.json into a NEW cache object (no global mutation)
+  - Validate IDs (restaurantId/cornerId) as today (warn only, never crash the server)
+  - If reload fails (parse error, file missing, etc.): keep OLD caches unchanged and return { ok:false, error }.
+
+3) Atomic swap requirement (IMPORTANT)
+- Do NOT partially swap one cache and not the other.
+- Preferred: maintain a single global reference:
+  globalCache = { waitingCache, menuCache }
+  then swap globalCache in one assignment.
+- If you keep separate refs, they must be swapped together within the same critical step.
+
+4) Endpoint response (stable + useful)
+Return JSON like:
+{
+  "ok": true,
+  "reloaded": ["waiting", "menus"],
+  "waitingDates": ["YYYY-MM-DD", ...],
+  "menuDates": ["YYYY-MM-DD", ...],
+  "timestamp": "ISO8601"
+}
+On failure:
+{ "ok": false, "error": "short message", "timestamp": "ISO8601" }
+
+5) Optional dev-only watcher (safe & non-production)
+- In dev mode only (NODE_ENV !== "production"):
+  - Watch the data/ directory (CSV + JSON)
+  - Debounce changes (~500ms)
+  - Trigger the same reload logic
+  - If watcher fails, log a warning and continue (do not crash).
+- In production: watcher OFF by default.
+
+6) File-write safety note (recommended)
+If possible, document a safe update procedure:
+- Write new data to a temp file then rename to target path (atomic replace)
+This reduces “read during write” corruption.
+
+B) Client: Today-Only Polling (30 seconds) for WAITING DATA ONLY
+Goal: Real-time-ish UX without push infrastructure.
+Rules:
+1) Apply polling ONLY for TODAY view.
+2) Poll WAITING DATA ONLY (do NOT poll timestamps by default).
+   - timestamps can remain “load once on page/date change”.
+3) Use React Query:
+- refetchInterval: 30000 when isToday(dayKey) else false
+- refetchIntervalInBackground: false
+
+4) Timezone correctness (CRITICAL)
+- Do NOT use new Date().toISOString() for isToday logic (UTC bug risk).
+- Reuse the existing “local/KST dayKey” utility already used by the app for date routing.
+- If no safe helper exists, implement an isTodayKST(dayKey) using local timezone (Asia/Seoul) logic consistently with the rest of the app.
+
+C) Non-negotiable Invariants (MUST NOT BREAK)
+- API response shapes remain exactly the same:
+  /api/menu?date=YYYY-MM-DD
+  /api/waiting?date=&time=&aggregate=
+  /api/waiting/all?date=
+  /api/waiting/timestamps?date=
+  /api/dates
+- restaurantId / cornerId must continue matching shared/types.ts RESTAURANTS config
+- All placeholder behaviors remain (no data → “미제공” etc.)
+- No UI layout/styling changes
+- No new dependencies unless absolutely necessary
+
+D) Implementation Output Requirements
+When you actually implement (after my approval), you MUST:
+1) Keep the changes in a single commit.
+2) List the exact files changed and summarize each change in 1–2 sentences.
+3) Provide a quick manual test checklist + results:
+   - POST /api/admin/reload without auth → 403
+   - POST with correct token → ok:true
+   - Change CSV/JSON, call reload, verify /api/dates and /api/menu reflect updated content WITHOUT restart
+   - Break JSON intentionally, call reload → ok:false and old data still served
+   - TODAY view: verify 30s polling occurs (network tab), background tab does not spam
+   - Past/future date: verify polling stops
+
+E) Rollback Requirement
+- Confirm rollback is trivial via:
+  git revert <phase1_commit>
+- No data migrations required.
+
+Please begin with the PRE-IMPLEMENTATION REVIEW ONLY (no code changes), then wait for my explicit approval to proceed.
