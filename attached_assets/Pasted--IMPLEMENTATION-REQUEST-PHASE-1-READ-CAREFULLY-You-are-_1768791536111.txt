@@ -1,0 +1,149 @@
+🚨 IMPLEMENTATION REQUEST (PHASE 1) — READ CAREFULLY
+You are allowed to implement Phase 1, BUT:
+- Modify ONLY the files explicitly listed below.
+- Do NOT refactor unrelated code.
+- Do NOT change any UI visuals, layouts, or styles.
+- Do NOT change any API response shapes used by the client (keep contracts stable).
+- Keep all changes in a SINGLE commit so rollback is one `git revert`.
+
+Goal (Phase 1)
+Enable “real-time ingestion readiness” by:
+1) Server-side hot reload WITHOUT restart (manual admin reload + optional dev file watcher)
+2) Client-side today-only polling (30s) for WAITING DATA so UI updates automatically
+3) Preserve current clean architecture: UI ↔ dataProvider ↔ API, shared types unchanged in meaning
+
+Scope (Allowed Files Only)
+✅ Server:
+- server/routes.ts
+
+✅ Client:
+- client/src/pages/Home.tsx
+- client/src/pages/CornerDetail.tsx
+
+Do not touch any other files unless you MUST for TypeScript to compile (and if so, explain exactly why).
+
+----------------------------------------------------------------------
+A) SERVER: Atomic cache + Admin reload endpoint + Dev watcher
+----------------------------------------------------------------------
+
+A1) Refactor cache storage to avoid race conditions
+Current issue: swapping two separate globals can create a race window.
+Requirement: Use ONE atomic swap.
+
+Implement a single global cache object (single assignment swap):
+let globalCache = {
+  waiting: <existing waiting cache type or {}>,
+  menus: <existing menus cache type or {}>
+};
+
+- Replace all reads/writes that used cachedDataByDate / cachedMenusByDate to use:
+  globalCache.waiting / globalCache.menus
+- Keep behavior identical for existing endpoints (/api/menu, /api/waiting*, /api/dates).
+
+A2) Implement pure reload builders (no mutation)
+Create pure functions that BUILD new caches in local variables and return them:
+- reloadWaitingCache(): read+parse CSV → return newWaitingCache
+- reloadMenusCache(): read+parse menus JSON → return newMenusCache
+
+Rules:
+- These functions MUST NOT mutate globalCache.
+- On parse/validation error: throw an Error (caller handles it).
+- IMPORTANT: If menus JSON is valid but empty object `{}`, treat it as SUCCESS (empty cache), not failure.
+  Only treat “invalid JSON / cannot parse file” as failure.
+
+A3) Add POST /api/admin/reload (manual hot reload)
+Add endpoint:
+POST /api/admin/reload
+
+Auth:
+- Require Bearer token:
+  Authorization: Bearer <ADMIN_RELOAD_TOKEN>
+- If ADMIN_RELOAD_TOKEN is missing OR token mismatch → return 403 with JSON error.
+
+Reload behavior:
+- Try building both caches using reloadWaitingCache() and reloadMenusCache().
+- Only if BOTH succeed: swap atomically:
+  globalCache = { waiting: newWaiting, menus: newMenus }
+- If ANY fails: keep old globalCache untouched.
+
+Response rules:
+- Success: return 200 with JSON:
+  { ok: true, reloaded: ["waiting","menus"], waitingDates: [...], menuDates: [...], timestamp: ISO }
+- Failure due to reload parse error: return 500 with JSON:
+  { ok: false, error: "...", timestamp: ISO }
+  (Do NOT return 200 on failure; use 500 so monitoring can detect it.)
+
+Logging:
+- On success: log counts (dates, rows if available).
+- On failure: console.warn with error message, but do not crash server.
+
+A4) Optional DEV-ONLY file watcher (safe)
+Only when NODE_ENV !== 'production':
+- Watch the data/ directory
+- Debounce 500ms
+- On change: call the reload logic
+- MUST be wrapped in try/catch
+- Watcher failure must NEVER crash the server; just log a warning and continue.
+
+----------------------------------------------------------------------
+B) CLIENT: Today-only polling for WAITING DATA (30 seconds)
+----------------------------------------------------------------------
+
+Goal: When viewing TODAY, the UI should refresh waiting data automatically every 30s.
+When viewing PAST/FUTURE dates, polling must be OFF.
+
+B1) Home.tsx
+Locate the React Query useQuery that fetches waiting data (or calls provider for waiting).
+Add:
+- refetchInterval: isToday ? 30000 : false
+- refetchIntervalInBackground: false
+
+Keep all other query settings the same (queryKey, enabled, staleTime, placeholderData, etc.).
+Do NOT change timestamp polling behavior; only waiting data query should poll.
+
+B2) CornerDetail.tsx
+Do the same for its waiting-data query:
+- refetchInterval: isToday ? 30000 : false
+- refetchIntervalInBackground: false
+
+Again: do not refactor query structure; minimal insertion only.
+
+Clarification: Poll WAITING DATA ONLY (NOT /api/waiting/timestamps).
+Reason: timestamps for a day typically don’t need to refresh every 30 seconds; reduce server load.
+(We will revisit timestamp refresh later if real-time ingestion requires it.)
+
+----------------------------------------------------------------------
+C) Verification Checklist (must report results)
+----------------------------------------------------------------------
+
+C1) Admin reload auth:
+- POST /api/admin/reload without Authorization header → 403
+- POST with wrong token → 403
+- POST with correct token → 200 { ok:true, ... }
+
+C2) Reload atomicity:
+- If CSV is corrupted: endpoint returns 500, and existing endpoints continue serving old cache (no partial state).
+- If menus JSON is corrupted: same behavior (500 + old cache preserved).
+- If menus JSON is valid but `{}`: reload should succeed (ok:true) with empty menuDates.
+
+C3) Polling behavior:
+- On TODAY: confirm waiting query fires roughly every 30 seconds while tab is active.
+- On PAST/FUTURE: confirm no periodic refetches occur.
+
+C4) No contract changes:
+- /api/menu, /api/waiting, /api/waiting/all, /api/waiting/timestamps, /api/dates response shapes remain unchanged.
+
+C5) No UI visual changes:
+- UI looks identical (no styling/layout modifications).
+
+----------------------------------------------------------------------
+D) Delivery Requirements
+----------------------------------------------------------------------
+
+1) List exactly what changed in each allowed file (brief bullet list).
+2) Confirm you used a SINGLE commit with message:
+   feat: phase1 hot reload + today polling
+3) Provide a short “Rollback” note:
+   git revert <commit-sha>
+
+Proceed with implementation now under these constraints.

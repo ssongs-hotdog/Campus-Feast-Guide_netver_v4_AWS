@@ -14,6 +14,11 @@
  * How to switch to a real database:
  * 1. Replace the file-loading functions with database queries
  * 2. The API response format should stay the same
+ * 
+ * Phase 1 Updates:
+ * - Atomic cache swap via globalCache object
+ * - POST /api/admin/reload endpoint for hot reload
+ * - Dev-only file watcher (NODE_ENV !== 'production')
  */
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
@@ -37,17 +42,23 @@ interface CachedDataByDate {
   timestamps: string[];
 }
 
-let cachedDataByDate: Record<string, CachedDataByDate> | null = null;
+interface GlobalCache {
+  waiting: Record<string, CachedDataByDate>;
+  menus: Record<string, Record<string, unknown>>;
+}
+
+let globalCache: GlobalCache = {
+  waiting: {},
+  menus: {},
+};
+
+let cacheInitialized = false;
 
 const TODAY_DATE = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
 
-/**
- * Get available dates from the cached waiting data.
- * This dynamically derives dates from loaded CSV data instead of hardcoding.
- */
 function getAvailableDates(): string[] {
-  const cache = loadAllWaitingData();
-  return Object.keys(cache).sort();
+  ensureCacheInitialized();
+  return Object.keys(globalCache.waiting).sort();
 }
 
 function parseCSV(content: string): WaitingDataRow[] {
@@ -79,65 +90,127 @@ function parseCSV(content: string): WaitingDataRow[] {
   return data;
 }
 
-function loadAllWaitingData(): Record<string, CachedDataByDate> {
-  if (cachedDataByDate) {
-    return cachedDataByDate;
-  }
-  
+function reloadWaitingCache(): Record<string, CachedDataByDate> {
   const csvPath = path.join(process.cwd(), 'data', 'hy_eat_queue_3days_combined.csv');
   
-  try {
-    if (!fs.existsSync(csvPath)) {
-      console.log('CSV file not found at:', csvPath);
-      cachedDataByDate = {};
-      return cachedDataByDate;
+  if (!fs.existsSync(csvPath)) {
+    console.log('CSV file not found at:', csvPath);
+    return {};
+  }
+  
+  const content = fs.readFileSync(csvPath, 'utf-8');
+  const allData = parseCSV(content);
+  
+  const newCache: Record<string, CachedDataByDate> = {};
+  
+  const dateSet = new Set<string>();
+  for (const row of allData) {
+    const dateStr = row.timestamp.split('T')[0];
+    if (dateStr) {
+      dateSet.add(dateStr);
     }
+  }
+  
+  for (const dateStr of Array.from(dateSet)) {
+    const dateData = allData.filter(row => row.timestamp.startsWith(dateStr));
+    const timestampSet = new Set<string>();
+    dateData.forEach(row => timestampSet.add(row.timestamp));
+    const timestamps = Array.from(timestampSet).sort();
     
-    const content = fs.readFileSync(csvPath, 'utf-8');
-    const allData = parseCSV(content);
+    newCache[dateStr] = { data: dateData, timestamps };
+  }
+  
+  const derivedDates = Object.keys(newCache).sort();
+  console.log(`[Reload] Loaded ${allData.length} waiting data rows for ${derivedDates.length} dates: ${derivedDates.join(', ')}`);
+  
+  return newCache;
+}
+
+function validateMenuData(menusByDate: Record<string, Record<string, unknown>>): void {
+  const validRestaurantIds = new Set(RESTAURANTS.map(r => r.id));
+  const cornerOrderByRestaurant = new Map(
+    RESTAURANTS.map(r => [r.id, new Set(r.cornerOrder)])
+  );
+  
+  for (const dateKey of Object.keys(menusByDate)) {
+    const dateMenus = menusByDate[dateKey] as Record<string, Record<string, unknown>>;
+    if (!dateMenus || typeof dateMenus !== 'object') continue;
     
-    cachedDataByDate = {};
-    
-    // Derive unique dates from timestamps dynamically (no hardcoding)
-    const dateSet = new Set<string>();
-    for (const row of allData) {
-      // Extract date portion from ISO timestamp (YYYY-MM-DD)
-      const dateStr = row.timestamp.split('T')[0];
-      if (dateStr) {
-        dateSet.add(dateStr);
+    for (const restaurantId of Object.keys(dateMenus)) {
+      if (!validRestaurantIds.has(restaurantId)) {
+        console.warn(
+          `[Menu Validation] Unknown restaurantId "${restaurantId}" in date ${dateKey}. ` +
+          `Valid IDs: ${Array.from(validRestaurantIds).join(', ')}`
+        );
+        continue;
+      }
+      
+      const cornerMenus = dateMenus[restaurantId] as Record<string, unknown>;
+      if (!cornerMenus || typeof cornerMenus !== 'object') continue;
+      
+      const validCornerIds = cornerOrderByRestaurant.get(restaurantId)!;
+      for (const cornerId of Object.keys(cornerMenus)) {
+        if (!validCornerIds.has(cornerId)) {
+          console.warn(
+            `[Menu Validation] Unknown cornerId "${cornerId}" for restaurant "${restaurantId}" in date ${dateKey}. ` +
+            `Valid IDs: ${Array.from(validCornerIds).join(', ')}`
+          );
+        }
       }
     }
-    
-    // Group data by date
-    for (const dateStr of Array.from(dateSet)) {
-      const dateData = allData.filter(row => row.timestamp.startsWith(dateStr));
-      const timestampSet = new Set<string>();
-      dateData.forEach(row => timestampSet.add(row.timestamp));
-      const timestamps = Array.from(timestampSet).sort();
-      
-      cachedDataByDate[dateStr] = { data: dateData, timestamps };
-    }
-    
-    const derivedDates = Object.keys(cachedDataByDate).sort();
-    console.log(`Loaded ${allData.length} waiting data rows for ${derivedDates.length} dates: ${derivedDates.join(', ')}`);
-    
-    return cachedDataByDate;
+  }
+}
+
+function reloadMenusCache(): Record<string, Record<string, unknown>> {
+  const menuPath = path.join(process.cwd(), 'data', 'menus_by_date.json');
+  
+  if (!fs.existsSync(menuPath)) {
+    console.log('Menus by date file not found at:', menuPath);
+    return {};
+  }
+  
+  const content = fs.readFileSync(menuPath, 'utf-8');
+  const parsed = JSON.parse(content);
+  
+  if (typeof parsed !== 'object' || parsed === null) {
+    throw new Error('Invalid menus JSON: not an object');
+  }
+  
+  console.log(`[Reload] Loaded menus for ${Object.keys(parsed).length} dates`);
+  validateMenuData(parsed);
+  
+  return parsed;
+}
+
+function ensureCacheInitialized(): void {
+  if (cacheInitialized) return;
+  
+  try {
+    const newWaiting = reloadWaitingCache();
+    const newMenus = reloadMenusCache();
+    globalCache = { waiting: newWaiting, menus: newMenus };
+    cacheInitialized = true;
   } catch (error) {
-    console.error('Error loading CSV:', error);
-    cachedDataByDate = {};
-    return cachedDataByDate;
+    console.error('Error initializing cache:', error);
+    globalCache = { waiting: {}, menus: {} };
+    cacheInitialized = true;
   }
 }
 
 function loadWaitingData(date?: string): { data: WaitingDataRow[]; timestamps: string[] } {
-  const allData = loadAllWaitingData();
+  ensureCacheInitialized();
   const targetDate = date || TODAY_DATE;
   
-  if (allData[targetDate]) {
-    return allData[targetDate];
+  if (globalCache.waiting[targetDate]) {
+    return globalCache.waiting[targetDate];
   }
   
   return { data: [], timestamps: [] };
+}
+
+function loadMenusByDate(): Record<string, Record<string, unknown>> | null {
+  ensureCacheInitialized();
+  return Object.keys(globalCache.menus).length > 0 ? globalCache.menus : null;
 }
 
 function extractKSTHoursMinutes(timestamp: string): { hours: number; minutes: number } {
@@ -196,80 +269,45 @@ function compute5MinAggregatedSnapshot(
   return result;
 }
 
-let cachedMenusByDate: Record<string, Record<string, unknown>> | null = null;
-
-/**
- * Validates menu data against the canonical restaurant/corner IDs.
- * Logs warnings for unknown restaurant or corner IDs.
- * This runs once when loading/caching and does NOT throw errors.
- * 
- * Key concepts:
- * - cornerId: Stable internal identifier that MUST match RESTAURANTS[].cornerOrder
- * - cornerDisplayName: User-facing name that can change freely
- * - To add dummy/real data, use the same cornerId keys as defined in shared/types.ts
- */
-function validateMenuData(menusByDate: Record<string, Record<string, unknown>>): void {
-  // Build lookup maps from canonical RESTAURANTS config
-  const validRestaurantIds = new Set(RESTAURANTS.map(r => r.id));
-  const cornerOrderByRestaurant = new Map(
-    RESTAURANTS.map(r => [r.id, new Set(r.cornerOrder)])
-  );
-  
-  for (const dateKey of Object.keys(menusByDate)) {
-    const dateMenus = menusByDate[dateKey] as Record<string, Record<string, unknown>>;
-    if (!dateMenus || typeof dateMenus !== 'object') continue;
-    
-    for (const restaurantId of Object.keys(dateMenus)) {
-      // Check if restaurant ID is valid
-      if (!validRestaurantIds.has(restaurantId)) {
-        console.warn(
-          `[Menu Validation] Unknown restaurantId "${restaurantId}" in date ${dateKey}. ` +
-          `Valid IDs: ${Array.from(validRestaurantIds).join(', ')}`
-        );
-        continue;
-      }
-      
-      // Check corner IDs for this restaurant
-      const cornerMenus = dateMenus[restaurantId] as Record<string, unknown>;
-      if (!cornerMenus || typeof cornerMenus !== 'object') continue;
-      
-      const validCornerIds = cornerOrderByRestaurant.get(restaurantId)!;
-      for (const cornerId of Object.keys(cornerMenus)) {
-        if (!validCornerIds.has(cornerId)) {
-          console.warn(
-            `[Menu Validation] Unknown cornerId "${cornerId}" for restaurant "${restaurantId}" in date ${dateKey}. ` +
-            `Valid IDs: ${Array.from(validCornerIds).join(', ')}`
-          );
-        }
-      }
-    }
-  }
-}
-
-function loadMenusByDate(): Record<string, Record<string, unknown>> | null {
-  if (cachedMenusByDate) {
-    return cachedMenusByDate;
+function setupDevFileWatcher(): void {
+  if (process.env.NODE_ENV === 'production') {
+    return;
   }
   
-  const menuPath = path.join(process.cwd(), 'data', 'menus_by_date.json');
+  const dataDir = path.join(process.cwd(), 'data');
+  
+  if (!fs.existsSync(dataDir)) {
+    console.warn('[Dev Watcher] data/ directory not found, skipping file watcher');
+    return;
+  }
+  
+  let debounceTimer: NodeJS.Timeout | null = null;
   
   try {
-    if (!fs.existsSync(menuPath)) {
-      console.log('Menus by date file not found at:', menuPath);
-      return null;
-    }
+    fs.watch(dataDir, { persistent: false }, (eventType, filename) => {
+      if (!filename) return;
+      
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+      
+      debounceTimer = setTimeout(() => {
+        console.log(`[Dev Watcher] File change detected: ${filename}, reloading caches...`);
+        
+        try {
+          const newWaiting = reloadWaitingCache();
+          const newMenus = reloadMenusCache();
+          globalCache = { waiting: newWaiting, menus: newMenus };
+          console.log('[Dev Watcher] Caches reloaded successfully');
+        } catch (error) {
+          console.warn('[Dev Watcher] Reload failed, keeping old cache:', error);
+        }
+      }, 500);
+    });
     
-    const content = fs.readFileSync(menuPath, 'utf-8');
-    cachedMenusByDate = JSON.parse(content);
-    console.log(`Loaded menus for ${Object.keys(cachedMenusByDate!).length} dates`);
-    
-    // Validate menu data against canonical restaurant/corner IDs
-    validateMenuData(cachedMenusByDate!);
-    
-    return cachedMenusByDate;
+    console.log('[Dev Watcher] Watching data/ directory for changes');
   } catch (error) {
-    console.error('Error loading menus by date:', error);
-    return null;
+    console.warn('[Dev Watcher] Failed to setup file watcher:', error);
   }
 }
 
@@ -278,6 +316,50 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
+  ensureCacheInitialized();
+  setupDevFileWatcher();
+  
+  app.post('/api/admin/reload', (req: Request, res: Response) => {
+    const expectedToken = process.env.ADMIN_RELOAD_TOKEN;
+    const authHeader = req.headers.authorization;
+    
+    if (!expectedToken || authHeader !== `Bearer ${expectedToken}`) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    
+    try {
+      const newWaiting = reloadWaitingCache();
+      const newMenus = reloadMenusCache();
+      
+      globalCache = { waiting: newWaiting, menus: newMenus };
+      
+      const timestamp = new Date().toISOString();
+      const waitingDates = Object.keys(newWaiting).sort();
+      const menuDates = Object.keys(newMenus).sort();
+      
+      console.log(`[Admin Reload] Success at ${timestamp}: waiting=${waitingDates.length} dates, menus=${menuDates.length} dates`);
+      
+      return res.status(200).json({
+        ok: true,
+        reloaded: ['waiting', 'menus'],
+        waitingDates,
+        menuDates,
+        timestamp,
+      });
+    } catch (error) {
+      const timestamp = new Date().toISOString();
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      console.warn(`[Admin Reload] Failed at ${timestamp}: ${errorMessage}`);
+      
+      return res.status(500).json({
+        ok: false,
+        error: errorMessage,
+        timestamp,
+      });
+    }
+  });
+
   app.get('/api/dates', (_req: Request, res: Response) => {
     res.json({ dates: getAvailableDates(), today: TODAY_DATE });
   });

@@ -169,6 +169,8 @@ export default function Home() {
     enabled: !!selectedDate && (isToday ? !!currentTimestamp : !!selectedTime5Min),
     staleTime: 60000,
     placeholderData: (previousData) => previousData,
+    refetchInterval: isToday ? 30000 : false,
+    refetchIntervalInBackground: false,
   });
 
   const displayDate = formatDayKeyForDisplay(selectedDate, todayKey);

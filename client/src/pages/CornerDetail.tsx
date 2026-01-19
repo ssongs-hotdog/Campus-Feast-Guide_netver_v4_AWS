@@ -117,6 +117,8 @@ export default function CornerDetail() {
     },
     enabled: isToday ? !!effectiveTimestamp : true,
     staleTime: 0,
+    refetchInterval: isToday ? 30000 : false,
+    refetchIntervalInBackground: false,
   });
 
   const menu = menuData?.[restaurantId]?.[cornerId];
