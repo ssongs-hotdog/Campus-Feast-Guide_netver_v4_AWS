@@ -414,14 +414,14 @@ export async function registerRoutes(
     const dateParam = req.query.date as string | undefined;
     const targetDate = dateParam || getTodayDateKey();
     
-    // Cutover logic: dates >= 2026-01-20 use DB
+    // Cutover logic: dates >= 2026-01-20 use DB (with CSV fallback on error)
     if (shouldUseDatabaseForDate(targetDate)) {
       try {
         const timestamps = await getHistoricalTimestamps(targetDate);
         return res.json({ timestamps });
       } catch (error) {
-        console.error('[API] DB timestamps query failed:', error);
-        return res.json({ timestamps: [] });
+        console.error('[API] DB timestamps query failed, falling back to CSV:', error);
+        // Fall through to CSV fallback below
       }
     }
     
@@ -436,7 +436,7 @@ export async function registerRoutes(
     const timeParam = req.query.time as string | undefined;
     const aggregateParam = req.query.aggregate as string | undefined;
     
-    // Cutover logic: dates >= 2026-01-20 use DB for historical queries
+    // Cutover logic: dates >= 2026-01-20 use DB for historical queries (with CSV fallback on error)
     if (shouldUseDatabaseForDate(targetDate)) {
       try {
         // 5-minute aggregation from DB
@@ -466,8 +466,8 @@ export async function registerRoutes(
         const filtered = allData.filter(row => row.timestamp === latestTs);
         return res.json(filtered);
       } catch (error) {
-        console.error('[API] DB waiting query failed:', error);
-        return res.json([]);
+        console.error('[API] DB waiting query failed, falling back to CSV:', error);
+        // Fall through to CSV fallback below
       }
     }
     
@@ -539,14 +539,14 @@ export async function registerRoutes(
     const dateParam = req.query.date as string | undefined;
     const targetDate = dateParam || getTodayDateKey();
     
-    // Cutover logic: dates >= 2026-01-20 use DB
+    // Cutover logic: dates >= 2026-01-20 use DB (with CSV fallback on error)
     if (shouldUseDatabaseForDate(targetDate)) {
       try {
         const data = await getHistoricalAllData(targetDate, computeWaitMinutes);
         return res.json(data);
       } catch (error) {
-        console.error('[API] DB all-data query failed:', error);
-        return res.json([]);
+        console.error('[API] DB all-data query failed, falling back to CSV:', error);
+        // Fall through to CSV fallback below
       }
     }
     
