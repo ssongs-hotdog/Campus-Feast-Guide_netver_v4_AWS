@@ -1,0 +1,118 @@
+DESIGN REVIEW ONLY — DO NOT IMPLEMENT / DO NOT MODIFY CODE
+You must NOT change any code, files, types, endpoints, or data.
+This request is ONLY for architecture review + risk analysis + recommendations.
+Please respond with a structured audit report.
+
+Context (Current System)
+
+Waiting/queue data: file-based CSV → server in-memory cache (globalCache.waiting) → GET endpoints (/api/waiting, /api/waiting/timestamps, /api/dates)
+
+Menu data: file-based JSON → server in-memory cache (globalCache.menus) → GET /api/menu?date=...
+
+Today tab polling exists: client polls waiting data every 30 seconds only when viewing “today”
+
+Hot reload exists: POST /api/admin/reload (Bearer token) to reload caches without restart
+
+Target Goal (Next Evolution)
+
+We want to evolve the PoC into real-time waiting data ingestion while keeping menu data non-real-time (file-based is OK).
+
+Real-time definition: waiting data arrives every 30s ~ 60s, and the “Today” tab should reflect the newest data without manual server restart or file replacement complexity.
+
+Proposed Design (For Review)
+A) Ingestion (batch snapshot per timestamp)
+
+Introduce a new ingestion flow where the producer (camera/AI) sends a single batch snapshot per timestamp.
+
+Proposed ingestion payload:
+
+{
+  "timestamp": "YYYY-MM-DDTHH:mm:ss+09:00",
+  "source": "camera_ai_v1",
+  "data_type": "observed",
+  "corners": [
+    { "restaurantId": "hanyang_plaza", "cornerId": "korean", "queue_len": 12 }
+  ]
+}
+
+
+Key semantics:
+
+timestamp is ISO8601 with +09:00 offset (KST).
+
+corners may be partial (not all corners present) — missing corners simply mean “no update in this snapshot.”
+
+queue_len is integer ≥ 0 (0 allowed).
+
+B) Storage
+
+We plan to store waiting data in a DB (likely PostgreSQL on Replit, but MongoDB is also under consideration).
+
+We prefer a row-based schema (one row per corner per timestamp), with a uniqueness constraint:
+
+Unique key: (timestamp, restaurant_id, corner_id) with UPSERT behavior.
+
+C) Serving for Today Tab (simplify client polling)
+
+To avoid polling timestamps, we propose a new endpoint:
+
+GET /api/waiting/latest?date=YYYY-MM-DD
+
+Server finds the latest timestamp for that date
+
+Returns WaitingDataRow[] for that timestamp (same shape as existing waiting rows)
+
+Client polls this endpoint every 30 seconds for today only
+
+This reduces complexity vs “client must first fetch timestamps and then query by time”.
+
+D) Invariants (Must Preserve)
+
+IDs must match canonical config (shared/types.ts RESTAURANTS IDs & cornerOrder)
+
+Timestamp format must remain ISO8601 with +09:00
+
+Response row shape should remain compatible with current UI expectations:
+
+timestamp, restaurantId, cornerId, queue_len, est_wait_time_min, data_type
+
+est_wait_time_min must still be computed consistently (can be computed on server from queue_len + corner rules).
+
+E) Separation of Concerns
+
+Waiting data becomes real-time / DB-backed.
+
+Menu data remains daily file-based JSON (not real-time).
+
+These two pipelines should remain isolated as much as possible.
+
+Review Questions (Please Answer)
+
+Feasibility: Can we implement this design without breaking existing API contracts/UI? What parts are easiest/hardest?
+
+Best minimal migration path: What is the lowest-risk incremental plan from current CSV cache → DB real-time ingestion?
+
+Endpoint design: Is /api/waiting/latest?date=... the right abstraction? Any better approach given current code?
+
+Polling strategy: Is 30-second polling on today tab reasonable? Any pitfalls (server load, caching, stale data, battery)?
+
+MongoDB vs PostgreSQL: Is MongoDB viable for this time-series snapshot workload? If yes, what schema/indexes would you recommend?
+Also, given Replit constraints, is PostgreSQL still the safer choice?
+
+Data correctness & deduplication: How should we handle duplicate snapshots, partial snapshots, and out-of-order timestamps?
+
+Operational concerns: auth for ingestion, rate limiting, monitoring/health checks, and rollback strategy.
+
+Compatibility with current 5-min aggregation logic: Can we keep it for historical views while simplifying today views to “latest snapshot only”?
+
+Output Format Requested
+
+Please reply with:
+
+A structured audit report (Pros / Risks / Mitigations / Recommended Next Steps)
+
+A suggested phased roadmap (Phase 2A/2B style)
+
+A “must-not-break” checklist based on our current codebase contracts
+
+Again: DO NOT change code now — review only.
