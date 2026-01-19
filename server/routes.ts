@@ -22,11 +22,16 @@
  */
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage, upsertWaitingSnapshots, getWaitingSnapshotCount } from "./storage";
 import * as fs from "fs";
 import * as path from "path";
 import { computeWaitMinutes } from "./waitModel";
 import { RESTAURANTS } from "../shared/types";
+
+const VALID_RESTAURANT_IDS = new Set(RESTAURANTS.map(r => r.id));
+const CORNERS_BY_RESTAURANT = new Map(
+  RESTAURANTS.map(r => [r.id, new Set(r.cornerOrder)])
+);
 
 interface WaitingDataRow {
   timestamp: string;
@@ -460,6 +465,137 @@ export async function registerRoutes(
     const dateParam = req.query.date as string | undefined;
     const { data } = loadWaitingData(dateParam);
     res.json(data);
+  });
+
+  app.post('/api/ingest/waiting', async (req: Request, res: Response) => {
+    const startTime = Date.now();
+    
+    const expectedToken = process.env.INGESTION_TOKEN;
+    const authHeader = req.headers.authorization;
+    
+    if (!expectedToken || authHeader !== `Bearer ${expectedToken}`) {
+      console.log('[Ingest] AUTH_FAIL');
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    try {
+      const body = req.body;
+      
+      if (!body || typeof body !== 'object') {
+        console.log('[Ingest] REJECTED: Invalid request body');
+        return res.status(400).json({ error: 'Invalid request body' });
+      }
+
+      const { timestamp, source, data_type, corners } = body;
+
+      if (!timestamp || typeof timestamp !== 'string') {
+        console.log('[Ingest] REJECTED: Missing or invalid timestamp');
+        return res.status(400).json({ error: 'Missing or invalid timestamp' });
+      }
+
+      const timestampRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+09:00$/;
+      if (!timestampRegex.test(timestamp)) {
+        console.log(`[Ingest] REJECTED: Invalid timestamp format "${timestamp}"`);
+        return res.status(400).json({ 
+          error: 'Invalid timestamp format. Required: YYYY-MM-DDTHH:mm:ss+09:00' 
+        });
+      }
+
+      const incomingTime = new Date(timestamp).getTime();
+      const maxAllowed = Date.now() + 60_000;
+      if (incomingTime > maxAllowed) {
+        console.log(`[Ingest] REJECTED: Timestamp too far in future "${timestamp}"`);
+        return res.status(400).json({ error: 'Timestamp too far in future (max +60s)' });
+      }
+
+      if (!Array.isArray(corners) || corners.length === 0) {
+        console.log('[Ingest] REJECTED: corners must be non-empty array');
+        return res.status(400).json({ error: 'corners must be non-empty array' });
+      }
+
+      const validatedRows: Array<{
+        timestamp: Date;
+        restaurantId: string;
+        cornerId: string;
+        queueLen: number;
+        dataType?: string;
+        source?: string;
+      }> = [];
+
+      for (let i = 0; i < corners.length; i++) {
+        const corner = corners[i];
+        
+        if (!corner || typeof corner !== 'object') {
+          console.log(`[Ingest] REJECTED: corners[${i}] is not an object`);
+          return res.status(400).json({ error: `corners[${i}] is not an object` });
+        }
+
+        const { restaurantId, cornerId, queue_len } = corner;
+
+        if (!restaurantId || typeof restaurantId !== 'string') {
+          console.log(`[Ingest] REJECTED: corners[${i}].restaurantId missing or invalid`);
+          return res.status(400).json({ 
+            error: `corners[${i}].restaurantId missing or invalid` 
+          });
+        }
+
+        if (!VALID_RESTAURANT_IDS.has(restaurantId)) {
+          console.log(`[Ingest] REJECTED: Invalid restaurantId "${restaurantId}"`);
+          return res.status(400).json({ 
+            error: `Invalid restaurantId "${restaurantId}". Valid: ${Array.from(VALID_RESTAURANT_IDS).join(', ')}` 
+          });
+        }
+
+        if (!cornerId || typeof cornerId !== 'string') {
+          console.log(`[Ingest] REJECTED: corners[${i}].cornerId missing or invalid`);
+          return res.status(400).json({ 
+            error: `corners[${i}].cornerId missing or invalid` 
+          });
+        }
+
+        const validCorners = CORNERS_BY_RESTAURANT.get(restaurantId);
+        if (!validCorners || !validCorners.has(cornerId)) {
+          console.log(`[Ingest] REJECTED: Invalid cornerId "${cornerId}" for restaurant "${restaurantId}"`);
+          return res.status(400).json({ 
+            error: `Invalid cornerId "${cornerId}" for restaurant "${restaurantId}". Valid: ${validCorners ? Array.from(validCorners).join(', ') : 'none'}` 
+          });
+        }
+
+        if (typeof queue_len !== 'number' || !Number.isInteger(queue_len) || queue_len < 0) {
+          console.log(`[Ingest] REJECTED: corners[${i}].queue_len must be integer >= 0`);
+          return res.status(400).json({ 
+            error: `corners[${i}].queue_len must be integer >= 0` 
+          });
+        }
+
+        validatedRows.push({
+          timestamp: new Date(timestamp),
+          restaurantId,
+          cornerId,
+          queueLen: queue_len,
+          dataType: data_type || 'observed',
+          source: source || undefined,
+        });
+      }
+
+      const count = await upsertWaitingSnapshots(validatedRows);
+      const latency = Date.now() - startTime;
+      
+      console.log(`[Ingest] OK: ${count} corners at ${timestamp} source=${source || 'unknown'} latency=${latency}ms`);
+      
+      return res.status(200).json({ 
+        ok: true, 
+        inserted: count, 
+        timestamp,
+        latencyMs: latency 
+      });
+
+    } catch (error) {
+      const latency = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[Ingest] DB_FAIL: ${errorMessage} latency=${latency}ms`);
+      return res.status(503).json({ error: 'Database error', details: errorMessage });
+    }
   });
 
   return httpServer;
