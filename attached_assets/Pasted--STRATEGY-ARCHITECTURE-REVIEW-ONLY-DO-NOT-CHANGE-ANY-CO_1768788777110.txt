@@ -1,0 +1,70 @@
+🚫 STRATEGY / ARCHITECTURE REVIEW ONLY — DO NOT CHANGE ANY CODE OR DATA
+This is a forward-looking architecture review request.
+Do NOT modify any code, do NOT refactor, do NOT add endpoints, do NOT change files, and do NOT generate patches/diffs.
+Only inspect the current repo and provide analysis + recommendations.
+
+Context (Current State)
+- HY-eat currently uses:
+  - Menu data from JSON (date-keyed): data/menus_by_date.json → /api/menu?date=...
+  - Waiting data from CSV loaded at startup into in-memory cache: cachedDataByDate
+  - Client fetches all data via dataProvider.ts (single entrypoint)
+- UI is fixed and must remain unchanged.
+- We already support special-case menu variants for hanyang_plaza/breakfast_1000.
+- Current limitation: server-side caching requires restart or reload to reflect updated files.
+
+Goal (Future Direction)
+We want to evolve this service-base into a real-time data system:
+- Real waiting data updates at ~1-minute cadence (or faster later)
+- Ultimately support a real-time pipeline (camera/AI inference → backend → users)
+- Preserve the current UI and API contracts as much as possible
+- Maintain clean separation: UI / domain logic / data access / data ingestion
+
+Request
+Please analyze the best migration path from the current file-based PoC architecture to a real-time architecture, without changing the UI, and report risks and recommendations.
+
+What to analyze (deliverables)
+
+A) Real-time definition & options
+- Compare polling vs server-push (SSE vs WebSocket) for this product.
+- Recommend which approach fits best for HY-eat and WHY, assuming:
+  - users primarily read data (dashboard-like)
+  - updates are frequent but not millisecond-critical
+  - mobile/web clients may be present later
+
+B) Data-source evolution (CSV/JSON → DB/API)
+- Evaluate whether we should:
+  1) keep file-based sources but add hot reload (admin reload endpoint / file watcher), OR
+  2) introduce a DB now (Postgres/Redis/etc.), OR
+  3) hybrid: keep historical data in DB, push “today” updates in memory/stream
+- Recommend a staged roadmap (Phase 1/2/3) with minimal disruption.
+
+C) Contract & invariants (must not break)
+- Identify which API shapes and types must remain invariant to avoid UI changes:
+  - /api/menu?date=
+  - /api/waiting?date=&time=&aggregate=
+  - /api/waiting/all?date=
+  - /api/waiting/timestamps?date=
+- Identify which data keys are non-negotiable:
+  - restaurantId, cornerId, DayKey, timestamp with timezone (+09:00)
+- Identify any parts that currently assume file-based behavior and would need redesign.
+
+D) Operational & reliability considerations for real-time
+- Cache invalidation / update propagation strategy (without restarts)
+- Atomicity / data consistency (avoid partial writes, dedup, ordering)
+- Backfill strategy for missing intervals (what the UI should do)
+- Monitoring/health checks needed for production
+
+E) Recommended architecture blueprint (high level, no code)
+- Provide a clear “target architecture diagram in words”:
+  - ingestion path (where data is written)
+  - storage (DB, cache)
+  - serving layer (API)
+  - real-time channel (SSE/WS or polling)
+- Specify what components can remain unchanged from the current repo.
+
+Output format request
+1) Recommended approach: Polling vs SSE vs WebSocket (with reasons)
+2) A phased roadmap: Phase 0 (now), Phase 1, Phase 2, Phase 3
+3) Top risks (5 items) + mitigations
+4) “Keep invariant” checklist for contracts/types
+5) Final verdict: Is the current codebase a good foundation for real-time evolution? YES/NO and why
