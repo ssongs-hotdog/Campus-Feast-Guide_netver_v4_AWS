@@ -1,0 +1,92 @@
+[IMPORTANT — REVIEW FIRST, DO NOT IMPLEMENT YET]
+Before making ANY code or data changes, perform a detailed self-review and submit a structured report. 
+After you report and I approve, we will proceed with the implementation.
+
+Context:
+We have Phase 2A (DB ingestion) and Phase 2B (Today tab reads from DB via /api/waiting/latest with staleness gating). 
+Now we want to run a 1-day beta on 2026-01-20 with simulated real-time ingestion (30s cadence), operating-hours-aware generation per corner, and automatic day rollover such that:
+- 2026-01-20: Today tab behaves as “live” (DB latest + 30s polling).
+- From 2026-01-21 onward: 2026-01-20 must be treated as “historical/statistics mode” and served via DB queries with 5-min aggregation (Option A: DB as source of truth for both today + historical; NO CSV export pipeline).
+
+Goal:
+Prepare a “Beta Package Update” that includes 4 updates:
+(1) Client timezone alignment (KST)
+(2) Shared schedule configuration accessible to both client and simulator
+(3) A beta simulator (data generator) that ingests only on 2026-01-20, respects operating hours, and stops at KST midnight
+(4) DB-based historical/statistics read path + 5-min aggregation (Option A), so historical tabs can display 2026-01-20 data from DB after rollover
+
+========================
+A) REVIEW & REPORT (NO CODE CHANGES)
+========================
+Please produce a report with the following sections:
+
+1) CURRENT BASELINE AUDIT
+- Confirm current data sources for:
+  - Today tab (live): endpoints used, DB tables involved, polling interval
+  - Historical tab (stats): endpoints used, current data source (file vs DB)
+- Confirm current “todayKey/isToday” logic on client and server, highlighting timezone risks.
+
+2) TARGET BEHAVIOR SPEC
+- Define exact expected behavior for:
+  - 2026-01-20 (live): what endpoint(s) are called, how “freshness” is determined (staleness threshold), placeholder behavior
+  - 2026-01-21+ (historical): how 2026-01-20 is served (5-min buckets), no live polling
+- Define acceptance criteria checklist (pass/fail) for beta success.
+
+3) DESIGN PROPOSAL (OPTION A: DB FOR HISTORICAL)
+- Propose which endpoints will serve DB-based historical data:
+  - Option: modify existing /api/waiting, /api/waiting/all, /api/waiting/timestamps to support DB reads (recommended if minimal UI changes)
+  - Or add new /api/waiting/historical endpoints and update client accordingly (only if necessary)
+- Provide the SQL approach for:
+  - timestamps list for a date
+  - 5-min bucketing aggregation per restaurantId/cornerId
+  - charts/all endpoint (if needed)
+- Provide index recommendations (e.g., expression index on DATE(timestamp AT TIME ZONE 'Asia/Seoul')) and explain why.
+
+4) SCHEDULE SHARING PLAN
+- Identify current schedule source (CORNER_SCHEDULES) and propose moving it to shared/ so both client and simulator can import it.
+- Note any holiday handling stubs; decide beta behavior (e.g., treat holidays as closed or ignore holidays for beta).
+
+5) SIMULATOR PLAN (BETA: 2026-01-20 ONLY)
+- Provide a script design (Node/TS preferred) to POST /api/ingest/waiting every 30 seconds:
+  - Must generate timestamps in ISO8601 +09:00
+  - Must generate data only when a corner is active per schedule
+  - Must stop automatically when KST date != 2026-01-20
+  - Must support config flags: targetDate=2026-01-20, cadenceSeconds=30, source="simulator_v1"
+- Provide a realistic queue_len generation strategy (simple but plausible):
+  - e.g., lunch peak, gradual ramp up/down, per-corner baseline differences, optional random noise
+- Clarify whether partial snapshots are allowed (missing corners => placeholders) or if you will send a full snapshot for all active corners each tick (recommendation preferred).
+
+6) CLIENT LOGIC CHANGES (TIMEZONE + ROLLOVER)
+- We must eliminate client local-time dependence. Propose:
+  - Trust server’s /api/config.today as authoritative todayKey, OR implement KST-based getTodayKey() using Intl.DateTimeFormat with Asia/Seoul.
+- Ensure that after KST midnight, selectedDate=2026-01-20 becomes historical mode automatically (no live endpoint calls).
+
+7) RISK REGISTER + ROLLBACK STRATEGY
+- Enumerate key risks (timezone mismatch, performance, missing data, simulator crash, DB outage)
+- Provide rollback switches:
+  - USE_DB_WAITING=false fallback for today
+  - ability to stop simulator safely
+  - preserve existing file-based endpoints until DB historical path is verified
+
+8) IMPLEMENTATION IMPACT MAP
+- List exactly which files you would change in each sub-part (1)-(4).
+- Confirm API response shapes remain backward compatible (WaitingDataItem[]).
+- Provide estimated complexity and the recommended implementation order.
+
+Deliver the report in a structured format with:
+- Executive summary (GO/NO-GO)
+- Pass/fail checklist template for acceptance tests
+- Exact endpoint specs + sample responses
+- Exact SQL snippets for aggregation + timestamp queries
+- File-by-file change list
+
+========================
+B) AFTER REPORT (WAIT FOR MY GO)
+========================
+After the report, stop and wait for my explicit approval (“GO BETA PACKAGE”) before implementing anything.
+
+Notes / Constraints:
+- Keep DB as the single source of truth for both Today and Historical (Option A).
+- Maintain 30s polling for Today tab only.
+- Continue staleness behavior: if latest snapshot is older than threshold, return [] so UI shows placeholders.
+- The beta date is fixed: 2026-01-20 (KST).
