@@ -1,0 +1,241 @@
+[IMPORTANT — DO NOT IMPLEMENT YET]
+Please perform a detailed review + risk check + implementation plan report first.
+Do NOT make code changes until you provide the report and I explicitly reply “GO IMPLEMENT”.
+
+Context
+
+We are preparing a Beta Test Day on 2026-01-20 (KST, Asia/Seoul) for HY-eat real-time waiting pipeline.
+Current status:
+
+Phase 2A ingestion (POST /api/ingest/waiting) ✅ complete
+
+Phase 2B today live read (GET /api/waiting/latest?date=... with staleness gating) ✅ complete
+Now we need the Beta Package updates (8-1/2/3/4) + additional constraints identified.
+
+Beta Package Updates — Scope (8-1, 8-2, 8-3, 8-4)
+8-1) Client timezone alignment + midnight rollover correctness (KST authoritative)
+Goal
+
+Make server /api/config.today the single source of truth for “today”, and ensure midnight rollover works even if the page stays open.
+
+Requirements
+
+Client must treat “today” as:
+
+todayKey := config.today (authoritative)
+
+NOT derived from browser local timezone.
+
+Client should refresh /api/config periodically so that at KST midnight the UI flips automatically without page refresh:
+
+Suggest: refetch every 60s or 5 minutes, OR schedule a timer to refetch right after midnight KST.
+
+Provide your chosen approach with reasoning.
+
+Ensure isToday logic becomes:
+
+isToday = (selectedDate === config.today)
+
+useLiveEndpoint = isToday && config.useDbWaiting === true
+
+Confirm this does not break any existing navigation or date routing.
+
+Deliverables for review
+
+Exact files to change and the code approach.
+
+Any edge cases (network failures, first load fallback).
+
+8-2) Shared schedule configuration (so simulator can use operating hours)
+Goal
+
+The simulator (server-side script) must generate data only when corners are active, based on the same schedules used by the client.
+
+Requirements
+
+Move schedule config and pure functions to shared layer:
+
+Create: shared/domain/schedule.ts
+
+Move: CORNER_SCHEDULES, isCornerActive(), getServiceDayType(), types.
+
+Client should import/re-export to keep existing imports stable.
+
+For beta, we can ignore holidays:
+
+isHoliday() can remain stubbed, since 2026-01-20 is a weekday.
+
+But document this explicitly.
+
+Deliverables for review
+
+Proposed module structure (shared vs client).
+
+Confirm no runtime bundling issues.
+
+8-3) Beta simulator for 2026-01-20 (30s cadence, operating-hours aware)
+Goal
+
+Run a day-scoped simulated real-time ingestion process for ONLY 2026-01-20 (KST).
+
+Requirements
+
+Create scripts/simulator.ts (Node/TS) and a package.json script:
+
+"simulate:beta": "npx tsx scripts/simulator.ts"
+
+The simulator must:
+
+Target date: 2026-01-20
+
+Cadence: 30 seconds
+
+Use KST timestamps with exact +09:00 suffix (to match ingestion validation)
+
+Generate data only for active corners per schedule (inactive corners: no rows)
+
+Prefer “full snapshot for all active corners each tick” (recommended for consistent UI)
+
+Stop condition:
+
+If getKSTDateKey() !== "2026-01-20", exit gracefully with logs.
+
+Ingestion call:
+
+POST /api/ingest/waiting
+
+Auth: Authorization: Bearer ${INGESTION_TOKEN}
+
+Never log the token value.
+
+Queue length generation:
+
+Provide a simple realistic pattern (lunch peak ramp-up/ramp-down + noise), but keep it deterministic enough to debug (e.g., seedable or at least log the time + generated values summary).
+
+Operational instructions:
+
+How to run in Replit Shell and keep alive:
+
+Shell tab method + optional nohup ... & method
+
+Recommend monitoring:
+
+/api/health secondsSinceLastIngestion
+
+simulator.log tail
+
+Deliverables for review
+
+Script outline, config variables, sample payload.
+
+Operational runbook steps.
+
+8-4) Historical/statistics reads from DB (Option A: DB as single source of truth)
+Goal
+
+After 2026-01-20 ends (KST 2026-01-21), the date 2026-01-20 must become historical and be viewable via the existing UI (time selection + charts), using DB data.
+
+CRITICAL CONSTRAINTS (to avoid contract breakage)
+
+Do NOT change the meaning/shape of existing endpoints in a breaking way.
+
+Specifically, /api/waiting/timestamps currently may be parsed as ISO timestamps by some client paths.
+
+Therefore, keep /api/waiting/timestamps returning ISO timestamp strings (or keep compatibility in the exact path where ISO is required).
+
+If we need HH:MM buckets for historical debugging, provide it via:
+
+a new endpoint (e.g. /api/waiting/time-buckets?date=...) OR
+
+an additional field while keeping the original timestamps ISO contract intact.
+
+Data source policy (must be explicit)
+
+We want DB as the authoritative source for beta day and forward, but we may keep file fallback for legacy dates.
+Please propose one of these:
+
+Policy A (recommended): Cutover date rule
+
+If date >= 2026-01-20, DB is used (DB-only for those dates).
+
+If date < 2026-01-20, file-based cache remains.
+
+OR Policy B: Env-controlled
+
+USE_DB_HISTORICAL=true forces DB-first for all dates, with file fallback only on DB failure.
+
+Legacy CSV can still exist but is not used unless explicitly enabled.
+
+Pick one policy and justify.
+
+Required DB query capabilities (historical)
+
+We need DB equivalents for:
+
+/api/waiting?date=...&time=HH:MM&aggregate=5min
+
+Return aggregated per corner snapshot for that 5-min window.
+
+Response must remain WaitingDataItem[] (same shape).
+
+timestamp should be ${dateKey}T${timeHHMM}:00+09:00 (or consistent ISO).
+
+queue_len should be rounded avg queue_len.
+
+Compute est_wait_time_min server-side.
+
+/api/waiting/all?date=... for charts
+
+Return all rows for that date as WaitingDataItem[] (or the same shape currently used by charts).
+
+(Optional but recommended) Expression index for performance:
+
+CREATE INDEX idx_waiting_kst_date ON waiting_snapshots (DATE(timestamp AT TIME ZONE 'Asia/Seoul'));
+
+If using Drizzle migrations, add it in a migration safely.
+
+Acceptance criteria
+
+On 2026-01-21, visiting /d/2026-01-20 must behave as historical (no live polling).
+
+Selecting a time (e.g., 11:30) must show aggregated results from DB.
+
+Charts panel must show full-day chart from DB rows.
+
+Rollback capability:
+
+Keep USE_DB_WAITING=false for today fallback
+
+Keep USE_DB_HISTORICAL (or cutover logic) documented.
+
+No regressions on existing legacy dates (if they remain file-based).
+
+Deliverables for review
+
+Exact endpoint behavior specification (per date, per flag).
+
+SQL/query approach and mapping to current response shape.
+
+Any changes needed in server/storage.ts and server/routes.ts.
+
+Performance considerations.
+
+Final Deliverable Requested (Review-only)
+
+Before implementing, provide:
+
+A checklist of files to modify/create, and exact responsibilities per file.
+
+A contract table of endpoints → response shape (confirm no breaking changes).
+
+A risk register (top 5 risks + mitigation).
+
+A step-by-step implementation order (recommended sequence).
+
+A test plan:
+
+curl tests for ingestion, latest, historical aggregate, all-data chart
+
+UI verification steps for beta day and day-after rollover
+
+Once the report is provided, I will reply “GO IMPLEMENT” to proceed
