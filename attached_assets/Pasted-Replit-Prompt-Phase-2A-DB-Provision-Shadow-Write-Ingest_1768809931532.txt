@@ -1,0 +1,195 @@
+Replit Prompt (Phase 2A: DB Provision + Shadow Write Ingestion)
+
+You are going to implement Phase 2A (Shadow Write) for the HY-eat project: add PostgreSQL provisioning + DB schema + authenticated ingestion endpoint, while keeping all existing read paths unchanged (file-based cache remains the only source for /api/waiting* in this phase).
+
+0) CRITICAL: Pre-Implementation Review First (NO CODE CHANGES YET)
+
+Before making any code or file changes, produce a structured review report that confirms the following:
+
+Scope confirmation (Phase 2A only)
+
+✅ Create/provision Replit PostgreSQL DB for this project
+
+✅ Add Drizzle schema + migration for waiting_snapshots
+
+✅ Add POST /api/ingest/waiting (shadow write only)
+
+✅ Add ingestion auth via INGESTION_TOKEN secret
+
+✅ Add strict validation against shared/types.ts RESTAURANTS + per-restaurant cornerOrder
+
+✅ Compute est_wait_time_min server-side only (never accept from client)
+
+✅ Logging for ingestion events + latency
+
+✅ No changes to any existing GET endpoints behavior or response shapes
+
+✅ No client changes required in Phase 2A
+
+✅ Keep menu data pipeline fully separate and unchanged
+
+Environment separation warning (Dev vs Prod)
+
+Clearly explain what changes will be needed later for production DB after deploy (separate DB instance, secrets, migration), but do not implement those now.
+
+Risk checklist + mitigations
+
+ID mismatch handling (reject invalid IDs)
+
+Timestamp format/timezone rules (ISO 8601 with +09:00)
+
+Future timestamp rejection policy (<= now + 1 minute)
+
+Duplicate handling (UPSERT semantics)
+
+Partial snapshot semantics (missing corners = “no update”)
+
+DB outage handling for Phase 2A (writes fail gracefully; reads remain file-based)
+
+After the review report, wait for my explicit “GO” in the chat.
+Do not implement anything until I say GO.
+
+1) Implementation Requirements (Execute ONLY after I say “GO”)
+1.1 Provision PostgreSQL on Replit
+
+Use Replit’s built-in provisioning so the project receives:
+
+DATABASE_URL, PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE
+
+Verify connectivity with a minimal sanity query (e.g., select 1) and log success.
+
+1.2 DB Schema (Drizzle)
+
+Create a DB table to store waiting snapshots:
+
+Table: waiting_snapshots
+
+id SERIAL PRIMARY KEY
+
+timestamp TIMESTAMPTZ NOT NULL
+
+restaurant_id VARCHAR(50) NOT NULL
+
+corner_id VARCHAR(50) NOT NULL
+
+queue_len INTEGER NOT NULL CHECK (queue_len >= 0)
+
+data_type VARCHAR(20) DEFAULT 'observed'
+
+source VARCHAR(50)
+
+created_at TIMESTAMPTZ DEFAULT NOW()
+
+UNIQUE constraint: (timestamp, restaurant_id, corner_id)
+
+Indexes (recommended):
+
+For latest-by-day queries later:
+
+Index on DATE(timestamp AT TIME ZONE 'Asia/Seoul'), timestamp DESC
+
+For lookups:
+
+Index on (restaurant_id, corner_id, timestamp DESC)
+
+Create Drizzle migration and apply it.
+
+1.3 Ingestion Endpoint (Shadow Write)
+
+Add new endpoint only:
+
+POST /api/ingest/waiting
+
+Auth
+
+Require Authorization: Bearer <INGESTION_TOKEN>
+
+If missing/invalid: return 403
+
+Payload schema (batch snapshot)
+
+{
+  "timestamp": "2026-01-19T12:30:00+09:00",
+  "source": "camera_ai_v1",
+  "data_type": "observed",
+  "corners": [
+    { "restaurantId": "hanyang_plaza", "cornerId": "korean", "queue_len": 12 }
+  ]
+}
+
+
+Validation rules
+
+timestamp required; must be ISO 8601 with timezone offset (+09:00 expected for KST)
+
+Reject if timestamp > NOW() + 1 minute
+
+corners must be non-empty array
+
+For each corner:
+
+restaurantId must exist in shared/types.ts RESTAURANTS[].id
+
+cornerId must exist in that restaurant’s cornerOrder
+
+queue_len integer ≥ 0
+
+Reject unknown IDs with 400 and a precise error message (which field failed).
+
+Write behavior
+
+Perform UPSERT:
+
+Insert (timestamp, restaurant_id, corner_id, queue_len, data_type, source)
+
+On conflict (timestamp, restaurant_id, corner_id):
+
+Update queue_len, data_type, source
+
+Do NOT write/accept est_wait_time_min from client. (This will remain computed server-side on reads later; Phase 2A is write-only.)
+
+Logging
+
+On success: [Ingest] OK: N corners at <timestamp> source=<source> latency=<ms>
+
+On validation failure: [Ingest] REJECTED: <reason>
+
+On auth failure: [Ingest] AUTH_FAIL
+
+On DB error: [Ingest] DB_FAIL: <message>
+
+No impact to existing runtime
+
+Do not modify any existing GET endpoints to read from DB in Phase 2A.
+
+Keep the current file-based waiting reads and menu reads exactly as-is.
+
+2) Verification Deliverables (After Implementation)
+
+Provide:
+
+Exact files changed
+
+Exact curl commands to test:
+
+403 without token
+
+400 with invalid IDs
+
+200 with valid payload
+
+200 with duplicate payload (should update)
+
+Evidence the DB table exists and row count increments
+
+Confirmation that existing /api/waiting* still behaves unchanged (file-based; currently skeleton/empty is OK)
+
+3) Notes / Constraints
+
+Keep API contracts stable.
+
+Keep menu and waiting pipelines isolated.
+
+Keep timezone correctness: treat “dayKey” as KST day.
+
+This is Phase 2A only: shadow write. No read-switch work yet.
