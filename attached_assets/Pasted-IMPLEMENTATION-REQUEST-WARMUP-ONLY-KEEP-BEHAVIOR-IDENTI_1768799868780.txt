@@ -1,0 +1,79 @@
+IMPLEMENTATION REQUEST — WARMUP ONLY (KEEP BEHAVIOR IDENTICAL)
+Do NOT refactor unrelated code. Do NOT change API response shapes. Do NOT change UI code.
+This update is ONLY to eliminate “lazy on first access” cache initialization risk in production by pre-warming caches at server boot and by adding a lightweight health/readiness endpoint.
+
+Context (Current Risk)
+
+Right now the server cache is initialized lazily on first API access (ensureCacheInitialized()).
+Operationally this can cause the very first user request after deployment to pay the full file-load + parse cost, leading to a slow first load or timeout as data grows.
+
+Goals
+
+Pre-warm caches at server startup
+
+Ensure menus JSON and waiting CSV are loaded/parsed into globalCache as part of the server boot sequence (not on first request).
+
+The warmup must run once at startup and log a clear success/failure summary:
+
+loaded menu dates count, waiting dates count, row counts if available
+
+how long warmup took (ms)
+
+If warmup fails, do NOT crash the server by default. Instead:
+
+server still starts
+
+globalCache remains empty or last-known state (depending on existing behavior)
+
+/health or /ready should reflect failure (see below)
+
+keep existing endpoints’ graceful-degradation (return empty arrays / placeholders) unchanged
+
+Add readiness endpoint(s) for ops
+Add:
+
+GET /health → always returns 200 with { ok: true, timestamp } (liveness)
+
+GET /ready (or /health/ready) → returns:
+
+200 if warmup succeeded and caches are available
+
+503 if warmup failed or caches are not initialized
+
+JSON payload should include { ready: boolean, menusLoaded: boolean, waitingLoaded: boolean, menuDates: number, waitingDates: number, lastWarmupAt, lastWarmupError }
+
+Keep existing lazy initializer as fallback
+
+Keep ensureCacheInitialized() (or existing logic) as a safety net.
+
+But after this change, the normal path in production should already be warm.
+
+Constraints
+
+No breaking changes to existing endpoints (/api/menu, /api/waiting, /api/dates, /api/admin/reload).
+
+No changes to client polling or UI.
+
+Minimal, contained edits (server-side only).
+
+Must preserve the existing “graceful empty-data” behavior when files are missing/corrupt.
+
+Acceptance Checks
+
+On server start, logs show warmup attempt and result.
+
+GET /health always returns 200 quickly.
+
+GET /ready returns 200 only when warmup is successful; otherwise 503 with error info.
+
+First user request after deploy does NOT trigger heavy parsing work (verify by logs / timing).
+
+/api/admin/reload still works and updates readiness status accordingly.
+
+Deliverables
+
+List exact files changed and what changed.
+
+Show sample warmup log output.
+
+Show example responses for /health (200) and /ready (200 and 503).
