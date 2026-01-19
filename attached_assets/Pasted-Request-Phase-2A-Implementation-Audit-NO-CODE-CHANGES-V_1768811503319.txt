@@ -1,0 +1,100 @@
+Request: Phase 2A Implementation Audit (NO CODE CHANGES) — Verify DB Foundation & Service-Base Readiness
+
+Please perform a read-only audit of the current codebase and runtime state to confirm Phase 2A was implemented correctly and is production-path-ready.
+Important: Do NOT modify any code, schema, or files. This request is verification + reporting only.
+
+1) Phase 2A Completion Checklist (Must verify one by one)
+
+A. Database provisioning (Replit Postgres)
+
+Confirm the Postgres instance is attached to this project.
+
+Confirm these env vars exist and are non-empty (do not print full secrets, just existence):
+
+DATABASE_URL, PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE
+
+B. Drizzle schema + migration
+
+Confirm Drizzle schema includes a waiting_snapshots table definition.
+
+Confirm migration has been applied to the dev DB.
+
+Confirm the table exists in DB and matches expected columns:
+
+id, timestamp (timestamptz), restaurant_id, corner_id, queue_len, data_type, source, created_at
+
+Confirm constraints/indexes exist:
+
+Unique constraint on (timestamp, restaurant_id, corner_id)
+
+Indexes suitable for latest queries (at minimum timestamp + (restaurant,corner,timestamp))
+
+C. Ingestion endpoint
+
+Confirm POST /api/ingest/waiting exists and is reachable.
+
+Confirm auth is enforced:
+
+403 without Authorization: Bearer <INGESTION_TOKEN>
+
+Confirm strict validation behavior:
+
+Reject unknown restaurantId
+
+Reject unknown cornerId for a restaurant
+
+Reject invalid timestamp format (must be ISO8601 with +09:00)
+
+Reject timestamp too far in the future (> now + 60s)
+
+Reject negative or non-integer queue_len
+
+Confirm UPSERT semantics:
+
+Duplicate (timestamp, restaurant_id, corner_id) updates instead of inserting duplicates
+
+Confirm server-side computation rules:
+
+est_wait_time_min is computed server-side only (not accepted from client)
+
+D. Non-negotiables still true
+
+Confirm existing GET endpoints were NOT modified:
+
+/api/waiting*, /api/menu, /api/dates, etc.
+
+Confirm client code remains unchanged for Phase 2A.
+
+Confirm menu pipeline remains file-based and isolated.
+
+2) Required Evidence in the Report (No secrets leakage)
+
+Please include:
+
+File/route map: where DB connection code lives, where the endpoint is defined, where schema/migration lives
+
+A “pass/fail” table for the checklist items above
+
+The exact curl commands I can run to validate:
+
+403 without token
+
+400 on invalid payload (bad IDs / bad timestamp / negative queue_len)
+
+200 on valid ingestion
+
+UPSERT update test (same timestamp/corner twice)
+
+A minimal DB verification query I can run (e.g. row count, last inserted row), without exposing secrets.
+
+3) Architecture Readiness Assessment (Short but professional)
+
+Based on the current state, provide a verdict:
+
+Is Phase 2A a solid foundation for Phase 2B (Today read switch)?
+
+Any structural red flags (timezone handling, ID validation, drift risks, logging gaps)?
+
+What must be done before turning on real-time reads (Phase 2B prerequisites)?
+
+Again: NO CODE CHANGES — audit & report only.
