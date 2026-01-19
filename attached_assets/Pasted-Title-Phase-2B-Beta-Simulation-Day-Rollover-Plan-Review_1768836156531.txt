@@ -1,0 +1,141 @@
+Title: Phase 2B+ Beta Simulation & Day-Rollover Plan — Review & Report Only (No Code Changes)
+
+Context (current status):
+We already have:
+
+DB ingestion endpoint: POST /api/ingest/waiting (validated +09:00 KST timestamps, IDs, UPSERT)
+
+Today tab reads from DB when USE_DB_WAITING=true via /api/waiting/latest?date=YYYY-MM-DD
+
+Staleness cutoff: WAITING_STALE_SECONDS returns [] when data stops (placeholders show)
+
+File-based historical path still exists (currently skeleton/empty)
+
+Request:
+Please perform a design + feasibility review and produce an Update Plan Report for the following Beta Test Scenario, with NO CODE CHANGES at this time.
+Do not implement anything yet. Only analyze, audit current codebase, and report.
+
+A) Beta Test Scenario Requirements (Target Behavior)
+A1) Beta date scope (single day)
+
+Beta test date is 2026-01-20 (KST).
+
+We will generate simulated “real-time” waiting data only for 2026-01-20, and only during each corner’s active operating hours (as realistic as possible).
+
+A2) Realistic data generation rules
+
+The simulator should generate snapshots at 30s cadence (or configurable 30–60s) but ONLY when the corner is active.
+
+When a corner is inactive (closed), ingestion should stop for that corner, and the UI should naturally show placeholders (or staleness threshold triggers empty results).
+
+Data must follow existing ingestion contract:
+
+timestamp format strictly YYYY-MM-DDTHH:mm:ss+09:00 (KST)
+
+restaurantId/cornerId must match RESTAURANTS
+
+queue_len integer >= 0
+
+data_type observed/predicted as appropriate
+
+server computes est_wait_time_min
+
+A3) Automatic day rollover & migration to “historical/statistics”
+
+When the date changes from 2026-01-20 → 2026-01-21 (KST):
+
+The system should stop treating 2026-01-20 as “today real-time”.
+
+The 2026-01-20 collected dataset must be available under the historical/statistics (non-real-time) path (the “past tab / 통계 데이터 제공” mode).
+
+We consider this “rollover + historical availability” part of the beta success criteria.
+
+Important: If any part of this rollover/migration isn’t built yet, identify precisely what is missing and propose the implementation plan.
+
+B) What you must deliver now (Review & Report Only)
+B1) Current-state audit (data flow & responsibilities)
+
+Please report:
+
+Where “today vs historical” is decided (server and client).
+
+Which endpoints power:
+
+Today tab (DB latest)
+
+Historical tab (file cache / aggregate=5min)
+
+Whether historical/statistics view currently reads from DB at all (and if not, what must change).
+
+B2) Missing pieces analysis
+
+Identify what is NOT yet built to achieve:
+
+A day-scoped simulator for 2026-01-20 only
+
+Operating-hours-aware generation (per corner)
+
+Automatic rollover at KST midnight
+
+Migration/availability of 2026-01-20 data as historical/statistics data on/after 2026-01-21
+
+Be explicit: list missing endpoints, missing queries, missing flags, missing cron/scheduler, missing UI logic, missing DB schema/indexes, etc.
+
+B3) Update Plan Report (structured)
+
+Provide a plan with:
+
+Recommended architecture (minimal changes preferred)
+
+Phase breakdown (e.g., Phase Beta-1, Beta-2…) with “what changes where”
+
+Exact contracts (what endpoints return, shapes must stay compatible)
+
+Rollover strategy (how to decide “today” using KST consistently; how to expose “today” to client)
+
+Historical/statistics integration strategy
+
+Option A: historical reads from DB (preferred if feasible)
+
+Option B: export DB → file-based cache for historical view (if you recommend)
+
+Explain pros/cons and complexity
+
+Testing & acceptance criteria
+
+How we verify beta success end-to-end (including midnight rollover)
+
+Risk register + mitigations
+
+Timezone edge cases, partial snapshots, data gaps, simulator stopping, stale threshold interactions, etc.
+
+B4) Implementation boundaries (must respect)
+
+Do not implement anything now.
+
+Do not modify code or data.
+
+This request is strictly: self-review + report only.
+
+C) Key Questions you must answer in the report
+
+How do we define “active operating hours per corner” in a maintainable way?
+
+Where should that schedule live (config file / constants / DB table)?
+
+On 2026-01-21, how exactly will the UI treat 2026-01-20 data?
+
+Should historical tabs query DB directly?
+
+Or should we export/aggregate the day into a “statistics dataset” store?
+
+What is the cleanest way to support 5-min aggregation for the historical/statistics tab?
+
+DB query aggregation vs precomputed table vs export pipeline
+
+What changes are required to ensure KST alignment on both client and server during rollover?
+
+Deliverable format:
+Return a “Beta Pipeline Review & Update Plan Report” with headings, checklists, and a concrete phased plan.
+
+Reminder: Review/report only. No implementation yet.
