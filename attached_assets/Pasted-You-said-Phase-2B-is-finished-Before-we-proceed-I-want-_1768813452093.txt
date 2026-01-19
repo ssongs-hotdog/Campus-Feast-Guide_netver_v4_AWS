@@ -1,0 +1,90 @@
+You said Phase 2B is finished. 
+Before we proceed, I want a comprehensive Architecture + Data Integrity audit of the current codebase and runtime behavior.
+
+IMPORTANT: This request is "NO CODE CHANGES". 
+Do NOT modify any files. Only inspect, grep, trace flows, and report.
+
+GOAL
+Verify the entire Phase 2A + 2B pipeline is structurally correct, data-contract-safe, timezone-correct (Asia/Seoul), and operationally safe.
+
+Please produce a structured audit report with:
+- What you checked
+- What you found (with file names + key line ranges)
+- Pass/Fail checklist
+- Concrete risks / gaps (if any)
+- Recommended next steps (Phase 2C readiness + what prerequisites are still missing)
+
+AUDIT SCOPE (MUST COVER ALL)
+
+A) Feature Flags & Environment
+1) Confirm USE_DB_WAITING behavior:
+   - When USE_DB_WAITING=false: Today tab must NOT read DB (must behave exactly like the old file-cache path).
+   - When USE_DB_WAITING=true: Today tab must read DB via /api/waiting/latest (or equivalent).
+2) Confirm where USE_DB_WAITING is read (server-only vs client config endpoint).
+3) Confirm dev vs prod DB separation assumptions (Replit) are understood and not causing hidden issues.
+
+B) Timezone Correctness (CRITICAL)
+1) Confirm all “today” computations are KST (Asia/Seoul), not UTC:
+   - server “today key” logic
+   - client isToday logic
+2) Confirm DB date filtering uses KST semantics:
+   - DATE(timestamp AT TIME ZONE 'Asia/Seoul') usage (or equivalent)
+3) Identify any remaining UTC-based TODAY_DATE or toISOString().split('T')[0] patterns that could break date matching.
+
+C) API Contracts & Response Shape Compatibility
+1) Confirm /api/waiting/latest response shape is EXACTLY compatible with existing WaitingDataItem[]:
+   { timestamp, restaurantId, cornerId, queue_len, est_wait_time_min, data_type? }
+   - No wrapper objects unless client was updated accordingly.
+2) Confirm est_wait_time_min is computed server-side only (not accepted from ingestion).
+3) Confirm /api/waiting, /api/waiting/timestamps, /api/dates remain backward compatible and unchanged unless explicitly intended.
+4) Confirm menu endpoints remain isolated and unaffected.
+
+D) Data Path / Data Sources of Truth
+1) For Today tab:
+   - Confirm the exact server code path for reading the latest waiting snapshot.
+   - Confirm how “latest timestamp” is defined (MAX(timestamp) or ORDER BY timestamp DESC LIMIT 1).
+   - Confirm rows fetched for that timestamp include all provided corners and preserve partial snapshot semantics (missing corners = no update).
+2) For Historical tab:
+   - Confirm it still uses file-cache (skeleton) and any aggregation behavior (5min) remains untouched.
+3) Confirm DB fallback behavior:
+   - If DB query fails, confirm the endpoint falls back to file-cache safely and logs the fallback.
+
+E) Ingestion Integrity (Phase 2A)
+1) Confirm POST /api/ingest/waiting validation:
+   - restaurantId/cornerId validation against RESTAURANTS
+   - timestamp format requires +09:00
+   - reject future timestamps > 60s
+   - reject negative queue_len
+2) Confirm UPSERT semantics (timestamp, restaurant_id, corner_id) uniqueness
+3) Confirm indexes exist for latest-by-day queries.
+
+F) Client Polling & React Query Cache Safety
+1) Confirm Today tab polling interval is exactly 30s (30000ms) and is disabled for non-today dates.
+2) Confirm polling is disabled in background tabs (refetchIntervalInBackground: false).
+3) Confirm queryKey strategy prevents cache poisoning or stale collisions:
+   - /api/waiting/latest should have its own queryKey distinct from /api/waiting?time=...
+4) Confirm there is no “double polling” (both latest endpoint and old timestamp-based endpoint simultaneously).
+
+G) Observability / Health Monitoring
+1) Confirm /api/health exists and returns:
+   - db connectivity status
+   - lastIngestion timestamp (from DB)
+   - secondsSinceLastIngestion
+2) Confirm logs exist for:
+   - ingestion success/fail
+   - latest query success/fail
+   - fallback to file
+3) Confirm health endpoint is liveness-safe (always 200).
+
+H) Risk Register + Phase 2C Readiness
+1) List top remaining risks (timezone drift, schema drift dev/prod, partial snapshots semantics confusion, etc.)
+2) Give a “GO/NO-GO” recommendation for moving to Phase 2C with prerequisites.
+
+DELIVERABLE FORMAT
+- Executive Summary (5~10 lines)
+- Pass/Fail checklist table
+- Detailed findings by section (A~H)
+- Risks + mitigations
+- Next steps (what we should do next, and what NOT to do yet)
+
+Again: do NOT change any code. Only inspect and report.
