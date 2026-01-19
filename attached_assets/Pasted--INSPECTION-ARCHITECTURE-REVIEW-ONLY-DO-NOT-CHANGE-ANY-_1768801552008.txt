@@ -1,0 +1,56 @@
+🚨 INSPECTION / ARCHITECTURE REVIEW ONLY — DO NOT CHANGE ANY CODE
+You must NOT modify, commit, or apply any changes. Do NOT refactor. Do NOT run destructive operations.
+Your task is to inspect the current codebase and report findings + recommendations only.
+
+Goal
+We want to evolve HY-eat from file-based PoC to real-time waiting/queue ingestion specifically for the "Today" tab, while keeping menu data non-real-time. Please audit the current data ingestion + serving design and assess feasibility of adding a real-time pipeline.
+
+A) Current Data Collection & Runtime Data Flow (Report)
+1) Describe the end-to-end flow for:
+   - Waiting/queue data (current CSV → server cache → API → client polling)
+   - Menu data (current JSON → server cache → API → client)
+2) List the exact “sources of truth” and where they live:
+   - File paths, cache objects, reload mechanisms, endpoints, polling mechanisms
+3) Confirm how “today-only 30s polling” works and which endpoints are called.
+
+B) Can We Support Real-Time Waiting Data for Today Tab? (Feasibility)
+1) Based on current architecture, can we plug in a real-time waiting data ingestion path so that:
+   - The Today tab reflects updates every 30–60 seconds (target)
+   - Without restarting the server
+   - Without breaking existing API response shapes
+2) Identify the minimal architectural change path:
+   - Option 1: Keep current endpoints, replace the waiting-data source behind them
+   - Option 2: Add a separate ingestion endpoint but keep serving endpoints unchanged
+3) Call out any blockers, coupling points, and what must remain invariant (API shapes, IDs, timestamp format, etc.)
+
+C) MongoDB Fit Check (Waiting Data in MongoDB)
+We are considering MongoDB as the storage for real-time waiting data.
+1) Is MongoDB a viable choice here given:
+   - Time-series nature (timestamp, restaurantId, cornerId, queue_len)
+   - Query patterns used by /api/waiting, /api/waiting/timestamps, /api/dates, aggregation (5min)
+   - Need for fast “latest snapshot” reads + historical reads
+2) Recommend a MongoDB schema approach (conceptual only):
+   - Collections, indexes, uniqueness constraints, and how to represent timestamps
+   - How to efficiently serve:
+     - today snapshot queries
+     - timestamp list per day
+     - 5-min aggregation (whether to do it on read or store pre-aggregated)
+3) Compare briefly vs Postgres for this use case (not a long essay—practical pros/cons).
+
+D) Separation of Concerns: Menu vs Waiting (Confirm Current Isolation)
+1) Confirm whether the code already separates:
+   - menu ingestion/serving path
+   - waiting ingestion/serving path
+2) Confirm whether we can make waiting real-time while leaving menus as file-based daily updates without cross-impact.
+
+E) Practical Next Step Recommendation (Report)
+Provide a recommended “Phase 2” plan (inspection-only recommendation):
+- What to build first for real-time waiting ingestion
+- Whether to keep CSV as fallback
+- Whether to keep /api/admin/reload and how it interacts with DB-based waiting data
+- What minimal tests/checks should be used to validate correctness
+
+Deliverable Format
+- Use headings A/B/C/D/E
+- Be explicit about file names, key functions, key cache objects, and endpoints
+- Provide a clear go/no-go assessment + the safest path forward
