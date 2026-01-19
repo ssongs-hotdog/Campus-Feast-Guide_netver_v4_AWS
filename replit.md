@@ -95,11 +95,60 @@ The codebase is organized into clearly separated layers:
 
 ### Database
 - PostgreSQL configured via Drizzle ORM (schema in `shared/schema.ts`)
-- Currently using in-memory storage
+- `waiting_snapshots` table for real-time queue data ingestion (Phase 2A)
+- Users table for future authentication (currently in-memory storage)
 
 ### Third-Party Libraries
 - **QRCode**: Client-side QR code generation for meal tickets
 - **Zod**: Schema validation for API data
+- **pg**: PostgreSQL driver for Node.js
+
+## Real-time Data Pipeline (Phase 2A - Shadow Write)
+
+### Database Schema: waiting_snapshots
+```sql
+CREATE TABLE waiting_snapshots (
+  id SERIAL PRIMARY KEY,
+  timestamp TIMESTAMPTZ NOT NULL,
+  restaurant_id VARCHAR(50) NOT NULL,
+  corner_id VARCHAR(50) NOT NULL,
+  queue_len INTEGER NOT NULL,
+  data_type VARCHAR(20) DEFAULT 'observed',
+  source VARCHAR(50),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(timestamp, restaurant_id, corner_id)
+);
+```
+
+### Ingestion Endpoint: POST /api/ingest/waiting
+- **Authentication**: Bearer token via `INGESTION_TOKEN` secret
+- **Payload format**:
+```json
+{
+  "timestamp": "2026-01-19T12:30:00+09:00",
+  "source": "camera_ai_v1",
+  "data_type": "observed",
+  "corners": [
+    { "restaurantId": "hanyang_plaza", "cornerId": "korean", "queue_len": 12 }
+  ]
+}
+```
+- **Validation rules**:
+  - Timestamp: ISO 8601 with `+09:00` timezone suffix (KST)
+  - Timestamp must be ≤ now + 60 seconds (reject future timestamps)
+  - restaurantId must exist in `shared/types.ts` RESTAURANTS
+  - cornerId must exist in that restaurant's cornerOrder
+  - queue_len must be integer ≥ 0
+- **UPSERT semantics**: Updates existing rows on conflict (timestamp, restaurant_id, corner_id)
+- **Logging**: `[Ingest] OK/REJECTED/AUTH_FAIL/DB_FAIL` with latency
+
+### Phase 2A Status (Current)
+- ✅ PostgreSQL provisioned (DATABASE_URL available)
+- ✅ Drizzle schema + migration applied
+- ✅ POST /api/ingest/waiting endpoint operational
+- ✅ All existing GET endpoints unchanged (file-based)
+- ⏳ Phase 2B: Today tab reads from DB (USE_DB_WAITING flag)
+- ⏳ Phase 2C: Historical migration to DB
 
 ## Recent Changes (2026-01-18)
 
