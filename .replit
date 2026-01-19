@@ -47,15 +47,6 @@ author = 53122917
 task = "shell.exec"
 args = "npx tsx scripts/simulator.ts"
 
-[[workflows.workflow]]
-name = "BETA-DAY-260120"
-mode = "sequential"
-author = 53122917
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "simulator-beta"
-
 [userenv]
 
 [userenv.shared]
