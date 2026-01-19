@@ -171,9 +171,20 @@ export async function getLatestWaitingByDate(dateKey: string): Promise<{
     source: row.source,
   }));
 
-  // Format timestamp as ISO with +09:00 suffix
+  // Format timestamp as ISO with +09:00 suffix (properly converted to KST)
   const ts = new Date(latestTs);
-  const isoWithKST = ts.toISOString().replace('Z', '+09:00').replace('.000', '');
+  const kstFormatter = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+  const formatted = kstFormatter.format(ts).replace(' ', 'T') + '+09:00';
+  const isoWithKST = formatted;
 
   return { rows: latestRows, latestTimestamp: isoWithKST };
 }

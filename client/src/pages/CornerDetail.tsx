@@ -42,7 +42,7 @@ import {
 } from '@shared/types';
 import { isValidDayKey, type DayKey } from '@/lib/dateUtils';
 import { CORNER_DISPLAY_NAMES } from '@shared/cornerDisplayNames';
-import { getMenus, getAvailableTimestamps, getWaitTimes } from '@/lib/data/dataProvider';
+import { getMenus, getAvailableTimestamps, getWaitTimes, getLatestWaitTimes, getConfig } from '@/lib/data/dataProvider';
 
 export default function CornerDetail() {
   const [matchNew, paramsNew] = useRoute('/d/:dayKey/restaurant/:restaurantId/corner/:cornerId');
@@ -79,6 +79,19 @@ export default function CornerDetail() {
     },
   });
 
+  const { data: configData } = useQuery<{ useDbWaiting: boolean; today: string }>({
+    queryKey: ['/api/config'],
+    queryFn: async () => {
+      const result = await getConfig();
+      if (result.error) throw new Error(result.error);
+      return result.data || { useDbWaiting: false, today: todayKey };
+    },
+    staleTime: 60000,
+  });
+
+  const useDbWaiting = configData?.useDbWaiting ?? false;
+  const useLiveEndpoint = isToday && useDbWaiting;
+
   const { data: timestampsData } = useQuery<{ timestamps: string[] }>({
     queryKey: ['/api/waiting/timestamps', effectiveDate],
     queryFn: async () => {
@@ -86,22 +99,29 @@ export default function CornerDetail() {
       if (result.error) throw new Error(result.error);
       return { timestamps: result.data || [] };
     },
-    enabled: isToday && !timestampParam,
+    enabled: isToday && !timestampParam && !useLiveEndpoint,
   });
 
   const effectiveTimestamp = (() => {
     if (timestampParam) return timestampParam;
     if (!isToday) return '';
+    if (useLiveEndpoint) return '';
     if (!timestampsData?.timestamps?.length) return '';
     return timestampsData.timestamps[0];
   })();
 
   const { data: waitingData } = useQuery<WaitingData[]>({
-    queryKey: isToday 
-      ? ['/api/waiting', effectiveDate, effectiveTimestamp]
-      : ['/api/waiting', effectiveDate, time5minParam || '11:00', '5min'],
+    queryKey: useLiveEndpoint
+      ? ['/api/waiting/latest', effectiveDate]
+      : isToday 
+        ? ['/api/waiting', effectiveDate, effectiveTimestamp]
+        : ['/api/waiting', effectiveDate, time5minParam || '11:00', '5min'],
     queryFn: async () => {
-      if (isToday) {
+      if (useLiveEndpoint) {
+        const result = await getLatestWaitTimes(effectiveDate);
+        if (result.error) throw new Error(result.error);
+        return result.data || [];
+      } else if (isToday) {
         if (!effectiveTimestamp) return [];
         const result = await getWaitTimes(effectiveDate, effectiveTimestamp);
         if (result.error) throw new Error(result.error);
@@ -113,9 +133,9 @@ export default function CornerDetail() {
         return result.data || [];
       }
     },
-    enabled: isToday ? !!effectiveTimestamp : true,
-    staleTime: 0,
-    refetchInterval: isToday ? 30000 : false,
+    enabled: useLiveEndpoint || (isToday ? !!effectiveTimestamp : true),
+    staleTime: useLiveEndpoint ? 0 : 60000,
+    refetchInterval: useLiveEndpoint ? 30000 : false,
     refetchIntervalInBackground: false,
   });
 

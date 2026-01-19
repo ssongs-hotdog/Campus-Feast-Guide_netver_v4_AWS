@@ -274,3 +274,76 @@ export async function hasDataForDate(dayKey: DayKey): Promise<boolean> {
   
   return menuResult.hasData || timestampResult.hasData;
 }
+
+/**
+ * App configuration from server.
+ */
+export interface AppConfig {
+  useDbWaiting: boolean;
+  today: string;
+}
+
+/**
+ * Fetches app configuration from server.
+ * Returns feature flags and today's date (KST).
+ */
+export async function getConfig(): Promise<DataResponse<AppConfig>> {
+  try {
+    const res = await fetch('/api/config');
+    
+    if (!res.ok) {
+      return { 
+        data: null, 
+        hasData: false, 
+        error: `Failed to fetch config: ${res.status}` 
+      };
+    }
+    
+    const data = await res.json();
+    return { data, hasData: true };
+  } catch (error) {
+    console.error('Error fetching config:', error);
+    return { 
+      data: null, 
+      hasData: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    };
+  }
+}
+
+/**
+ * Fetches the latest wait time data for a specific date.
+ * This endpoint reads from the database when USE_DB_WAITING is enabled.
+ * 
+ * @param dayKey - The date in YYYY-MM-DD format
+ * @returns Array of latest waiting data items
+ */
+export async function getLatestWaitTimes(
+  dayKey: DayKey
+): Promise<DataResponse<WaitingDataItem[]>> {
+  try {
+    const res = await fetch(`/api/waiting/latest?date=${dayKey}`);
+    
+    if (!res.ok) {
+      return { 
+        data: [], 
+        hasData: false, 
+        error: `Failed to fetch latest wait times: ${res.status}` 
+      };
+    }
+    
+    const data = await res.json();
+    
+    return { 
+      data, 
+      hasData: Array.isArray(data) && data.length > 0 
+    };
+  } catch (error) {
+    console.error('Error fetching latest wait times:', error);
+    return { 
+      data: [], 
+      hasData: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    };
+  }
+}

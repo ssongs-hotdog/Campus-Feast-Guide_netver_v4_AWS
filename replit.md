@@ -142,12 +142,39 @@ CREATE TABLE waiting_snapshots (
 - **UPSERT semantics**: Updates existing rows on conflict (timestamp, restaurant_id, corner_id)
 - **Logging**: `[Ingest] OK/REJECTED/AUTH_FAIL/DB_FAIL` with latency
 
-### Phase 2A Status (Current)
+### Phase 2A Status
 - ✅ PostgreSQL provisioned (DATABASE_URL available)
 - ✅ Drizzle schema + migration applied
 - ✅ POST /api/ingest/waiting endpoint operational
 - ✅ All existing GET endpoints unchanged (file-based)
-- ⏳ Phase 2B: Today tab reads from DB (USE_DB_WAITING flag)
+
+### Phase 2B: Real-time Today Tab (Current)
+
+**Feature Flag**: `USE_DB_WAITING` environment variable
+- `true`: Today tab reads from PostgreSQL with 30s polling
+- `false` (default): All dates use file-based data (original behavior)
+
+**New Endpoints**:
+- `GET /api/config` - Returns `{ useDbWaiting: boolean, today: string }`
+- `GET /api/health` - Returns `{ status, timestamp, db, lastIngestion, secondsSinceLastIngestion }`
+- `GET /api/waiting/latest?date=YYYY-MM-DD` - Returns latest waiting snapshot from DB (or file fallback)
+
+**KST Timezone Utilities** (server/storage.ts):
+- `getKSTDateKey()` - Current date in Asia/Seoul timezone
+- `getKSTISOTimestamp()` - Current ISO timestamp with +09:00 suffix
+- `getLatestWaitingByDate(dateKey)` - Queries DB for latest snapshot
+
+**Client Behavior**:
+- When `useDbWaiting=true` AND date is today: Uses `/api/waiting/latest` with 30s polling
+- Otherwise: Uses existing `/api/waiting` endpoint (no polling for non-today)
+- 30s polling only activates for live DB mode on today tab
+
+**Rollback**:
+- Set `USE_DB_WAITING=false` to immediately revert to file-based behavior
+
+### Phase Status Summary
+- ✅ Phase 2A: Shadow write to DB (ingestion endpoint)
+- ✅ Phase 2B: Today read switch (USE_DB_WAITING flag)
 - ⏳ Phase 2C: Historical migration to DB
 
 ## Recent Changes (2026-01-18)

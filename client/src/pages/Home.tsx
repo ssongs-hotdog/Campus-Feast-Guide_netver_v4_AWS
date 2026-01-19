@@ -22,7 +22,7 @@ import { useTimeContext } from '@/lib/timeContext';
 import { useTicketContext } from '@/lib/ticketContext';
 import { RESTAURANTS, formatTime, type WaitingData, type MenuData } from '@shared/types';
 import { addDays, formatDayKeyForDisplay, isValidDayKey, type DayKey } from '@/lib/dateUtils';
-import { getMenus, getWaitTimes, getAvailableTimestamps } from '@/lib/data/dataProvider';
+import { getMenus, getWaitTimes, getAvailableTimestamps, getLatestWaitTimes, getConfig } from '@/lib/data/dataProvider';
 
 function Banner() {
   const [imageError, setImageError] = useState(false);
@@ -119,6 +119,18 @@ export default function Home() {
     enabled: !!selectedDate,
   });
 
+  const { data: configData } = useQuery<{ useDbWaiting: boolean; today: string }>({
+    queryKey: ['/api/config'],
+    queryFn: async () => {
+      const result = await getConfig();
+      if (result.error) throw new Error(result.error);
+      return result.data || { useDbWaiting: false, today: todayKey };
+    },
+    staleTime: 60000,
+  });
+
+  const useDbWaiting = configData?.useDbWaiting ?? false;
+
   const { data: timestampsData } = useQuery<{ timestamps: string[] }>({
     queryKey: ['/api/waiting/timestamps', selectedDate],
     queryFn: async () => {
@@ -126,7 +138,7 @@ export default function Home() {
       if (result.error) throw new Error(result.error);
       return { timestamps: result.data || [] };
     },
-    enabled: !!selectedDate,
+    enabled: !!selectedDate && !(isToday && useDbWaiting),
   });
 
   useEffect(() => {
@@ -151,12 +163,20 @@ export default function Home() {
     return timestampsData.timestamps[closestIdx];
   }, [timestampsData?.timestamps, timeState.displayTime]);
 
+  const useLiveEndpoint = isToday && useDbWaiting;
+
   const { data: waitingData, isLoading: isWaitingLoading } = useQuery<WaitingData[]>({
-    queryKey: isToday 
-      ? ['/api/waiting', selectedDate, currentTimestamp]
-      : ['/api/waiting', selectedDate, selectedTime5Min, '5min'],
+    queryKey: useLiveEndpoint
+      ? ['/api/waiting/latest', selectedDate]
+      : isToday 
+        ? ['/api/waiting', selectedDate, currentTimestamp]
+        : ['/api/waiting', selectedDate, selectedTime5Min, '5min'],
     queryFn: async () => {
-      if (isToday) {
+      if (useLiveEndpoint) {
+        const result = await getLatestWaitTimes(selectedDate);
+        if (result.error) throw new Error(result.error);
+        return result.data || [];
+      } else if (isToday) {
         const result = await getWaitTimes(selectedDate, currentTimestamp!);
         if (result.error) throw new Error(result.error);
         return result.data || [];
@@ -166,10 +186,10 @@ export default function Home() {
         return result.data || [];
       }
     },
-    enabled: !!selectedDate && (isToday ? !!currentTimestamp : !!selectedTime5Min),
-    staleTime: 60000,
+    enabled: !!selectedDate && (useLiveEndpoint || (isToday ? !!currentTimestamp : !!selectedTime5Min)),
+    staleTime: useLiveEndpoint ? 0 : 60000,
     placeholderData: (previousData) => previousData,
-    refetchInterval: isToday ? 30000 : false,
+    refetchInterval: useLiveEndpoint ? 30000 : false,
     refetchIntervalInBackground: false,
   });
 
