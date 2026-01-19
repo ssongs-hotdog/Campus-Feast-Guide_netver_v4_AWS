@@ -1,0 +1,65 @@
+🚨 IMPLEMENTATION REQUEST — SINGLE ENTRYPOINT CLEANUP (CornerDetail ONLY)
+You must modify ONLY what is strictly necessary to eliminate the remaining direct fetch() calls in:
+client/src/pages/CornerDetail.tsx
+
+Goal: enforce a single client-side data access entrypoint via:
+client/src/lib/data/dataProvider.ts
+
+DO NOT change UI layout/styling, routing, component structure, business logic, schedule logic, wait-time logic, or API response shapes.
+DO NOT refactor unrelated files. Keep behavior identical.
+
+If at any point the update introduces errors (TypeScript/runtime) or breaks existing behavior, STOP and rollback to the previous working state.
+
+Context
+- The codebase already follows a “single entrypoint” pattern via dataProvider.ts on other pages.
+- However, CornerDetail.tsx still bypasses it with 4 direct fetch() calls:
+  1) /api/menu?date=...
+  2) /api/waiting/timestamps?date=...
+  3) /api/waiting?date=...&time=... (today path)
+  4) /api/waiting?date=...&time=...&aggregate=5min (historical path)
+- We already have stable API contracts and types in shared/types.ts.
+- We already implemented Phase 1 polling + admin reload; this request is ONLY about client cleanup consistency.
+
+Required Changes
+A) Add/Ensure dataProvider functions exist (minimal additions only)
+1) Ensure dataProvider provides wrappers that cover exactly what CornerDetail needs:
+   - getMenus(dayKey) (already exists)
+   - getAvailableTimestamps(dayKey) (already exists or add if missing)
+   - getWaitTimes(dayKey, time, aggregate?) (already exists)
+If any wrapper is missing, add a thin wrapper that:
+   - calls the existing endpoint
+   - returns Promise<DataResponse<T>>
+   - matches the established error-handling pattern used elsewhere (e.g., Home.tsx)
+
+B) Update CornerDetail.tsx to use dataProvider exclusively
+2) Replace each of the 4 direct fetch() calls with the corresponding dataProvider wrapper(s).
+3) Keep React Query queryKey structures unchanged unless strictly required.
+4) Preserve all existing behaviors:
+   - breakfast_1000 variants rendering & per-variant ticket creation
+   - “잔여 식수: --명” placeholder
+   - today-only polling (30s) for waiting data
+   - no polling for historical/future
+   - timestamps behavior remains the same as before this refactor (do NOT introduce new polling unless it already exists)
+   - all error/empty states remain graceful and identical
+
+C) Error Propagation Consistency
+5) Follow the same pattern used elsewhere:
+   - call provider
+   - if result.error exists, throw new Error(result.error)
+   - otherwise return result.data (or fallback to safe empty arrays when appropriate)
+This ensures React Query gets proper error states consistently.
+
+Deliverables (must include)
+1) List the exact files changed.
+2) Confirm CornerDetail.tsx contains ZERO direct fetch() calls (verify via grep).
+3) Provide a short checklist with pass/fail:
+   - CornerDetail still loads menus correctly
+   - timestamps still populate as before
+   - waiting data loads correctly for today + historical
+   - 30s polling still active only for today waiting query
+   - breakfast_1000 special-case UI still works
+   - no TypeScript errors, no runtime errors
+
+Rollback Requirement
+- Commit all changes as a single commit.
+- If any acceptance check fails, revert the commit and report the failure reason instead of attempting broad refactors.

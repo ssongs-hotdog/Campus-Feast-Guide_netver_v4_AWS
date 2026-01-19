@@ -42,6 +42,7 @@ import {
 } from '@shared/types';
 import { isValidDayKey, type DayKey } from '@/lib/dateUtils';
 import { CORNER_DISPLAY_NAMES } from '@shared/cornerDisplayNames';
+import { getMenus, getAvailableTimestamps, getWaitTimes } from '@/lib/data/dataProvider';
 
 export default function CornerDetail() {
   const [matchNew, paramsNew] = useRoute('/d/:dayKey/restaurant/:restaurantId/corner/:cornerId');
@@ -72,21 +73,18 @@ export default function CornerDetail() {
   const { data: menuData } = useQuery<MenuData>({
     queryKey: ['/api/menu', effectiveDate],
     queryFn: async () => {
-      const res = await fetch(`/api/menu?date=${effectiveDate}`);
-      if (!res.ok) {
-        if (res.status === 404) return null;
-        throw new Error('Failed to fetch menu data');
-      }
-      return res.json();
+      const result = await getMenus(effectiveDate);
+      if (result.error) throw new Error(result.error);
+      return result.data as MenuData | null;
     },
   });
 
   const { data: timestampsData } = useQuery<{ timestamps: string[] }>({
     queryKey: ['/api/waiting/timestamps', effectiveDate],
     queryFn: async () => {
-      const res = await fetch(`/api/waiting/timestamps?date=${effectiveDate}`);
-      if (!res.ok) throw new Error('Failed to fetch timestamps');
-      return res.json();
+      const result = await getAvailableTimestamps(effectiveDate);
+      if (result.error) throw new Error(result.error);
+      return { timestamps: result.data || [] };
     },
     enabled: isToday && !timestampParam,
   });
@@ -105,14 +103,14 @@ export default function CornerDetail() {
     queryFn: async () => {
       if (isToday) {
         if (!effectiveTimestamp) return [];
-        const res = await fetch(`/api/waiting?date=${effectiveDate}&time=${encodeURIComponent(effectiveTimestamp)}`);
-        if (!res.ok) throw new Error('Failed to fetch waiting data');
-        return res.json();
+        const result = await getWaitTimes(effectiveDate, effectiveTimestamp);
+        if (result.error) throw new Error(result.error);
+        return result.data || [];
       } else {
         const timeVal = time5minParam || '11:00';
-        const res = await fetch(`/api/waiting?date=${effectiveDate}&time=${timeVal}&aggregate=5min`);
-        if (!res.ok) throw new Error('Failed to fetch waiting data');
-        return res.json();
+        const result = await getWaitTimes(effectiveDate, timeVal, '5min');
+        if (result.error) throw new Error(result.error);
+        return result.data || [];
       }
     },
     enabled: isToday ? !!effectiveTimestamp : true,
