@@ -1,0 +1,58 @@
+🚨 SKELETON BASELINE RESET — MENU VISIBILITY INCONSISTENCY (TODAY ONLY)
+SCOPE: Make the app a clean “empty skeleton” baseline for real-time pipeline work.
+This is NOT a feature request. This is cleanup to ensure the system shows no menu data anywhere unless we intentionally add it later.
+
+IMPORTANT RULES
+- You MAY modify code and data files, but ONLY to achieve a consistent empty-skeleton state.
+- Do NOT change UI styling/layout/typography/routing or any feature behavior other than “data presence”.
+- No new features. No refactors beyond what is strictly needed.
+- Keep rollback easy: single commit, clear diff, and document files changed.
+
+CURRENT PROBLEM (Observed)
+- Past/Future tabs show “데이터 없음” for menus (expected when empty).
+- But TODAY tab still displays menu content (unexpected).
+=> This implies there is still a “today-only” menu source, fallback, seed, mock, or special-case logic providing menus.
+
+GOAL
+1) Ensure menus are EMPTY for ALL dates (past/today/future) in the skeleton baseline.
+2) The UI must show the same “no menu data” behavior consistently across ALL dates.
+3) Keep waiting/queue skeleton behavior as-is (empty is OK). Menu should match that level of emptiness.
+4) Preserve API contracts and existing endpoints. Only remove/disable unintended data sources.
+
+TASKS
+A) Investigate and identify why TODAY shows menu data
+- Check if /api/menu?date=TODAY returns non-empty.
+- Check if the client bypasses /api/menu for TODAY (e.g., fallback to menu.json, hardcoded seed, mock provider, or cached data in memory).
+- Check if /api/dates “today” key is causing a fallback path.
+- Search for any embedded “today menu seed”, “default menu”, or “example menu” inside code.
+- Also check if data/_backup_dummy or other files are still being read accidentally.
+
+B) Enforce a clean skeleton state (menus)
+- Make data/menus_by_date.json truly empty and ensure the server reads ONLY that file for menu data.
+- Ensure no other menu file (e.g., data/menu.json, .bak, sample json) is used as fallback.
+- Ensure caching doesn’t retain old menus after reload:
+  - Run /api/admin/reload logic once in dev if needed to clear stale caches.
+  - Ensure globalCache.menus is empty when menus_by_date.json is {}.
+- The result must be: /api/menu?date=ANY_DATE returns “no data” consistently (either {} or a stable “not found” response that the client renders as “데이터 없음”, but it must be consistent across dates).
+
+C) Verify end-to-end behavior
+- Confirm with explicit checks:
+  1) /api/menu?date=TODAY → empty / no data
+  2) /api/menu?date=PAST_DATE → empty / no data
+  3) /api/menu?date=FUTURE_DATE → empty / no data
+- Confirm UI:
+  - Home (today) shows menu placeholders / “데이터 없음”
+  - Detail pages also show no menu content
+  - No crashes or TypeScript errors
+
+DELIVERABLES
+1) Root-cause explanation: Why TODAY was still showing menu data (specific file/logic/path).
+2) Exact files changed and what you changed in each.
+3) Verification outputs (brief):
+   - The three /api/menu calls above and results
+   - Statement that UI is now consistent across dates
+4) Rollback instruction (git revert) confirmed.
+
+NOTE
+This skeleton baseline is a prerequisite for Phase 2 real-time waiting DB pipeline work.
+After this, we will intentionally reintroduce menu data later (file-based is OK), but for now it must be completely empty everywhere.
