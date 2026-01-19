@@ -1,0 +1,251 @@
+You are the implementation engineer for HY-eat.
+Do NOT implement new changes in this request. This is a pre-beta readiness verification / rehearsal.
+Your job is to run/execute a structured end-to-end beta rehearsal and produce a PASS/FAIL report with concrete evidence (curl outputs, DB queries, and relevant server/simulator logs).
+
+Context
+
+We prepared a Beta Day plan for 2026-01-20 (KST):
+
+Live data comes from DB via GET /api/waiting/latest?date=YYYY-MM-DD (30s polling on client)
+
+Data is ingested via POST /api/ingest/waiting (auth: INGESTION_TOKEN)
+
+Staleness gating exists: if latest snapshot is older than WAITING_STALE_SECONDS, /api/waiting/latest must return [] so the UI shows placeholders
+
+Client “today” must be server-authoritative via GET /api/config (KST-based), and must update across midnight without needing a manual refresh (periodic config refetch)
+
+Historical/statistics for beta date should be readable from DB after rollover (Option A: DB as source of truth), with file fallback for legacy dates
+
+We must ensure API contracts remain backward compatible, especially /api/waiting/timestamps format expectations
+
+What you must deliver
+
+Produce a single report titled:
+
+“Beta Day Readiness Rehearsal Report (2026-01-20 KST)”
+
+Include:
+
+PASS/FAIL checklist table
+
+Evidence section with:
+
+Exact curl commands + actual outputs (or truncated outputs with counts + a sample)
+
+Exact SQL queries + results
+
+Key log lines (server logs + simulator logs), showing timestamps and behavior
+
+Risk callouts if anything is borderline (e.g., timestamps timezone formatting, cutover logic)
+
+A final GO / NO-GO recommendation for starting beta day
+
+Rehearsal Steps & Acceptance Criteria
+A. Baseline Configuration & Flags
+
+Goal: Verify environment + feature flags are correct for beta.
+
+Print current values or derived behavior for:
+
+USE_DB_WAITING
+
+USE_DB_HISTORICAL (if present)
+
+any cutover logic (e.g., BETA_CUTOVER_DATE=2026-01-20 if used)
+
+WAITING_STALE_SECONDS
+
+Evidence required:
+
+curl http://localhost:5000/api/config
+
+Show the effective config and how the client decides isToday (server today-based).
+
+PASS criteria:
+
+useDbWaiting: true
+
+server today is KST-correct
+
+client todayKey is server-authoritative (periodic refetch enabled)
+
+B. Clean DB State (Safety)
+
+Goal: Ensure no leftover test rows pollute beta.
+Do this safely:
+
+Create a backup table if not already present
+
+Delete only rows for DATE(timestamp AT TIME ZONE 'Asia/Seoul') = '2026-01-20' (or whichever beta date is being rehearsed)
+
+Evidence required (SQL):
+
+Count before/after deletion for beta date
+
+Backup row count
+
+PASS criteria:
+
+Beta date starts clean (0 rows after cleanup), backup exists
+
+C. Live Ingestion → Latest Read → 30s Refresh Behavior
+
+Goal: Validate live loop end-to-end.
+
+Step C1: Insert a known sample snapshot
+
+Use POST /api/ingest/waiting with KST timestamp +09:00
+
+Include multiple corners (at least 3) to confirm it’s not partial
+
+Confirm 200 OK and inserted count
+
+Step C2: Read from latest
+
+GET /api/waiting/latest?date=2026-01-20 returns rows with:
+
+correct restaurantId/cornerId
+
+est_wait_time_min computed server-side
+
+timestamp matches the ingested snapshot
+
+Evidence required:
+
+curl request/response for ingestion
+
+curl request/response for latest
+
+SQL query showing rows in DB at that timestamp
+
+PASS criteria:
+
+latest returns correct data
+
+DB contains those rows
+
+server computed fields are present and ingestion does not accept them
+
+D. Staleness Gate (Critical)
+
+Goal: Confirm UI will not “freeze” on old data.
+
+Procedure:
+
+Set WAITING_STALE_SECONDS=30 for this rehearsal (only if the app supports env change safely; otherwise use existing and wait longer).
+
+Insert one snapshot.
+
+Wait until (now - latestTimestamp) > threshold.
+
+Call GET /api/waiting/latest?date=2026-01-20 again.
+
+Evidence required:
+
+Log line: [Latest] STALE ... ageSec=... thresholdSec=...
+
+Response becomes []
+
+PASS criteria:
+
+After threshold, latest returns [] and logs STALE
+
+E. Midnight Rollover Simulation (KST) — Without Manual Refresh
+
+Goal: Validate that the “today tab” correctly flips across midnight using server-authoritative config.
+
+If real midnight is not practical right now, simulate by:
+
+Temporarily overriding server “today” value (ONLY in a controlled rehearsal mode if such a switch exists), OR
+
+Provide a documented method to simulate the rollover safely, OR
+
+Run a short-lived test that demonstrates client config refetch updates todayKey and switches modes.
+
+Evidence required:
+
+Show that today changes on /api/config
+
+Show the client’s derived isToday would flip within ≤ 60s
+
+Confirm that once isToday becomes false, the live endpoint is not used (no polling)
+
+PASS criteria:
+
+Without refresh, the app will recognize new server “today” within the config refetch interval (≤ 60s) and stop live mode for the old date.
+
+F. Historical Reads from DB (Beta date) + Legacy File Dates Safety
+
+Goal: Confirm that after rollover, the beta date is accessible as historical/stats from DB.
+
+Required checks:
+
+GET /api/waiting?date=2026-01-20&time=11:30&aggregate=5min
+
+returns aggregated values from DB (or from DB cutover rule)
+
+GET /api/waiting/all?date=2026-01-20
+
+returns full-day rows from DB
+
+For a legacy date with file data (e.g., 2026-01-19), confirm the endpoint still returns from file cache (no regression)
+
+Evidence required:
+
+curl outputs for all endpoints
+
+SQL queries demonstrating underlying data exists in DB for beta date
+
+Explain the cutover decision rule (DB vs file) with exact code path references (file + line numbers)
+
+PASS criteria:
+
+beta date historical endpoints return DB-derived results
+
+legacy date behavior remains unchanged
+
+G. Timestamps Endpoint Contract Safety (Very Important)
+
+Goal: Ensure /api/waiting/timestamps returns a format that won’t break any client code paths.
+
+Check:
+
+GET /api/waiting/timestamps?date=2026-01-20 returns timestamps that are:
+
+ISO strings parseable by new Date(...)
+
+consistent ordering
+
+timezone is handled safely (+09:00 or Z is OK, but must be parseable and consistent)
+
+Evidence required:
+
+curl output sample
+
+show which client code path uses it, and when (today playback vs historical)
+
+confirm no breaking change
+
+PASS criteria:
+
+timestamps are parseable ISO strings, no client-breaking contract change
+
+Final Output Requirements
+
+At the end, provide:
+
+GO / NO-GO decision
+
+If GO: a short operational runbook for beta day:
+
+how to start simulator (npm run simulate:beta)
+
+how to monitor (/api/health, logs)
+
+how to stop
+
+what “normal” looks like
+
+what “stale/failed” looks like
+
+Again: No implementation in this request. Only verification + evidence-based report.
