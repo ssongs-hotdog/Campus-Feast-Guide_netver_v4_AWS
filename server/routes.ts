@@ -31,6 +31,12 @@ import {
   getLatestWaitingByDate,
   getLastIngestionTime,
   checkDbConnection,
+  shouldUseDatabaseForDate,
+  getHistoricalTimestamps,
+  getHistoricalAllData,
+  getHistoricalAggregated,
+  getHistoricalByTimestamp,
+  ensureKSTDateIndex,
 } from "./storage";
 import * as fs from "fs";
 import * as path from "path";
@@ -404,22 +410,73 @@ export async function registerRoutes(
     res.json(menuData);
   });
 
-  app.get('/api/waiting/timestamps', (req: Request, res: Response) => {
+  app.get('/api/waiting/timestamps', async (req: Request, res: Response) => {
     const dateParam = req.query.date as string | undefined;
+    const targetDate = dateParam || getTodayDateKey();
+    
+    // Cutover logic: dates >= 2026-01-20 use DB
+    if (shouldUseDatabaseForDate(targetDate)) {
+      try {
+        const timestamps = await getHistoricalTimestamps(targetDate);
+        return res.json({ timestamps });
+      } catch (error) {
+        console.error('[API] DB timestamps query failed:', error);
+        return res.json({ timestamps: [] });
+      }
+    }
+    
+    // Legacy dates use file cache
     const { timestamps } = loadWaitingData(dateParam);
     res.json({ timestamps });
   });
 
-  app.get('/api/waiting', (req: Request, res: Response) => {
+  app.get('/api/waiting', async (req: Request, res: Response) => {
     const dateParam = req.query.date as string | undefined;
+    const targetDate = dateParam || getTodayDateKey();
+    const timeParam = req.query.time as string | undefined;
+    const aggregateParam = req.query.aggregate as string | undefined;
+    
+    // Cutover logic: dates >= 2026-01-20 use DB for historical queries
+    if (shouldUseDatabaseForDate(targetDate)) {
+      try {
+        // 5-minute aggregation from DB
+        if (aggregateParam === '5min' && timeParam) {
+          const aggregated = await getHistoricalAggregated(targetDate, timeParam, computeWaitMinutes);
+          return res.json(aggregated);
+        }
+        
+        // ISO timestamp query from DB
+        if (timeParam && (timeParam.includes('T') || timeParam.includes('+'))) {
+          const data = await getHistoricalByTimestamp(timeParam, computeWaitMinutes);
+          return res.json(data);
+        }
+        
+        // HH:MM query - use 5-min aggregation (equivalent behavior)
+        if (timeParam) {
+          const aggregated = await getHistoricalAggregated(targetDate, timeParam, computeWaitMinutes);
+          return res.json(aggregated);
+        }
+        
+        // No time param - get all data and return latest snapshot
+        const allData = await getHistoricalAllData(targetDate, computeWaitMinutes);
+        if (allData.length === 0) {
+          return res.json([]);
+        }
+        const latestTs = allData[allData.length - 1].timestamp;
+        const filtered = allData.filter(row => row.timestamp === latestTs);
+        return res.json(filtered);
+      } catch (error) {
+        console.error('[API] DB waiting query failed:', error);
+        return res.json([]);
+      }
+    }
+    
+    // Legacy dates use file cache (original logic)
     const { data, timestamps } = loadWaitingData(dateParam);
     
     if (data.length === 0) {
       return res.json([]);
     }
-    
-    const timeParam = req.query.time as string | undefined;
-    const aggregateParam = req.query.aggregate as string | undefined;
     
     if (aggregateParam === '5min' && timeParam) {
       const aggregated = compute5MinAggregatedSnapshot(data, timestamps, timeParam);
@@ -478,8 +535,22 @@ export async function registerRoutes(
     res.json(filtered);
   });
 
-  app.get('/api/waiting/all', (req: Request, res: Response) => {
+  app.get('/api/waiting/all', async (req: Request, res: Response) => {
     const dateParam = req.query.date as string | undefined;
+    const targetDate = dateParam || getTodayDateKey();
+    
+    // Cutover logic: dates >= 2026-01-20 use DB
+    if (shouldUseDatabaseForDate(targetDate)) {
+      try {
+        const data = await getHistoricalAllData(targetDate, computeWaitMinutes);
+        return res.json(data);
+      } catch (error) {
+        console.error('[API] DB all-data query failed:', error);
+        return res.json([]);
+      }
+    }
+    
+    // Legacy dates use file cache
     const { data } = loadWaitingData(dateParam);
     res.json(data);
   });
@@ -732,6 +803,11 @@ export async function registerRoutes(
       console.error(`[Ingest] DB_FAIL: ${errorMessage} latency=${latency}ms`);
       return res.status(503).json({ error: 'Database error', details: errorMessage });
     }
+  });
+
+  // Create expression index for efficient date filtering on server startup
+  ensureKSTDateIndex().catch(err => {
+    console.error('[Server] Failed to ensure KST date index:', err);
   });
 
   return httpServer;

@@ -1,0 +1,59 @@
+GO IMPLEMENT.
+Proceed to implement the full Beta Package updates 8-1, 8-2, 8-3, 8-4 exactly as described in your Pre-Implementation Review Report.
+
+Implementation requirements (must follow)
+
+Preserve all existing API contracts and response shapes (no breaking changes).
+
+/api/waiting/timestamps must remain compatible with any client path that parses values via new Date(...).
+
+Ensure the returned timestamps are valid ISO strings and verify timezone/format behavior explicitly in tests.
+
+Apply the cutover date rule for historical DB reads:
+
+date >= 2026-01-20 → DB-only
+
+date < 2026-01-20 → file-only
+
+Implement 8-1 server-authoritative todayKey using /api/config.today with a 60s periodic refetch.
+
+Implement 8-2 schedule sharing: move schedules + pure functions to shared/domain/schedule.ts, client re-exports for backward compatibility.
+
+Implement 8-4 historical DB reads for:
+
+/api/waiting?date=...&time=HH:MM&aggregate=5min
+
+/api/waiting/all?date=...
+
+/api/waiting/timestamps?date=... (ISO list)
+
+Add the expression index on DATE(timestamp AT TIME ZONE 'Asia/Seoul') (via safe migration or safe SQL).
+
+Implement 8-3 beta simulator:
+
+Target date: 2026-01-20 (KST)
+
+Cadence: 30 seconds
+
+Active corners only (use shared schedule)
+
+Full snapshot for all active corners each tick
+
+Stop automatically when KST date changes
+
+Add simulate:beta script in package.json
+
+Never log token value.
+
+Deliverables after implementation
+
+A) Provide a concise change log (files changed, key diffs).
+B) Run and report acceptance tests:
+
+curl: /api/config, ingest test, /api/waiting/latest, /api/waiting/timestamps?date=2026-01-20, /api/waiting?date=2026-01-20&time=11:30&aggregate=5min, /api/waiting/all?date=2026-01-20, /api/health
+
+UI steps: live polling on beta day, staleness placeholders after simulator stop, historical view after rollover
+C) Verify and show evidence that the expression index exists in DB (pg_indexes query).
+D) Provide a short runbook for beta day operation (how to start/monitor/stop simulator).
+
+Proceed now.

@@ -5,9 +5,14 @@
  * - Current display time (realtime or simulated)
  * - Available timestamps for data navigation
  * - Time selection for historical data viewing
+ * - Server-authoritative todayKey for KST timezone correctness
  * 
  * Note: Date navigation has been moved to URL-based routing.
  * The selectedDate is now passed in from the URL, not managed here.
+ * 
+ * BETA UPDATE (2026-01-20): todayKey now comes from server /api/config
+ * to ensure KST correctness regardless of browser timezone.
+ * Periodic refresh every 60s catches midnight rollover automatically.
  */
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import type { TimeMode, TimeState } from '@shared/types';
@@ -47,7 +52,35 @@ export function TimeProvider({ children }: { children: React.ReactNode }) {
   const [selectedTime5Min, setSelectedTime5Min] = useState<string | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
-  const todayKey = getTodayKey();
+  // Server-authoritative todayKey (KST timezone)
+  // Falls back to browser local time on network errors
+  const [serverToday, setServerToday] = useState<string | null>(null);
+  
+  // Fetch config on mount and every 60 seconds for midnight rollover
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const res = await fetch('/api/config');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.today && typeof data.today === 'string') {
+            setServerToday(data.today);
+          }
+        }
+      } catch {
+        // Network error: keep previous value or use local fallback
+        console.warn('[TimeContext] Failed to fetch config, using local time fallback');
+      }
+    };
+    
+    fetchConfig(); // Initial fetch
+    const interval = setInterval(fetchConfig, 60000); // 60s refresh for midnight rollover
+    
+    return () => clearInterval(interval);
+  }, []);
+  
+  // Authoritative todayKey: server-first, local fallback
+  const todayKey = serverToday ?? getTodayKey();
 
   const setMode = useCallback((mode: TimeMode) => {
     setTimeState((prev) => ({ ...prev, mode }));

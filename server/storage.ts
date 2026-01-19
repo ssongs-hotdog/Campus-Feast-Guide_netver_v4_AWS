@@ -218,3 +218,193 @@ export async function checkDbConnection(): Promise<boolean> {
     return false;
   }
 }
+
+// ============================================================================
+// Historical Data Queries (for dates >= BETA_CUTOVER_DATE)
+// ============================================================================
+
+/**
+ * Beta cutover date: dates >= this use DB for historical queries.
+ * Dates before this use file cache only.
+ */
+export const BETA_CUTOVER_DATE = '2026-01-20';
+
+/**
+ * Check if a date should use DB for historical queries.
+ */
+export function shouldUseDatabaseForDate(dateKey: string): boolean {
+  return dateKey >= BETA_CUTOVER_DATE;
+}
+
+/**
+ * Format a Date object to ISO string with KST timezone (+09:00).
+ */
+function formatToKSTISO(ts: Date): string {
+  const kstFormatter = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+  return kstFormatter.format(ts).replace(' ', 'T') + '+09:00';
+}
+
+export interface HistoricalWaitingRow {
+  timestamp: string;
+  restaurantId: string;
+  cornerId: string;
+  queue_len: number;
+  est_wait_time_min: number;
+  data_type: string;
+}
+
+/**
+ * Get distinct ISO timestamps for a date from DB (for /api/waiting/timestamps).
+ * Returns ISO strings to maintain API compatibility with file-based timestamps.
+ */
+export async function getHistoricalTimestamps(dateKey: string): Promise<string[]> {
+  if (!db) {
+    throw new Error("Database not configured");
+  }
+
+  const result = await db.execute(sql`
+    SELECT DISTINCT timestamp
+    FROM waiting_snapshots
+    WHERE DATE(timestamp AT TIME ZONE 'Asia/Seoul') = ${dateKey}
+    ORDER BY timestamp
+  `);
+
+  return (result.rows as any[]).map(row => formatToKSTISO(new Date(row.timestamp)));
+}
+
+/**
+ * Get all waiting data for a date from DB (for /api/waiting/all).
+ * Returns data in the same shape as file-based data.
+ */
+export async function getHistoricalAllData(
+  dateKey: string,
+  computeWaitFn: (queueLen: number, restaurantId: string, cornerId: string) => number
+): Promise<HistoricalWaitingRow[]> {
+  if (!db) {
+    throw new Error("Database not configured");
+  }
+
+  const result = await db.execute(sql`
+    SELECT timestamp, restaurant_id, corner_id, queue_len, data_type
+    FROM waiting_snapshots
+    WHERE DATE(timestamp AT TIME ZONE 'Asia/Seoul') = ${dateKey}
+    ORDER BY timestamp, restaurant_id, corner_id
+  `);
+
+  return (result.rows as any[]).map(row => ({
+    timestamp: formatToKSTISO(new Date(row.timestamp)),
+    restaurantId: row.restaurant_id,
+    cornerId: row.corner_id,
+    queue_len: row.queue_len,
+    est_wait_time_min: computeWaitFn(row.queue_len, row.restaurant_id, row.corner_id),
+    data_type: row.data_type || 'observed',
+  }));
+}
+
+/**
+ * Get 5-minute aggregated waiting data for a specific time window from DB.
+ * Used for /api/waiting?time=HH:MM&aggregate=5min on historical dates.
+ */
+export async function getHistoricalAggregated(
+  dateKey: string,
+  timeHHMM: string,
+  computeWaitFn: (queueLen: number, restaurantId: string, cornerId: string) => number
+): Promise<HistoricalWaitingRow[]> {
+  if (!db) {
+    throw new Error("Database not configured");
+  }
+
+  const [hours, minutes] = timeHHMM.split(':').map(Number);
+  if (isNaN(hours) || isNaN(minutes)) {
+    return [];
+  }
+  
+  const startMinutes = hours * 60 + minutes;
+  const endMinutes = startMinutes + 4;
+
+  const result = await db.execute(sql`
+    SELECT 
+      restaurant_id,
+      corner_id,
+      ROUND(AVG(queue_len)) as avg_queue_len
+    FROM waiting_snapshots
+    WHERE DATE(timestamp AT TIME ZONE 'Asia/Seoul') = ${dateKey}
+      AND (EXTRACT(hour FROM timestamp AT TIME ZONE 'Asia/Seoul') * 60 
+           + EXTRACT(minute FROM timestamp AT TIME ZONE 'Asia/Seoul'))
+          BETWEEN ${startMinutes} AND ${endMinutes}
+    GROUP BY restaurant_id, corner_id
+  `);
+
+  const syntheticTimestamp = `${dateKey}T${timeHHMM}:00+09:00`;
+
+  return (result.rows as any[]).map(row => ({
+    timestamp: syntheticTimestamp,
+    restaurantId: row.restaurant_id,
+    cornerId: row.corner_id,
+    queue_len: Math.round(Number(row.avg_queue_len)),
+    est_wait_time_min: computeWaitFn(Math.round(Number(row.avg_queue_len)), row.restaurant_id, row.corner_id),
+    data_type: 'observed',
+  }));
+}
+
+/**
+ * Get waiting data for a specific ISO timestamp from DB.
+ * Used for /api/waiting?time=ISO_TIMESTAMP on historical dates.
+ */
+export async function getHistoricalByTimestamp(
+  isoTimestamp: string,
+  computeWaitFn: (queueLen: number, restaurantId: string, cornerId: string) => number
+): Promise<HistoricalWaitingRow[]> {
+  if (!db) {
+    throw new Error("Database not configured");
+  }
+
+  const targetDate = new Date(isoTimestamp);
+
+  const result = await db.execute(sql`
+    SELECT timestamp, restaurant_id, corner_id, queue_len, data_type
+    FROM waiting_snapshots
+    WHERE timestamp = ${targetDate}
+    ORDER BY restaurant_id, corner_id
+  `);
+
+  return (result.rows as any[]).map(row => ({
+    timestamp: formatToKSTISO(new Date(row.timestamp)),
+    restaurantId: row.restaurant_id,
+    cornerId: row.corner_id,
+    queue_len: row.queue_len,
+    est_wait_time_min: computeWaitFn(row.queue_len, row.restaurant_id, row.corner_id),
+    data_type: row.data_type || 'observed',
+  }));
+}
+
+/**
+ * Create expression index for efficient date filtering if it doesn't exist.
+ * This improves performance of all queries filtering by KST date.
+ */
+export async function ensureKSTDateIndex(): Promise<boolean> {
+  if (!db) {
+    return false;
+  }
+
+  try {
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS idx_waiting_kst_date 
+      ON waiting_snapshots (DATE(timestamp AT TIME ZONE 'Asia/Seoul'))
+    `);
+    console.log('[DB] KST date expression index created or already exists');
+    return true;
+  } catch (error) {
+    console.error('[DB] Failed to create KST date index:', error);
+    return false;
+  }
+}
