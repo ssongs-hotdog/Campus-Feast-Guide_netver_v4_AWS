@@ -1,0 +1,94 @@
+VERIFICATION ONLY — DO NOT MODIFY ANY CODE OR FILES.
+This request is strictly for inspection and reporting. Do NOT implement, refactor, or update anything.
+Please audit the current HY-eat project and report the data ingestion + data consumption architecture as-is.
+
+What I need you to verify and report (current state only)
+1) What data sources are currently used in runtime?
+
+Menus: where is the menu data loaded from? (file path, format, caching behavior)
+
+Waiting/Queue: where is the waiting data loaded from? (file path or DB or external API, caching behavior)
+
+Any other datasets currently in use (even if optional)
+
+For each dataset, report:
+
+Source type: file (CSV/JSON) vs DB vs external API
+
+Exact file path(s) or connection mechanism
+
+When it loads: startup only vs per-request vs periodic refresh
+
+Whether it is cached in memory, and how it is invalidated/refreshed (if at all)
+
+2) What API endpoints serve those datasets to the client?
+
+List the active endpoints and describe:
+
+Request params (date/time/aggregate/etc.)
+
+Response shape (high-level)
+
+Which dataset/cache they read from internally
+
+At minimum include:
+
+/api/menu
+
+/api/waiting
+
+/api/waiting/all
+
+/api/waiting/timestamps
+
+/api/dates
+
+/api/admin/reload (if exists)
+
+3) Client-side data access: what does the UI actually call?
+
+Confirm:
+
+Whether all client data fetching routes through client/src/lib/data/dataProvider.ts
+
+Any remaining direct fetch() calls (file + line numbers if any)
+
+Which pages/components fetch which datasets (Home, CornerDetail, ChartsPanel, etc.)
+
+Polling behavior: which queries poll, interval, and when polling is enabled/disabled (today-only, background tabs, etc.)
+
+4) What datasets are the system “designed to receive” for real production?
+
+Based on the current code/contracts, list:
+
+The required inputs for a real deployment (minimum required datasets)
+
+Exact required fields/columns (e.g., CSV columns: timestamp, restaurantId, cornerId, queue_len)
+
+Any constraints (ID matching, timezone format, dateKey format, variants rules for breakfast_1000, ramen parsing rules, etc.)
+
+5) Current data update workflow
+
+Report how data updates are expected to happen today:
+
+If data files change, what must happen for the server to reflect it?
+
+Is restart required?
+
+Or can /api/admin/reload refresh the cache?
+
+If reload exists: what it reloads (menus, waiting, both), and whether it swaps caches atomically.
+
+Output format (please follow)
+
+Executive summary (5-10 lines) — what is the current ingestion architecture in one glance
+
+Data Sources Table — dataset → source → load timing → cache/refresh
+
+API Contract Table — endpoint → reads from → params → response shape
+
+Client Consumption Notes — dataProvider compliance, polling, any bypasses
+
+Production-Ready “Inputs Spec” — the exact datasets and fields we must be able to receive
+
+Again: DO NOT CHANGE CODE. Inspection + report only.
