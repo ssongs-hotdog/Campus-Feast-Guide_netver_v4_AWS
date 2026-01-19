@@ -55,6 +55,76 @@ The application is transitioning from file-based data to a PostgreSQL database f
 ### Deployment Environment
 -   **Netlify**: Used for deployment, leveraging serverless functions for the Express API and managing redirects.
 
+## Beta Day Runbook (2026-01-20)
+
+### One-Time Setup: Create Simulator Workflow
+
+1. Open **Workflows** pane (Tools sidebar or `Cmd+K` → "Workflows")
+2. Click **"+ New Workflow"**
+3. Name: `simulator-beta`
+4. Add task: **Shell command** → `npx tsx scripts/simulator.ts`
+5. Open **Project** workflow (the main workflow)
+6. Add task: **Run workflow** → `simulator-beta`
+7. Save
+
+### Verifying the Simulator is Running
+
+**Check Workflows panel:**
+- `simulator-beta` should show status: **running**
+
+**Check logs for:**
+```
+[Simulator] HY-eat Beta Simulator (Workflow-Ready)
+[Simulator] Target date: 2026-01-20 (KST)
+[Simulator] Auth: token PRESENT
+```
+
+During pre-beta (before 2026-01-20 KST):
+```
+[Simulator] Current KST date: 2026-01-19, waiting for 2026-01-20... (checking every 60s)
+```
+
+During beta day (2026-01-20 KST):
+```
+[Simulator] 12:30:00 → 12 corners [korean:8, western:6, ...] → {"ok":true,"inserted":12,...}
+```
+
+During inactive hours:
+```
+[Simulator] 02:30: No active corners, skipping ingestion (tick 42)
+```
+
+### API Verification
+
+**Health check:**
+```bash
+curl http://localhost:5000/api/health
+```
+Expected: `"secondsSinceLastIngestion": <number < 40>`
+
+**Latest data:**
+```bash
+curl "http://localhost:5000/api/waiting/latest?date=2026-01-20"
+```
+Expected: Array of corner data (not empty `[]` during operating hours)
+
+### Troubleshooting
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `token MISSING!` | INGESTION_TOKEN secret not set | Add to Replit Secrets |
+| `secondsSinceLastIngestion: null` | Simulator not running | Check workflow status |
+| Empty `[]` from latest | Data stale (>90s) or inactive hours | Check simulator logs |
+| `POST-BETA STOP` | Date changed to 2026-01-21 | Expected behavior |
+
+### Simulator Behavior Summary
+
+| KST Date | Behavior |
+|----------|----------|
+| Before 2026-01-20 | Sleeps, checks every 60s |
+| 2026-01-20 | Active ingestion every 30s |
+| 2026-01-21+ | Exits gracefully (code 0) |
+
 ## Recent Changes (2026-01-19)
 
 ### Beta Package Update Implementation
@@ -65,10 +135,11 @@ The application is transitioning from file-based data to a PostgreSQL database f
 - Expression index for efficient KST date filtering
 - CSV fallback on DB errors for resilient data availability
 - Beta test scheduled for 2026-01-20
+- **8-5**: Simulator updated to workflow-ready with pre-beta waiting and graceful post-beta exit
 
 ### Key Files Added/Modified
 - `shared/domain/schedule.ts` - Schedule configuration for corners
-- `scripts/simulator.ts` - Beta day simulator
+- `scripts/simulator.ts` - Beta day simulator (workflow-ready)
 - `server/storage.ts` - DB query functions for historical data
 - `server/routes.ts` - Cutover logic for historical endpoints
 - `client/src/lib/timeContext.tsx` - Server-authoritative todayKey

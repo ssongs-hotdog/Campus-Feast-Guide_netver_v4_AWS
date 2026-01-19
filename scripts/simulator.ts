@@ -1,21 +1,24 @@
 /**
- * simulator.ts - Beta Day Simulator
+ * simulator.ts - Beta Day Simulator (Workflow-Ready)
  * 
  * Purpose: Generates simulated real-time waiting data for beta testing on 2026-01-20.
  * 
  * Features:
  * - Targets a specific date (2026-01-20 KST)
- * - 30-second cadence
+ * - 30-second cadence during beta day
  * - Only generates data for active corners (per schedule)
  * - Full snapshot for all active corners each tick
- * - Stops automatically when KST date changes
- * - Uses INGESTION_TOKEN for authentication (never logged)
+ * - PRE-BETA: Sleeps and re-checks every 60s until beta day arrives
+ * - POST-BETA: Stops gracefully with exit code 0 when date becomes 2026-01-21
+ * - Uses INGESTION_TOKEN from Replit Secrets (never logged)
+ * - Graceful error handling: logs failures, retries on next tick (no crash)
  * 
- * Usage:
+ * Workflow Usage:
+ *   Runs automatically via "simulator-beta" workflow.
+ *   Reads INGESTION_TOKEN from environment (Replit Secrets).
+ * 
+ * Manual Usage:
  *   INGESTION_TOKEN=$INGESTION_TOKEN npx tsx scripts/simulator.ts
- * 
- * Or add to package.json scripts:
- *   "simulate:beta": "tsx scripts/simulator.ts"
  */
 
 import { CORNER_SCHEDULES, isCornerActive } from '../shared/domain/schedule';
@@ -27,7 +30,9 @@ import { RESTAURANTS } from '../shared/types';
 
 const CONFIG = {
   targetDate: '2026-01-20',
-  cadenceMs: 30000, // 30 seconds
+  postBetaDate: '2026-01-21', // Stop when this date arrives
+  cadenceMs: 30000, // 30 seconds during beta
+  preBetaCheckMs: 60000, // 60 seconds pre-beta check interval
   source: 'simulator_beta_v1',
   ingestionUrl: process.env.INGESTION_URL || 'http://localhost:5000/api/ingest/waiting',
 };
@@ -121,11 +126,11 @@ interface CornerData {
   queue_len: number;
 }
 
-async function postIngestion(timestamp: string, corners: CornerData[]): Promise<void> {
+async function postIngestion(timestamp: string, corners: CornerData[]): Promise<boolean> {
   const token = process.env.INGESTION_TOKEN;
   if (!token) {
-    console.error('[Simulator] ERROR: INGESTION_TOKEN not set');
-    process.exit(1);
+    console.error('[Simulator] ERROR: INGESTION_TOKEN not set (will retry next tick)');
+    return false;
   }
   
   const payload = {
@@ -140,18 +145,25 @@ async function postIngestion(timestamp: string, corners: CornerData[]): Promise<
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`, // Token used but NEVER logged
+        'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify(payload),
     });
     
+    if (!res.ok) {
+      console.error(`[Simulator] Ingestion HTTP error: ${res.status} ${res.statusText} (will retry next tick)`);
+      return false;
+    }
+    
     const result = await res.json();
     
-    // Log summary (no token, no full payload)
     const cornerSummary = corners.map(c => `${c.cornerId}:${c.queue_len}`).join(', ');
     console.log(`[Simulator] ${timestamp.slice(11, 19)} → ${corners.length} corners [${cornerSummary}] → ${JSON.stringify(result)}`);
+    return true;
   } catch (error) {
-    console.error(`[Simulator] Ingestion failed:`, error);
+    const errMsg = error instanceof Error ? error.message : String(error);
+    console.error(`[Simulator] Ingestion failed: ${errMsg} (will retry next tick)`);
+    return false;
   }
 }
 
@@ -159,34 +171,73 @@ async function postIngestion(timestamp: string, corners: CornerData[]): Promise<
 // Main Loop
 // ============================================================================
 
+async function waitForBetaDay(): Promise<void> {
+  console.log('[Simulator] PRE-BETA: Waiting for beta day to start...');
+  
+  while (true) {
+    const currentDate = getKSTDateKey();
+    
+    if (currentDate >= CONFIG.postBetaDate) {
+      console.log(`[Simulator] POST-BETA: Date is ${currentDate}, beta already ended. Exiting.`);
+      process.exit(0);
+    }
+    
+    if (currentDate === CONFIG.targetDate) {
+      console.log(`[Simulator] Beta day arrived! Starting ingestion loop.`);
+      return;
+    }
+    
+    console.log(`[Simulator] Current KST date: ${currentDate}, waiting for ${CONFIG.targetDate}... (checking every 60s)`);
+    await new Promise(resolve => setTimeout(resolve, CONFIG.preBetaCheckMs));
+  }
+}
+
 async function runSimulator(): Promise<void> {
   console.log('='.repeat(60));
-  console.log('[Simulator] HY-eat Beta Simulator');
+  console.log('[Simulator] HY-eat Beta Simulator (Workflow-Ready)');
   console.log(`[Simulator] Target date: ${CONFIG.targetDate} (KST)`);
-  console.log(`[Simulator] Cadence: ${CONFIG.cadenceMs / 1000}s`);
+  console.log(`[Simulator] Post-beta date: ${CONFIG.postBetaDate} (will exit gracefully)`);
+  console.log(`[Simulator] Cadence: ${CONFIG.cadenceMs / 1000}s during beta`);
+  console.log(`[Simulator] Pre-beta check interval: ${CONFIG.preBetaCheckMs / 1000}s`);
   console.log(`[Simulator] Ingestion URL: ${CONFIG.ingestionUrl}`);
   console.log(`[Simulator] Auth: token ${process.env.INGESTION_TOKEN ? 'PRESENT' : 'MISSING!'}`);
   console.log('='.repeat(60));
   
   if (!process.env.INGESTION_TOKEN) {
-    console.error('[Simulator] FATAL: INGESTION_TOKEN environment variable not set');
-    console.error('[Simulator] Run with: INGESTION_TOKEN=<token> npx tsx scripts/simulator.ts');
-    process.exit(1);
+    console.error('[Simulator] WARNING: INGESTION_TOKEN not set. Will check again on each tick.');
+  }
+  
+  // Wait for beta day if not already
+  const currentDate = getKSTDateKey();
+  if (currentDate < CONFIG.targetDate) {
+    await waitForBetaDay();
+  } else if (currentDate >= CONFIG.postBetaDate) {
+    console.log(`[Simulator] POST-BETA: Date is ${currentDate}, beta already ended. Exiting gracefully.`);
+    process.exit(0);
   }
   
   let tickCount = 0;
+  let successCount = 0;
+  let failCount = 0;
   
   while (true) {
     const currentDate = getKSTDateKey();
     
-    // STOP CONDITION: Date changed from target
-    if (currentDate !== CONFIG.targetDate) {
+    // POST-BETA STOP: Date changed past target
+    if (currentDate >= CONFIG.postBetaDate) {
       console.log('='.repeat(60));
-      console.log(`[Simulator] STOP: Date changed to ${currentDate} (target was ${CONFIG.targetDate})`);
-      console.log(`[Simulator] Total ticks: ${tickCount}`);
-      console.log('[Simulator] Exiting gracefully.');
+      console.log(`[Simulator] POST-BETA STOP: Date is now ${currentDate}`);
+      console.log(`[Simulator] Total ticks: ${tickCount}, success: ${successCount}, failed: ${failCount}`);
+      console.log('[Simulator] Beta completed. Exiting gracefully with code 0.');
       console.log('='.repeat(60));
       break;
+    }
+    
+    // Safety check: still on target date
+    if (currentDate !== CONFIG.targetDate) {
+      console.log(`[Simulator] Unexpected date ${currentDate}, waiting for ${CONFIG.targetDate}...`);
+      await new Promise(resolve => setTimeout(resolve, CONFIG.preBetaCheckMs));
+      continue;
     }
     
     const timestamp = getKSTISOTimestamp();
@@ -216,7 +267,12 @@ async function runSimulator(): Promise<void> {
     }
     
     if (corners.length > 0) {
-      await postIngestion(timestamp, corners);
+      const success = await postIngestion(timestamp, corners);
+      if (success) {
+        successCount++;
+      } else {
+        failCount++;
+      }
     } else {
       console.log(`[Simulator] ${timeHHMM}: No active corners, skipping ingestion (tick ${tickCount})`);
     }
