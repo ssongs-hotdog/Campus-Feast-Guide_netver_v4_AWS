@@ -1,7 +1,7 @@
 import { type User, type InsertUser, waitingSnapshots } from "@shared/schema";
 import { randomUUID } from "crypto";
-import { drizzle } from "drizzle-orm/neon-http";
-import { neon } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 import { sql } from "drizzle-orm";
 
 export interface IStorage {
@@ -38,8 +38,8 @@ export class MemStorage implements IStorage {
 export const storage = new MemStorage();
 
 const dbUrl = process.env.DATABASE_URL;
-const neonClient = dbUrl ? neon(dbUrl) : null;
-export const db = neonClient ? drizzle(neonClient) : null;
+const pool = dbUrl ? new Pool({ connectionString: dbUrl }) : null;
+export const db = pool ? drizzle(pool) : null;
 
 export interface UpsertWaitingRow {
   timestamp: Date;
@@ -69,9 +69,9 @@ export async function upsertWaitingSnapshots(rows: UpsertWaitingRow[]): Promise<
     }).onConflictDoUpdate({
       target: [waitingSnapshots.timestamp, waitingSnapshots.restaurantId, waitingSnapshots.cornerId],
       set: {
-        queueLen: sql`EXCLUDED.queue_len`,
-        dataType: sql`EXCLUDED.data_type`,
-        source: sql`EXCLUDED.source`,
+        queueLen: row.queueLen,
+        dataType: row.dataType || "observed",
+        source: row.source,
       },
     });
     inserted++;
