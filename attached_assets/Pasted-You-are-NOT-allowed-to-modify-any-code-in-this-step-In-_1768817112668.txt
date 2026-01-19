@@ -1,0 +1,37 @@
+You are NOT allowed to modify any code in this step.
+
+In the current UI, I can still see congestion / queue / wait-time values showing specifically for the “ramen” and “korean” corners (and not consistently for others). I suspect this is unintended given our skeleton/empty file setup + DB-based today read.
+
+Please investigate and report back with a clear root-cause analysis (no changes yet). I need an evidence-based explanation of:
+
+1) Data source tracing (for what I’m seeing on screen)
+- For each of these UI values (queue_len, est_wait_time_min, any congestion label), tell me EXACTLY which endpoint is providing it right now:
+  - Home (today tab)
+  - CornerDetail (today tab)
+- Confirm whether the data is coming from:
+  a) DB (/api/waiting/latest)
+  b) File cache (/api/waiting or other)
+  c) Client-side fallback/default/mock logic
+  d) Stale React Query cache (old cached response)
+
+2) Why only ramen + korean?
+- If DB: show the latest rows currently in waiting_snapshots for today (KST), grouped by cornerId, and explain why only those two corners exist (e.g., partial ingestion / test inserts).
+- If file: confirm whether the CSV skeleton is truly empty (row count) and whether any other file still contains old values.
+- If client cache: show evidence (React Query cache keys, staleTime, initialData, persisted cache, etc.) that could cause only certain corners to display.
+
+3) Repro steps + verification
+- Provide a short step-by-step reproduction checklist to confirm the root cause:
+  - Which URLs are called in Network tab (exact endpoints and params)
+  - What /api/config returns (USE_DB_WAITING, today)
+  - What /api/health returns (lastIngestion, secondsSinceLastIngestion)
+  - What /api/waiting/latest?date=<todayKST> returns right now
+
+4) Fix plan (still NO code changes yet)
+- Propose the minimal fix options, ranked by safety:
+  - If it’s test DB rows: how to clean DB rows safely (SQL delete for today) and re-test
+  - If it’s stale client cache: what to clear/reset and how to verify (hard refresh, query invalidation steps)
+  - If it’s accidental file leftover: what file(s) to check and clean
+
+IMPORTANT:
+- No code changes.
+- Your response must include concrete evidence (commands/results), not guesses.
