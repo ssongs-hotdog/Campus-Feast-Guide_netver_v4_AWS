@@ -1,0 +1,107 @@
+📌 COLLAB REVIEW REQUEST — Phase 2A → 2B → 2C Real-time Waiting Pipeline Plan
+IMPORTANT: This is a REVIEW / AUDIT ONLY. 
+❌ Do NOT modify any code, files, schemas, or data. 
+✅ Only analyze the current codebase and report.
+
+Context (Current State)
+- Waiting data is currently served from file-based CSV cached in globalCache.waiting.
+- Menus are file-based JSON cached in globalCache.menus and are NOT required to be real-time.
+- Phase 1 already added:
+  - POST /api/admin/reload (Bearer token) for cache refresh
+  - Today-only polling on client (30s) for waiting data
+  - Atomic globalCache swap to avoid race conditions
+- We want the next evolution: near-real-time waiting data for “Today tab”, using a DB-backed ingestion pipeline, while keeping menu data file-based.
+
+Goal of This Review
+Please review the phased plan below and produce a structured report:
+1) feasibility, gaps, and hidden coupling risks in OUR current codebase,
+2) what exact modules/endpoints/files would be affected in each phase (high level),
+3) recommended adjustments for robustness, simplicity, and rollback safety,
+4) pitfalls specific to timestamps/timezone/id validation, partial snapshots, and polling,
+5) go/no-go and prerequisites checklist.
+
+Proposed Plan (Phases)
+──────────────────────────────────────────────────────────────
+Phase 2A — Shadow Write (DB schema + ingestion only; NO read changes)
+Goal: Build the write path to DB without changing any existing read endpoints.
+- Add PostgreSQL table waiting_snapshots
+- Add POST /api/ingest/waiting (Bearer auth via INGESTION_TOKEN)
+- Payload is batch snapshot for a single timestamp:
+  {
+    "timestamp": "YYYY-MM-DDTHH:mm:ss+09:00",
+    "source": "camera_ai_v1",
+    "data_type": "observed",
+    "corners": [
+      { "restaurantId": "...", "cornerId": "...", "queue_len": 12 }
+    ]
+  }
+- Validate STRICTLY at ingestion:
+  - timestamp ISO8601 +09:00
+  - timestamp <= now + 1 min (reject future)
+  - restaurantId/cornerId must match shared/types.ts RESTAURANTS config
+  - queue_len integer >= 0
+- Use UPSERT uniqueness: (timestamp, restaurant_id, corner_id)
+- Compute est_wait_time_min server-side only (never accept from client)
+- Logging: record each ingestion batch for monitoring
+- Keep existing CSV path untouched for now (full fallback)
+
+Phase 2B — Today Read Switch (Feature flag; minimal surface area)
+Goal: Today tab reads from DB (latest snapshot), while historical remains file-based.
+- Add env flag USE_DB_WAITING=false (default)
+- Add GET /api/waiting/latest?date=YYYY-MM-DD
+  - Query DB for MAX(timestamp) within that KST date
+  - Return same WaitingDataRow[] shape (or { timestamp, data: WaitingDataRow[] })
+- When USE_DB_WAITING=true AND isToday:
+  - Client polls /api/waiting/latest every 30–60s
+- Historical dates:
+  - Keep existing /api/waiting?aggregate=5min from file cache unchanged
+- Optional (if needed): keep /api/dates and /api/waiting/timestamps compatible (may merge DB dates for today)
+
+Phase 2C — Historical Migration (optional later)
+Goal: Move historical waiting data into DB and deprecate CSV-based waiting path.
+- Bulk-import existing CSV into DB
+- Switch /api/waiting, /api/waiting/timestamps, /api/waiting/all, /api/dates to DB-based
+- Keep 5-min aggregation behavior (can be DB query + app logic)
+- Keep CSV as backup until stable, then archive/remove
+
+Non-negotiable Invariants
+- Preserve canonical IDs from shared/types.ts
+- Preserve timestamp format semantics (KST +09:00)
+- Preserve response shapes expected by frontend (no breaking changes)
+- Menus remain file-based and isolated; waiting can become real-time independently
+- Rollback must be easy:
+  - USE_DB_WAITING=false should instantly revert Today reads to file-based
+  - Ingestion endpoint can be disabled by removing token or feature flag
+
+What I Need From You (Replit) — Review Deliverables
+Please produce a review report with these sections:
+
+A) Feasibility & Fit (2A/2B/2C) for this codebase
+- Which parts are straightforward vs risky?
+
+B) Exact Impact Map (no code changes; just analysis)
+- Which files/modules/endpoints likely change per phase?
+
+C) Data Model & Query Review
+- Proposed PostgreSQL schema sanity check
+- Indexing for latest-by-day queries in Asia/Seoul
+- UPSERT strategy correctness for partial snapshots
+
+D) Contract Compatibility
+- Will this break existing UI/dataProvider logic?
+- If /api/waiting/latest returns {timestamp,data}, do we need client changes?
+- Recommend the least-risk format.
+
+E) Operational Plan & Monitoring
+- What logs/metrics/health signals we should add first
+- How to detect ingestion stalls (e.g., no data for >5 minutes)
+
+F) Risk Register + Mitigations
+- Top risks (timezone, partial snapshots, duplicates, out-of-order timestamps, ID drift)
+- Concrete mitigations
+
+G) Go/No-Go + Prerequisite Checklist
+- What must be true before implementing 2A
+- What must be tested before enabling USE_DB_WAITING=true
+
+Again: DO NOT implement. Only audit and report.
