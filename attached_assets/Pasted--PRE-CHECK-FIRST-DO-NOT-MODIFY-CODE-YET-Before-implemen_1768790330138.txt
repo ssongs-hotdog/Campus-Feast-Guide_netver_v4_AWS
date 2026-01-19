@@ -1,0 +1,99 @@
+🚨 PRE-CHECK FIRST — DO NOT MODIFY CODE YET 🚨
+Before implementing anything, perform a careful internal review of the requested Phase 1 update and REPORT BACK FIRST.
+Do NOT change or commit any code in this first step. I only want your assessment, risks, exact files/lines you would touch, and a safe implementation plan + rollback plan.
+After you report, I will explicitly tell you to proceed.
+
+========================
+PHASE 1 GOAL (Service-Base Upgrade)
+========================
+We want real-time-ish behavior without changing UI visuals or API contracts:
+1) Server-side: Support "hot reload" of BOTH waiting data and menu data WITHOUT server restart.
+2) Client-side: Add polling (refetch) for TODAY view only, every 30 seconds, so the UI feels live.
+3) Keep invariants: UI visuals fixed, existing API response shapes fixed, single data entrypoint (dataProvider.ts) preserved.
+
+========================
+A) SERVER: Hot Reload (No Restart)
+========================
+Current state:
+- waiting data is loaded into an in-memory cache (e.g., cachedDataByDate) and currently requires restart to reflect file updates.
+- menu data is served from menus_by_date.json (pass-through) and should also be reloadable to keep operational behavior consistent.
+
+Request:
+1) Add an ADMIN-ONLY endpoint to reload caches in place (auth-protected):
+   - POST /api/admin/reload
+   - Response example:
+     { "ok": true, "reloaded": ["waiting", "menus"], "dates": [...], "timestamp": "..." }
+2) Reload BOTH:
+   - Waiting data (currently from CSV)
+   - Menu data (menus_by_date.json)
+3) The reload must be safe:
+   - Build new cache maps first, then swap atomically (avoid partially updated state).
+   - On reload failure, keep the previous cache intact (no downtime).
+4) Authentication requirement:
+   - Must be protected by a shared secret token (e.g., env var ADMIN_RELOAD_TOKEN).
+   - If token missing/mismatch, return 401/403.
+5) Dev convenience (OPTIONAL, but ONLY in dev mode):
+   - If feasible, add a file watcher (fs.watch) that triggers reload automatically on file changes
+   - This must be enabled ONLY in development (never on production by default).
+6) Absolutely DO NOT change existing public endpoints' response shapes:
+   - /api/menu?date=YYYY-MM-DD
+   - /api/waiting?date=&time=&aggregate=
+   - /api/waiting/all?date=
+   - /api/waiting/timestamps?date=
+   - /api/dates
+
+========================
+B) CLIENT: Polling for TODAY Only (30s)
+========================
+Goal:
+- Only when the user is viewing TODAY’s date (based on the existing date routing rules), the client should refetch relevant waiting endpoints every 30 seconds.
+- For past/future dates, polling must remain OFF.
+
+Constraints:
+- Do NOT change UI visuals/layout.
+- Do NOT introduce new fetch patterns; keep using dataProvider.ts (single entrypoint).
+- Use React Query’s refetchInterval or equivalent, but only conditional for TODAY.
+
+Implementation expectation:
+- The 30s polling should apply to waiting data (and optionally timestamps) used in the today view.
+- Make sure it doesn’t spam endpoints when the time selection is '-' or when the date is not today.
+
+========================
+C) VALIDATION / ACCEPTANCE CHECKS (Post-Implementation)
+========================
+Server checks:
+1) POST /api/admin/reload with correct token:
+   - returns ok: true
+   - caches update without restart
+2) POST /api/admin/reload with missing/wrong token:
+   - returns 401/403
+3) Existing endpoints unchanged:
+   - /api/dates works
+   - /api/menu?date=... works
+   - /api/waiting* works
+4) Reload safety:
+   - If reload fails (e.g., malformed JSON), previous cache stays active and server continues serving.
+
+Client checks:
+5) Today view:
+   - waiting data refetches every 30 seconds (confirm via network tab or logs)
+6) Past/future view:
+   - no polling
+7) UI visuals:
+   - no layout/styling changes
+
+Rollback:
+8) Provide a clear rollback instruction:
+   - If any regression occurs, revert the specific commit(s) or restore prior files.
+
+========================
+D) WHAT I WANT FROM YOU NOW (REVIEW ONLY)
+========================
+Please respond with:
+1) Feasibility (Yes/No) + key risks
+2) Exact files you would modify and why
+3) A step-by-step safe implementation plan
+4) A rollback plan
+5) Any minimal decisions needed from me (if any)
+
+Again: DO NOT IMPLEMENT YET. REPORT FIRST.
