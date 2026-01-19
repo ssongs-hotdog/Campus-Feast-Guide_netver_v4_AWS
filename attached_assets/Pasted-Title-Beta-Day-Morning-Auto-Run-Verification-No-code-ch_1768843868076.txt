@@ -1,0 +1,85 @@
+Title: Beta Day Morning Auto-Run Verification (No code changes unless needed)
+
+You are NOT implementing new features right now. I want a verification + evidence report that our beta-day pipeline will run hands-off tomorrow morning and show live data.
+
+Context
+
+We configured a simulator-beta workflow to run npx tsx scripts/simulator.ts, and added it to the Project workflow (Run workflow task).
+
+Simulator behavior: pre-beta checks every 60s, beta-day cadence 30s, skips inactive corners via isCornerActive, ingests to /api/ingest/waiting, writes to waiting_snapshots.
+
+Today tab reads /api/waiting/latest?date=YYYY-MM-DD with WAITING_STALE_SECONDS gate.
+
+Client uses server-authoritative today (refetch /api/config every 60s).
+
+Beta date target: 2026-01-20 KST.
+
+What I need you to verify (with concrete evidence)
+
+Workflow Auto-Start & Persistence
+
+Confirm that when the Repl starts (Project workflow run), simulator-beta actually starts automatically.
+
+Provide evidence:
+
+Workflows panel state (which workflows/tasks running)
+
+Simulator logs showing:
+
+token PRESENT (but never print token value)
+
+“waiting for 2026-01-20… checking every 60s” when pre-beta
+
+“No active corners, skipping ingestion” during inactive hours
+
+Operating-Hours Trigger
+
+Verify that once the first corner becomes active (based on our schedule config), the simulator will begin posting ingestion without manual intervention.
+
+Show:
+
+Which corner(s) are expected to become active first and at what KST time, based on CORNER_SCHEDULES.
+
+A dry-run log or a controlled short test (only if you can do safely) that demonstrates the transition from “skipping” → “ingesting”.
+
+DB Writes Confirmed
+
+Prove that ingestion actually writes rows into Postgres:
+
+Provide SQL queries and their results (counts) for the beta date:
+
+SELECT COUNT(*) ... WHERE DATE(timestamp AT TIME ZONE 'Asia/Seoul') = '2026-01-20';
+
+Show latest timestamp row count and which corners exist at that timestamp.
+
+Confirm DB timestamp timezone handling is correct (+09:00 accepted, stored as UTC but KST date filtering works).
+
+API + UI Live Output
+
+Demonstrate that the Today tab will show data automatically once DB ingestion begins:
+
+curl /api/config
+
+curl /api/health (secondsSinceLastIngestion should drop after ingestion)
+
+curl "/api/waiting/latest?date=2026-01-20" returns non-empty array during active period
+
+Confirm React Query polling is active only when isToday && useDbWaiting.
+
+Staleness Behavior (Safety)
+
+Verify that if ingestion stops, after WAITING_STALE_SECONDS the endpoint returns [] and UI shows placeholders.
+
+Provide one example log line:
+
+[Latest] STALE: ... ageSec=... thresholdSec=...
+
+Output format
+
+Give a PASS/FAIL checklist for the 5 sections above.
+
+For each section, include evidence snippets (logs, curl outputs, SQL results) and explain what they mean.
+
+If anything is NOT fully automatic, state exactly what manual step would still be required.
+
+Do not make code changes unless you discover a blocker; if you find a blocker, propose the minimum change and wait for my approval.
