@@ -1,0 +1,107 @@
+Hi Replit Agent — please do a focused architecture review and produce a clear report without making any code changes. I want to validate whether the current HY-eat pipeline and DB design are generalizable beyond the beta cutover date, and how to design the “Future” (prediction) tab properly.
+
+1) DB usage beyond the beta date (general operation)
+
+Right now we have cutover logic (e.g., BETA_CUTOVER_DATE='2026-01-20') that decides when historical endpoints read from DB vs file cache.
+
+Question A: If we remove the “special beta date” assumption, can the system support this general behavior?
+
+Today tab: real-time reading from DB (/api/waiting/latest polling) for any “today” date.
+
+Past tab: showing historical data from DB (/api/waiting?aggregate=5min, /api/waiting/all, /api/waiting/timestamps) for any past date that has DB rows.
+
+Question B: What exact changes (if any) are required so that any date with DB rows automatically works for historical viewing (DB-first or DB-only), without relying on a beta-only cutover rule?
+
+Please report:
+
+Current behavior (today vs non-today) and what limits it to the beta date.
+
+Recommended policy: DB-first with file fallback vs DB-only with migration plan.
+
+Risks of mixing file+DB, and how to avoid partial/duplicate data issues.
+
+2) Production DB schema suitability
+
+Question: For real service, should we keep the DB table/columns/indexes essentially the same as now?
+Please review and answer:
+
+Is the current row model appropriate? (timestamp, restaurant_id, corner_id, queue_len, data_type, source, etc.)
+
+What additional fields are recommended for real camera integration and analytics? Examples:
+
+camera_id, location_id, confidence, count_method, model_version, ingestion_latency_ms, etc.
+
+Index strategy for scale: confirm whether the current indexes (including KST date expression index) are enough, and what else should be added for:
+
+“latest per corner” reads
+
+time range queries
+
+daily aggregations
+
+large row growth over months
+
+3) “Future” tab (prediction from historical statistics)
+
+I haven’t built the Future tab yet. I need a professional design proposal on:
+
+What the Future tab should output (e.g., predicted queue_len, predicted wait time, confidence interval, next update time).
+
+Architecture & code structure: where prediction logic should live (server vs client), recommended folder/modules, and how the API contracts should look.
+
+Example endpoints: /api/predict?date=...&time=..., /api/model/status, etc.
+
+Implementation approach options, with pros/cons and suggested PoC → MVP path:
+
+simple rules/heuristics baseline (menu + time-of-day + corner capacity)
+
+statistical model (moving average, seasonal patterns)
+
+ML model (regression, gradient boosting, etc.)
+
+How to manage and maintain predictions:
+
+training/update cadence
+
+storing features and model versions
+
+monitoring accuracy vs observed real-time data
+
+feedback loop design
+
+Please include a recommended “minimal but correct” version I can finish quickly, and a roadmap for improving it.
+
+4) “Are we basically done once Future tab + camera ingestion + menu admin exist?”
+
+Assume we finish:
+
+Future tab predictions
+
+Menu data pipeline (likely admin-managed input)
+
+Real camera/object recognition producing counts and pushing them into DB via ingestion (same contract as simulator)
+
+Question: At that point, can we reasonably say the core system is “complete” for an MVP?
+Please answer by listing:
+
+What would still be missing for a real operational service (scalability, availability, security, monitoring, rate limiting, deployment, etc.).
+
+What is “must-have” vs “nice-to-have” for university-wide launch.
+
+The cleanest final architecture picture (data flow) from camera → ingestion → DB → Today/Past/Future UI.
+
+Output format request
+
+Please respond as a structured report with:
+
+Current State (what exists now)
+
+Gaps / constraints
+
+Recommended design decisions
+
+Minimal implementation plan (ordered steps)
+
+Risks + mitigations
+
+Again: review/report only — do not modify code.
