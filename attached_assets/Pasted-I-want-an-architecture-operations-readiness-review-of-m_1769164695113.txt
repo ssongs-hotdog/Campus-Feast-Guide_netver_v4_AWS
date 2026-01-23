@@ -1,0 +1,82 @@
+I want an architecture + operations readiness review of my HY-eat web service to answer this question:
+
+“Is a real server actually set up right now, and can it handle real-service traffic (concurrent users) — or is this only a demo/PoC runtime?”
+
+CRITICAL CONSTRAINTS
+- DO NOT modify any code or files.
+- DO NOT change any settings, environment variables, workflows, deployments, or database schema.
+- This request is review + reporting ONLY.
+- If you need to verify something, explain WHERE you checked (Workflows panel, deployment settings, runtime, logs, server entrypoint, env vars, DB config, etc.) and what evidence you saw.
+
+Please produce a structured report with the sections below.
+
+------------------------------------------------------------
+1) Define what “the server” is in this project (current reality)
+- What component is acting as the server? (e.g., Node/Express in server/routes.ts, Vite dev server, etc.)
+- How is it started right now? (Workflows / Run button / “Start application” command)
+- Is it a deployed/public server or just a dev/test runtime? Clarify the difference clearly.
+
+------------------------------------------------------------
+2) Hosting / Deployment diagnosis (Replit context)
+Provide a table of what is true right now:
+- Runtime type: Replit Dev vs Replit Deployment vs Autoscale (what it appears to be)
+- Single instance vs multi-instance scalability
+- Process lifecycle: restart behavior, uptime expectations, sleeping/pausing risks
+- Network exposure: is there a stable public URL, reverse proxy, TLS, etc. (as applicable)
+- Frontend serving: how static assets are served (same server vs separate hosting/CDN)
+- Logging/monitoring: what exists besides /api/health (if anything)
+
+If something is uncertain, mark it explicitly as “Uncertain” and list exactly where I should check.
+
+------------------------------------------------------------
+3) Traffic / concurrency capacity and bottleneck risk assessment
+Assume lunch peak traffic with polling:
+- Example concurrent users: 200, 500, 1000, 2000
+- Today tab polls every 30 seconds (React Query), plus normal browsing requests.
+
+For each concurrency level:
+- Roughly estimate requests per second (RPS) and what endpoints get hit most.
+- Identify bottlenecks: CPU/memory, Node event loop, DB query load, DB connection limits, file cache access, etc.
+- Evaluate whether current DB indexing and query patterns are adequate.
+- Evaluate whether Replit environment limits would become a blocker (single instance, resource limits, restarts).
+
+------------------------------------------------------------
+4) Verdict: Is it “production-ready” today?
+Give a clear verdict:
+- “PoC/Demo only”
+- “Small production possible (limited scale)”
+- “Not ready for real service”
+
+And provide a checklist of what is missing for real service readiness.
+
+------------------------------------------------------------
+5) If we need to build/upgrade for real service: difficulty + roadmap
+Provide a prioritized roadmap from Beta → Production:
+- Hosting choice and deployment model (server/frontend separation if needed)
+- Scaling strategy (multi-instance, autoscaling, load balancing)
+- DB hardening (connection pooling, indexes, query optimization)
+- Caching (e.g., Redis), rate limiting, and resilience
+- Replace polling with push (WebSocket/SSE) — optional but evaluate
+- Observability: metrics/logging/alerts
+- Security: auth, tokens, secrets handling, abuse prevention
+
+For each item:
+- Difficulty (Low/Medium/High)
+- Scope (infra vs code vs both)
+- “Must-have for beta” vs “Must-have for production” vs “Nice-to-have”
+
+------------------------------------------------------------
+6) Minimize questions — use assumptions instead
+Do NOT ask me multiple follow-up questions.
+If information is missing, write:
+- “Uncertain (insufficient evidence)”
+- “Where to verify”
+- “Most likely scenario A/B”
+
+------------------------------------------------------------
+FINAL OUTPUT FORMAT
+- Executive Summary (3–6 bullets)
+- Current State Diagram (text-based)
+- Bottlenecks & Risks Table
+- Readiness Verdict (PoC / Small Prod / Not Ready)
+- Roadmap (Beta → Production), prioritized
