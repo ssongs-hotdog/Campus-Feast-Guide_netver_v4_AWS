@@ -1,0 +1,31 @@
+Replit — please proceed in TWO PHASES (review first, then implement only after my explicit approval).
+
+PHASE 1) Pre-Update Review (NO CODE CHANGES YET)
+Please inspect the current codebase and produce a concise technical plan for the following two changes:
+A) Past tab data source policy: remove CSV/file fallback and make Past-tab historical reads DB-only.
+   - Identify all endpoints and code paths where CSV/file fallback is used for historical (e.g., /api/waiting, /api/waiting/timestamps, /api/waiting/all).
+   - Propose the exact logic changes to ensure historical reads always come from DB (and what the API should return if DB has no data).
+   - Confirm that this will not break the Today tab or ingestion pipeline.
+
+B) Future tab prediction (new feature): implement a “weekday + time-of-day average” baseline predictor from DB.
+   - If a user requests e.g. Monday 13:20, return the average queue_len (and derived est_wait_time_min) computed from all historical DB rows that match:
+     - same day-of-week (KST), and
+     - same time bucket (e.g., 5-min bucket aligned to the requested HH:MM).
+   - Define the exact bucketing approach (recommend 5-min buckets unless there is a better match to the existing system).
+   - Specify the new API endpoint(s) and response contract for the Future tab (e.g., GET /api/predict?date=YYYY-MM-DD&time=HH:MM).
+   - Include “confidence” metadata (basedOnDays count, or sample size) and a clear behavior when data is insufficient (e.g., return empty predictions with confidence=low).
+   - Ensure all day-of-week and time extraction uses Asia/Seoul (KST) consistently.
+
+Deliverables for PHASE 1:
+1) A short architecture-impact summary (what files/endpoints will change).
+2) A step-by-step implementation plan.
+3) A minimal test plan (curl tests + 1-2 UI checks).
+4) Risks and rollback strategy.
+
+IMPORTANT: Do not implement anything yet. Stop after the review and wait for my explicit sign-off phrase: "GO IMPLEMENT DB-ONLY + FUTURE-AVG".
+
+PHASE 2) Implementation (ONLY AFTER MY SIGN-OFF)
+After I reply with the exact phrase "GO IMPLEMENT DB-ONLY + FUTURE-AVG", then apply the changes according to the plan, and provide:
+- a final diff summary,
+- how to verify locally (curl commands),
+- and what to watch in logs.
