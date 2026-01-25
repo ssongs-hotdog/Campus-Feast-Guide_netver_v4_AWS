@@ -119,17 +119,21 @@ export default function Home() {
     enabled: !!selectedDate,
   });
 
-  const { data: configData } = useQuery<{ useDbWaiting: boolean; today: string }>({
+  const { data: configData } = useQuery({
     queryKey: ['/api/config'],
     queryFn: async () => {
       const result = await getConfig();
       if (result.error) throw new Error(result.error);
-      return result.data || { useDbWaiting: false, today: todayKey };
+      return result.data;
     },
     staleTime: 60000,
   });
 
   const useDbWaiting = configData?.useDbWaiting ?? false;
+  const tomorrowKey = configData?.tomorrow || addDays(todayKey, 1);
+  const isTomorrow = selectedDate === tomorrowKey;
+  const isPast = selectedDate < todayKey;
+  const showTimeSelector = !isToday && (isPast || isTomorrow);
 
   const { data: timestampsData } = useQuery<{ timestamps: string[] }>({
     queryKey: ['/api/waiting/timestamps', selectedDate],
@@ -291,7 +295,7 @@ export default function Home() {
           </div>
         </div>
 
-        {!isToday && (
+        {showTimeSelector && (
           <div className="max-w-lg mx-auto mt-2">
             <button
               onClick={() => setIsTimeSelectorOpen(!isTimeSelectorOpen)}
@@ -299,7 +303,7 @@ export default function Home() {
               data-testid="button-time-selector-toggle"
             >
               <span className="text-muted-foreground">
-                {selectedDate < todayKey ? '시간 선택 (통계 데이터 제공)' : '시간 선택 (예측 데이터 제공)'}
+                {isPast ? '시간 선택 (통계 데이터 제공)' : '시간 선택 (예측 데이터 제공)'}
               </span>
               <div className="flex items-center gap-2">
                 <span className="font-medium" data-testid="text-selected-time">{selectedTime5Min ?? '-'}</span>
@@ -310,7 +314,7 @@ export default function Home() {
             {isTimeSelectorOpen && (
               <div className="mt-2 p-3 bg-muted/30 rounded-lg">
                 <label className="block text-sm text-muted-foreground mb-2">
-                  {selectedDate < todayKey ? '시간 선택 (통계 데이터 제공)' : '시간 선택 (예측 데이터 제공)'}
+                  {isPast ? '시간 선택 (통계 데이터 제공)' : '시간 선택 (예측 데이터 제공)'}
                 </label>
                 <select
                   value={selectedTime5Min ?? ''}

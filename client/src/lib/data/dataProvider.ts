@@ -281,6 +281,7 @@ export async function hasDataForDate(dayKey: DayKey): Promise<boolean> {
 export interface AppConfig {
   useDbWaiting: boolean;
   today: string;
+  tomorrow: string;
 }
 
 /**

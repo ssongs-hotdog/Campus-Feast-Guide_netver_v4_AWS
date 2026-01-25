@@ -37,6 +37,10 @@ import {
   getHistoricalAggregated,
   getHistoricalByTimestamp,
   ensureKSTDateIndex,
+  getTomorrowKSTDateKey,
+  getDayOfWeekKST,
+  getDayOfWeekNameKo,
+  getPredictionByDayAndTime,
 } from "./storage";
 import * as fs from "fs";
 import * as path from "path";
@@ -412,154 +416,156 @@ export async function registerRoutes(
 
   app.get('/api/waiting/timestamps', async (req: Request, res: Response) => {
     const dateParam = req.query.date as string | undefined;
-    const targetDate = dateParam || getTodayDateKey();
     
-    // Cutover logic: dates >= 2026-01-20 use DB (with CSV fallback on error)
-    if (shouldUseDatabaseForDate(targetDate)) {
-      try {
-        const timestamps = await getHistoricalTimestamps(targetDate);
-        return res.json({ timestamps });
-      } catch (error) {
-        console.error('[API] DB timestamps query failed, falling back to CSV:', error);
-        // Fall through to CSV fallback below
-      }
+    if (dateParam && !/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+      return res.status(400).json({ error: 'Invalid date format' });
     }
     
-    // Legacy dates use file cache
-    const { timestamps } = loadWaitingData(dateParam);
-    res.json({ timestamps });
+    const targetDate = dateParam || getTodayDateKey();
+    
+    try {
+      const timestamps = await getHistoricalTimestamps(targetDate);
+      return res.json({ timestamps });
+    } catch (error) {
+      console.error('[API] DB timestamps query failed:', error);
+      return res.status(503).json({ error: 'Database unavailable' });
+    }
   });
 
   app.get('/api/waiting', async (req: Request, res: Response) => {
     const dateParam = req.query.date as string | undefined;
-    const targetDate = dateParam || getTodayDateKey();
     const timeParam = req.query.time as string | undefined;
     const aggregateParam = req.query.aggregate as string | undefined;
     
-    // Cutover logic: dates >= 2026-01-20 use DB for historical queries (with CSV fallback on error)
-    if (shouldUseDatabaseForDate(targetDate)) {
-      try {
-        // 5-minute aggregation from DB
-        if (aggregateParam === '5min' && timeParam) {
-          const aggregated = await getHistoricalAggregated(targetDate, timeParam, computeWaitMinutes);
-          return res.json(aggregated);
-        }
-        
-        // ISO timestamp query from DB
-        if (timeParam && (timeParam.includes('T') || timeParam.includes('+'))) {
-          const data = await getHistoricalByTimestamp(timeParam, computeWaitMinutes);
-          return res.json(data);
-        }
-        
-        // HH:MM query - use 5-min aggregation (equivalent behavior)
-        if (timeParam) {
-          const aggregated = await getHistoricalAggregated(targetDate, timeParam, computeWaitMinutes);
-          return res.json(aggregated);
-        }
-        
-        // No time param - get all data and return latest snapshot
-        const allData = await getHistoricalAllData(targetDate, computeWaitMinutes);
-        if (allData.length === 0) {
-          return res.json([]);
-        }
-        const latestTs = allData[allData.length - 1].timestamp;
-        const filtered = allData.filter(row => row.timestamp === latestTs);
-        return res.json(filtered);
-      } catch (error) {
-        console.error('[API] DB waiting query failed, falling back to CSV:', error);
-        // Fall through to CSV fallback below
-      }
+    if (dateParam && !/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+      return res.status(400).json({ error: 'Invalid date format' });
     }
     
-    // Legacy dates use file cache (original logic)
-    const { data, timestamps } = loadWaitingData(dateParam);
-    
-    if (data.length === 0) {
-      return res.json([]);
-    }
-    
-    if (aggregateParam === '5min' && timeParam) {
-      const aggregated = compute5MinAggregatedSnapshot(data, timestamps, timeParam);
-      return res.json(aggregated);
-    }
-    
-    if (!timeParam) {
-      const latestTimestamp = timestamps[timestamps.length - 1];
-      const filtered = data.filter((row) => row.timestamp === latestTimestamp);
-      return res.json(filtered);
-    }
-    
-    let targetTimestamp: string;
-    
-    if (timeParam.includes('T') || timeParam.includes('+')) {
-      if (timestamps.includes(timeParam)) {
-        targetTimestamp = timeParam;
-      } else {
-        const targetTime = new Date(timeParam).getTime();
-        let closestTs = timestamps[0];
-        let minDiff = Math.abs(new Date(timestamps[0]).getTime() - targetTime);
-        
-        for (const ts of timestamps) {
-          const diff = Math.abs(new Date(ts).getTime() - targetTime);
-          if (diff < minDiff) {
-            minDiff = diff;
-            closestTs = ts;
-          }
+    if (timeParam) {
+      const isISOFormat = timeParam.includes('T') || timeParam.includes('+');
+      const isHHMMFormat = /^\d{2}:\d{2}$/.test(timeParam);
+      
+      if (isISOFormat) {
+        const parsed = Date.parse(timeParam);
+        if (isNaN(parsed)) {
+          return res.status(400).json({ error: 'Invalid time format. Use HH:MM or ISO timestamp' });
         }
-        targetTimestamp = closestTs;
-      }
-    } else {
-      const [hours, minutes] = timeParam.split(':').map(Number);
-      if (isNaN(hours) || isNaN(minutes)) {
+      } else if (!isHHMMFormat) {
         return res.status(400).json({ error: 'Invalid time format. Use HH:MM or ISO timestamp' });
       }
-      
-      const targetMinutes = hours * 60 + minutes;
-      let closestTs = timestamps[0];
-      let minDiff = Infinity;
-      
-      for (const ts of timestamps) {
-        const tsDate = new Date(ts);
-        const tsMinutes = tsDate.getHours() * 60 + tsDate.getMinutes();
-        const diff = Math.abs(tsMinutes - targetMinutes);
-        
-        if (diff < minDiff) {
-          minDiff = diff;
-          closestTs = ts;
-        }
-      }
-      targetTimestamp = closestTs;
     }
     
-    const filtered = data.filter((row) => row.timestamp === targetTimestamp);
-    res.json(filtered);
+    const targetDate = dateParam || getTodayDateKey();
+    
+    try {
+      if (aggregateParam === '5min' && timeParam) {
+        const aggregated = await getHistoricalAggregated(targetDate, timeParam, computeWaitMinutes);
+        return res.json(aggregated);
+      }
+      
+      if (timeParam && (timeParam.includes('T') || timeParam.includes('+'))) {
+        const data = await getHistoricalByTimestamp(timeParam, computeWaitMinutes);
+        return res.json(data);
+      }
+      
+      if (timeParam) {
+        const aggregated = await getHistoricalAggregated(targetDate, timeParam, computeWaitMinutes);
+        return res.json(aggregated);
+      }
+      
+      const allData = await getHistoricalAllData(targetDate, computeWaitMinutes);
+      if (allData.length === 0) {
+        return res.json([]);
+      }
+      const latestTs = allData[allData.length - 1].timestamp;
+      const filtered = allData.filter(row => row.timestamp === latestTs);
+      return res.json(filtered);
+    } catch (error) {
+      console.error('[API] DB waiting query failed:', error);
+      return res.status(503).json({ error: 'Database unavailable' });
+    }
   });
 
   app.get('/api/waiting/all', async (req: Request, res: Response) => {
     const dateParam = req.query.date as string | undefined;
-    const targetDate = dateParam || getTodayDateKey();
     
-    // Cutover logic: dates >= 2026-01-20 use DB (with CSV fallback on error)
-    if (shouldUseDatabaseForDate(targetDate)) {
-      try {
-        const data = await getHistoricalAllData(targetDate, computeWaitMinutes);
-        return res.json(data);
-      } catch (error) {
-        console.error('[API] DB all-data query failed, falling back to CSV:', error);
-        // Fall through to CSV fallback below
-      }
+    if (dateParam && !/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+      return res.status(400).json({ error: 'Invalid date format' });
     }
     
-    // Legacy dates use file cache
-    const { data } = loadWaitingData(dateParam);
-    res.json(data);
+    const targetDate = dateParam || getTodayDateKey();
+    
+    try {
+      const data = await getHistoricalAllData(targetDate, computeWaitMinutes);
+      return res.json(data);
+    } catch (error) {
+      console.error('[API] DB all-data query failed:', error);
+      return res.status(503).json({ error: 'Database unavailable' });
+    }
   });
 
   app.get('/api/config', (_req: Request, res: Response) => {
     res.json({ 
       useDbWaiting: USE_DB_WAITING,
       today: getTodayDateKey(),
+      tomorrow: getTomorrowKSTDateKey(),
     });
+  });
+
+  app.get('/api/predict', async (req: Request, res: Response) => {
+    const timeParam = req.query.time as string | undefined;
+    
+    if (!timeParam || !/^\d{2}:\d{2}$/.test(timeParam)) {
+      return res.status(400).json({ error: 'Invalid time format. Use HH:MM' });
+    }
+    
+    const [hours, minutes] = timeParam.split(':').map(Number);
+    if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+      return res.status(400).json({ error: 'Invalid time format. Use HH:MM' });
+    }
+    
+    const tomorrow = getTomorrowKSTDateKey();
+    const dayOfWeek = getDayOfWeekKST(tomorrow);
+    const dayOfWeekName = getDayOfWeekNameKo(dayOfWeek);
+    
+    const bucketStart = Math.floor(minutes / 5) * 5;
+    const bucketStartStr = `${String(hours).padStart(2, '0')}:${String(bucketStart).padStart(2, '0')}`;
+    const bucketEndStr = `${String(hours).padStart(2, '0')}:${String(bucketStart + 4).padStart(2, '0')}`;
+    
+    try {
+      const result = await getPredictionByDayAndTime(dayOfWeek, timeParam, computeWaitMinutes);
+      
+      const confidence = result.basedOnDays >= 4 ? 'high'
+                       : result.basedOnDays >= 2 ? 'medium'
+                       : result.basedOnDays >= 1 ? 'low' : 'none';
+      
+      const predictions = result.predictions.map(p => ({
+        restaurantId: p.restaurantId,
+        cornerId: p.cornerId,
+        predictedQueueLen: p.avgQueueLen,
+        predictedWaitMin: p.waitMin,
+      }));
+      
+      return res.json({
+        predictions,
+        metadata: {
+          targetDate: tomorrow,
+          targetTime: timeParam,
+          timezone: 'Asia/Seoul',
+          timezoneOffset: '+09:00',
+          dayOfWeek,
+          dayOfWeekName,
+          timeBucket: `${bucketStartStr}-${bucketEndStr}`,
+          basedOnDays: result.basedOnDays,
+          sampleSize: result.sampleSize,
+          confidence,
+          generatedAt: getKSTISOTimestamp(),
+        },
+      });
+    } catch (error) {
+      console.error('[API] Prediction query failed:', error);
+      return res.status(503).json({ error: 'Database unavailable' });
+    }
   });
 
   app.get('/api/health', async (_req: Request, res: Response) => {

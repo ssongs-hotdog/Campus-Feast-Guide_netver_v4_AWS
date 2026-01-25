@@ -220,20 +220,47 @@ export async function checkDbConnection(): Promise<boolean> {
 }
 
 // ============================================================================
-// Historical Data Queries (for dates >= BETA_CUTOVER_DATE)
+// Historical Data Queries (DB-only, CSV fallback removed)
 // ============================================================================
 
 /**
- * Beta cutover date: dates >= this use DB for historical queries.
- * Dates before this use file cache only.
+ * Check if a date should use DB for historical queries.
+ * Now always returns true - DB-only mode.
  */
-export const BETA_CUTOVER_DATE = '2026-01-20';
+export function shouldUseDatabaseForDate(_dateKey: string): boolean {
+  return true;
+}
 
 /**
- * Check if a date should use DB for historical queries.
+ * Get tomorrow's date key in KST (Asia/Seoul) timezone.
+ * Returns YYYY-MM-DD format.
  */
-export function shouldUseDatabaseForDate(dateKey: string): boolean {
-  return dateKey >= BETA_CUTOVER_DATE;
+export function getTomorrowKSTDateKey(): string {
+  const now = new Date();
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(tomorrow);
+}
+
+/**
+ * Get day of week (0-6, Sunday-Saturday) for a date key in KST.
+ */
+export function getDayOfWeekKST(dateKey: string): number {
+  const date = new Date(dateKey + 'T12:00:00+09:00');
+  return date.getDay();
+}
+
+/**
+ * Get Korean day-of-week name.
+ */
+export function getDayOfWeekNameKo(dayOfWeek: number): string {
+  const names = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+  return names[dayOfWeek] || '';
 }
 
 /**
@@ -407,4 +434,81 @@ export async function ensureKSTDateIndex(): Promise<boolean> {
     console.error('[DB] Failed to create KST date index:', error);
     return false;
   }
+}
+
+// ============================================================================
+// Prediction Queries (for Future tab)
+// ============================================================================
+
+export interface PredictionRow {
+  restaurantId: string;
+  cornerId: string;
+  avgQueueLen: number;
+  waitMin: number;
+}
+
+export interface PredictionResult {
+  predictions: PredictionRow[];
+  basedOnDays: number;
+  sampleSize: number;
+}
+
+/**
+ * Get prediction data by day-of-week and time bucket.
+ * Uses historical averages from same day-of-week and same 5-min time bucket.
+ * All queries use KST (Asia/Seoul) timezone.
+ */
+export async function getPredictionByDayAndTime(
+  dayOfWeek: number,
+  timeHHMM: string,
+  computeWaitFn: (queueLen: number, restaurantId: string, cornerId: string) => number
+): Promise<PredictionResult> {
+  if (!db) {
+    throw new Error("Database not configured");
+  }
+
+  const [hours, minutes] = timeHHMM.split(':').map(Number);
+  if (isNaN(hours) || isNaN(minutes)) {
+    return { predictions: [], basedOnDays: 0, sampleSize: 0 };
+  }
+
+  const bucketStart = Math.floor(minutes / 5) * 5;
+  const startMinutes = hours * 60 + bucketStart;
+  const endMinutes = startMinutes + 4;
+
+  const result = await db.execute(sql`
+    SELECT 
+      restaurant_id,
+      corner_id,
+      ROUND(AVG(queue_len)) as avg_queue_len,
+      COUNT(*) as sample_count,
+      COUNT(DISTINCT DATE(timestamp AT TIME ZONE 'Asia/Seoul')) as day_count
+    FROM waiting_snapshots
+    WHERE EXTRACT(DOW FROM timestamp AT TIME ZONE 'Asia/Seoul') = ${dayOfWeek}
+      AND (EXTRACT(hour FROM timestamp AT TIME ZONE 'Asia/Seoul') * 60 
+           + EXTRACT(minute FROM timestamp AT TIME ZONE 'Asia/Seoul'))
+          BETWEEN ${startMinutes} AND ${endMinutes}
+    GROUP BY restaurant_id, corner_id
+  `);
+
+  const rows = result.rows as any[];
+  
+  if (rows.length === 0) {
+    return { predictions: [], basedOnDays: 0, sampleSize: 0 };
+  }
+
+  const basedOnDays = Math.max(...rows.map(r => Number(r.day_count) || 0));
+  const sampleSize = rows.reduce((sum, r) => sum + (Number(r.sample_count) || 0), 0);
+
+  const predictions: PredictionRow[] = rows.map(row => {
+    const avgQueueLen = Math.round(Number(row.avg_queue_len) || 0);
+    return {
+      restaurantId: row.restaurant_id,
+      cornerId: row.corner_id,
+      avgQueueLen,
+      waitMin: computeWaitFn(avgQueueLen, row.restaurant_id, row.corner_id),
+    };
+  });
+
+  return { predictions, basedOnDays, sampleSize };
 }
