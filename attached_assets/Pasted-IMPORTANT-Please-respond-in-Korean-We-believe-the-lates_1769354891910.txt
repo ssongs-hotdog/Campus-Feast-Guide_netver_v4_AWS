@@ -1,0 +1,92 @@
+IMPORTANT: Please respond in Korean.
+
+We believe the latest update has been implemented. 
+Now, WITHOUT making any further code changes, please do a strict self-review + run verification tests to confirm there is zero misunderstanding and everything matches the exact spec.
+
+========================
+SCOPE (NO CODE CHANGES)
+========================
+- Do NOT edit/modify any files.
+- Do NOT refactor or “fix” anything.
+- Only inspect the current code + run tests + report results.
+
+========================
+EXPECTED FINAL SPEC (MUST VERIFY)
+========================
+
+A) Past Tab = DB-only (CSV fallback fully removed)
+1) Endpoints:
+- GET /api/waiting/timestamps
+- GET /api/waiting
+- GET /api/waiting/all
+
+2) Response policy must be EXACT:
+- If data exists for the requested date/time → 200 with data
+- If data does NOT exist → 200 with empty arrays
+  - timestamps endpoint: { "timestamps": [] }
+  - others: []
+- DB unavailable / DB query failure → 503 with { "error": "Database unavailable" }
+- Invalid params → 400 with clear error message
+
+3) Confirm there is NO remaining code path that reads from CSV for Past tab.
+- If any CSV code remains, just report where it is (file + line range). Do not change it.
+
+B) Future Tab behavior = “Future date browsing stays” but “Prediction time selector is TOMORROW-ONLY”
+1) The Future tab must still allow viewing/browsing future dates (menus/info) for multiple days.
+2) ONLY the “prediction time selector” must be restricted:
+- Enabled ONLY when the selected date equals TOMORROW in KST (Asia/Seoul).
+- Disabled/hidden for any other date, and UI must show a clear message like:
+  “예측 시간 선택은 ‘내일’에만 제공됩니다.”
+3) Prediction logic (when enabled):
+- Uses DB averages by “same day-of-week + same 5-minute time bucket”
+- All timezone logic must be KST-correct end-to-end:
+  - Tomorrow computation must be based on Asia/Seoul, not server local time, not UTC
+  - SQL must use timestamp AT TIME ZONE 'Asia/Seoul' for DOW/time extraction
+4) Confirm the final /api/predict contract:
+- If /api/predict is tomorrow-only by server design, confirm it enforces tomorrow in KST.
+- Confirm metadata includes:
+  basedOnDays, sampleSize, confidence (high/medium/low/none), timezone, timezoneOffset, generatedAt, timeBucket, dayOfWeek/dayOfWeekName.
+- Confirm confidence mapping is correct:
+  >=4 high, 2-3 medium, 1 low, 0 none (predictions empty)
+
+========================
+REQUIRED VERIFICATION OUTPUT
+========================
+Please provide the following, in Korean:
+
+1) “Code Inspection Summary”
+- For each endpoint + feature above, list the exact file(s) and key code locations that prove the behavior (file path + approximate line range).
+
+2) “Curl Test Results”
+Run these tests and paste outputs (or summarize precisely):
+A) Past endpoints:
+- Data exists date (ex: 2026-01-20 if present)
+  curl "http://localhost:5000/api/waiting/timestamps?date=YYYY-MM-DD"
+  curl "http://localhost:5000/api/waiting?date=YYYY-MM-DD&time=HH:MM&aggregate=5min"
+  curl "http://localhost:5000/api/waiting/all?date=YYYY-MM-DD"
+- No data date (choose a date guaranteed to have no rows)
+- Invalid date/time format → expect 400
+- DB down simulation (if you can safely simulate by temporarily using a wrong DATABASE_URL in a separate run or equivalent) → expect 503
+  If you cannot simulate DB down safely, state that clearly and explain what evidence you can provide instead (without code changes).
+
+B) Future predict:
+- If /api/predict requires time param:
+  curl "http://localhost:5000/api/predict?time=12:30"
+- Confirm the targetDate in response equals TOMORROW in KST at the moment of the test.
+- Confirm confidence/basedOnDays/sampleSize behavior when data is insufficient (should return predictions: [] + confidence: none).
+
+3) “UI Behavior Verification”
+- Explain how you verified:
+  - Future date browsing remains available for multiple days.
+  - Prediction time selector appears ONLY for tomorrow date.
+  - For non-tomorrow dates, selector disabled/hidden + message is shown.
+  - Today/Past tabs still behave correctly.
+
+4) “Final Verdict”
+- PASS/FAIL for each section:
+  A) Past DB-only
+  B) Future tomorrow-only prediction time selector
+  C) KST timezone correctness
+- If FAIL or PARTIAL: list exactly what is off-spec and where.
+
+Again: NO CODE CHANGES. Only review + tests + report.
