@@ -1,0 +1,81 @@
+IMPORTANT: Please respond in Korean.
+
+You previously provided a “사전 구현 검토 보고서 (코드 변경 없음)” for:
+(A) Past tab DB-only (remove CSV fallback)
+(B) Future prediction using day-of-week average, and limiting prediction to “tomorrow only”.
+
+Before implementing ANY code changes, do the following:
+1) Re-check the current codebase and your last review, and confirm that the plan below is correct and consistent with our existing architecture.
+2) Identify any hidden edge cases (timezone/KST, UI behavior, error handling) and propose minimal safe adjustments.
+3) DO NOT modify code until you receive my explicit approval phrase at the end.
+
+========================
+GOALS (FINAL SPEC)
+========================
+
+A) Past Tab: DB-only (remove CSV fallback completely)
+- For Past endpoints, remove CSV fallback logic and use DB only.
+- Normal “no data” must be treated as a 정상 상황 (NOT an error):
+  - 200 + empty arrays are returned when there are no rows for the requested date/time.
+- Only return an error when DB is actually unavailable or a DB query fails:
+  - 503 + { "error": "Database unavailable" }
+- Invalid params must return 400 with clear messages.
+
+Target endpoints:
+- GET /api/waiting/timestamps
+- GET /api/waiting
+- GET /api/waiting/all
+
+Clarify and confirm the final response policy table for each endpoint:
+- Data exists → 200 with data
+- Data does not exist → 200 with [] (or timestamps: [])
+- DB unavailable/query failure → 503 with error payload
+- Invalid params → 400
+
+B) Future Tab: “Date browsing stays for multiple days” BUT “prediction time selector is TOMORROW only”
+This is the critical requirement:
+- We MUST keep the ability to browse/view future dates (menus/info) for multiple days as-is.
+- We DO NOT delete/hide the Future tab or future date browsing.
+- We ONLY restrict the “prediction time selection (the time dropdown / time picker that triggers prediction computation)” to TOMORROW (KST).
+  - If the user’s selected date is NOT tomorrow (KST), the prediction time selector must be disabled/hidden and show a message like:
+    “예측 시간 선택은 ‘내일’에만 제공됩니다.”
+  - If the selected date IS tomorrow (KST), prediction time selector is enabled.
+
+Prediction logic (tomorrow-only prediction):
+- When enabled (tomorrow only), prediction values should be computed using:
+  “same day-of-week + same 5-minute time bucket average from DB”
+- Timezone must be explicitly Asia/Seoul (KST) end-to-end:
+  - Tomorrow computation in server must be KST-based (not server local / not UTC by accident).
+  - SQL must use: timestamp AT TIME ZONE 'Asia/Seoul' for day-of-week and time extraction.
+- API design choice:
+  Option 1 (recommended): Keep GET /api/predict?time=HH:MM and server computes tomorrow (KST).
+  Option 2: GET /api/predict?date=YYYY-MM-DD&time=HH:MM but server MUST enforce “date must equal tomorrow(KST)” or return 400.
+Please recommend the safest minimal option and explain why (in Korean).
+
+Confidence metadata:
+- basedOnDays and sampleSize must be returned.
+- confidence mapping:
+  >=4 → high, 2-3 → medium, 1 → low, 0 → none (predictions: [])
+
+========================
+DELIVERABLES REQUIRED (NO CODE YET)
+========================
+1) A final “Implementation Plan” describing:
+- Which files/lines you will modify (server/routes.ts, server/storage.ts, client/src/pages/Home.tsx)
+- Exact logic changes (CSV fallback removal, DB-only error policy, new predict endpoint, UI gating)
+- How you will prevent timezone mistakes (KST)
+2) A “Minimal Test Plan” with exact curl commands and expected outputs for:
+- Past endpoints: data exists vs no data vs invalid param vs DB down (503)
+- Future predict: tomorrow date scenario and non-tomorrow UI gating behavior
+3) A “Rollback Plan” (git revert / checkpoint) if anything breaks
+4) A short “Risk Checklist” (top 5 risks + mitigations)
+
+========================
+IMPLEMENTATION GATE (APPROVAL REQUIRED)
+========================
+After you provide the above review report (in Korean), ask me for approval.
+Only proceed to code changes after I reply exactly with:
+
+GO IMPLEMENT DB-ONLY-PAST + TOMORROW-ONLY-PREDICT-TIMESELECTOR
+
+Until you receive that exact phrase, do not change code.
