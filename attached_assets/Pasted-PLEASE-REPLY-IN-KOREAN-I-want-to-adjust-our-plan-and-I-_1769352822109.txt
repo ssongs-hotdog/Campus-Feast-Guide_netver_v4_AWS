@@ -1,0 +1,46 @@
+PLEASE REPLY IN KOREAN.
+
+I want to adjust our plan and I need you to do a PRE-IMPLEMENTATION REVIEW ONLY first (NO CODE CHANGES YET). After your review, ask for my explicit approval phrase before implementing anything.
+
+Scope (what I want to implement after approval)
+
+A) Past tab: DB-only + clear API contract (recommended policy A)
+1) Remove CSV fallback paths for Past/historical endpoints.
+2) Contract policy:
+   - If DB query succeeds but there are simply NO rows for the requested date/time: return an empty result (e.g., {timestamps: []} or []) so the UI shows placeholders (this is normal, not an error).
+   - If DB is unavailable / query fails due to DB connectivity or execution errors: return HTTP 503 with a clear JSON error, e.g. { "error": "Database unavailable" } (this is the only “error” case).
+   - If request params are invalid (bad date/time format): return HTTP 400 with { "error": "Invalid date/time format" }.
+3) Ensure Today tab behavior remains unchanged (it is already DB-only via /api/waiting/latest).
+
+B) Future tab: “Next-day only” time selection + weekday/time average prediction
+1) UI/UX rule:
+   - In the Future tab, allow time selection ONLY for “tomorrow” (next day). Users should not select arbitrary future dates in v1.
+   - Please propose the minimal UI + API changes required to enforce this rule cleanly.
+2) Prediction logic:
+   - When the user selects a time (HH:MM) for tomorrow, return predictions computed as:
+     “Average of historical observations for the SAME day-of-week and SAME time bucket (5-min window) from DB.”
+   - Use KST (Asia/Seoul) consistently for day-of-week and time extraction and for interpreting the requested date.
+   - Use a 5-minute bucket window (e.g., 13:22 → bucket 13:20–13:24) for stability and consistency with our existing aggregation approach.
+3) Response should include metadata that prevents timezone misunderstandings:
+   - Explicitly include timezone info (KST, +09:00) in metadata
+   - Include dayOfWeek and a human-readable dayOfWeekName
+   - Include sampleSize, basedOnDays, confidence level (high/medium/low/none)
+
+Timezone correctness requirements (must be verified in your review)
+- All DB queries that derive day-of-week or time must use: timestamp AT TIME ZONE 'Asia/Seoul'
+- The requested dateKey (YYYY-MM-DD) must be interpreted as KST day, not server-local or UTC day.
+- Confirm that API returns ISO strings with +09:00 where applicable and that the client parsing remains correct.
+
+What I need from you now (REVIEW ONLY)
+1) Confirm exactly which files/endpoints will change and what will NOT change.
+2) Provide the final API contract summary (normal empty vs 400 vs 503) for each affected endpoint.
+3) Provide a minimal implementation plan and test plan (curl + UI steps) that validates:
+   - DB-only historical reads work
+   - “no data” returns empty (placeholders)
+   - DB outage returns 503
+   - Future tab is restricted to tomorrow only
+   - Predictions use weekday/time averages in KST correctly
+4) Identify any risks or corner cases (especially timezone/day-of-week correctness) and your mitigations.
+
+STOP before coding.
+After the review, ask me to approve implementation with an explicit approval phrase you choose (e.g., “GO IMPLEMENT ...”). Only proceed after I send that exact phrase.
