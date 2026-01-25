@@ -1,0 +1,90 @@
+You are the implementation engineer for the HY-eat project in Replit.
+
+GOAL:
+Apply the provided dummy menu dataset to the project so the server/client can render menus for testing.
+After applying, verify behavior via API and UI, and report exactly what changed and whether everything worked.
+
+CRITICAL CONSTRAINTS:
+1) Do not use priceWon = 0 for “closed/휴무” special cases. If you see priceWon: 0 in the dataset for a closed entry, treat it as invalid and replace it with a placeholder normal price for that corner (use the standard corner pricing rules below). We must keep priceWon as an integer (schema requirement) and avoid “0 won” confusion.
+2) Implement robust rollback protection before changing anything.
+3) After applying, produce a clear post-apply report (files changed, validation results, tests run, issues).
+
+STANDARD CORNER PRICING (placeholders for closed entries if needed):
+- hanyang_plaza:
+  breakfast_1000 = 1000
+  western = 4200
+  korean = 4200
+  instant = 4500
+  cupbap = 4500
+  ramen = 3500
+- materials:
+  set_meal = 6000
+  single_dish = 6500
+  rice_bowl = 4700
+  dinner = 6000
+- life_science:
+  dam_a_lunch = 6000
+  pangeos_lunch = 6500
+  dam_a_dinner = 6000
+
+TARGET FILE:
+data/menus_by_date.json (UTF-8 JSON)
+
+INPUT DATASET:
+The user will provide a JSON file content (3 weeks) that follows:
+{ "YYYY-MM-DD": { "restaurantId": { "cornerId": MenuItem } } }
+MenuItem required:
+restaurantId, cornerId, cornerDisplayName, mainMenuName, priceWon, items
+variants optional; breakfast_1000 variants can be length 1 or 2+.
+
+TASK 0 — PRE-CHECK (READ-ONLY):
+- Confirm the project currently reads from data/menus_by_date.json (or equivalent).
+- Validate the dataset is parseable JSON and matches schema types.
+- Ensure restaurantId/cornerId inside each MenuItem matches the parent keys.
+- Ensure items is a non-empty array of strings.
+- Ensure priceWon is an integer (not string/float). If any closed entry uses 0, fix to placeholder normal price for that corner.
+
+TASK 1 — ROLLBACK PLAN (MUST DO BEFORE APPLY):
+- Create a timestamped backup copy of the current data/menus_by_date.json, e.g.:
+  data/menus_by_date.backup-YYYYMMDD-HHMMSS.json
+- If Git is available in this Replit project:
+  - Commit the backup alone first with message: "backup menus_by_date before dummy dataset"
+  - Then commit the new dataset as a separate commit: "apply 3-week dummy menu dataset"
+- If Git is not available, at minimum keep the timestamped backup file.
+
+TASK 2 — APPLY:
+- Replace data/menus_by_date.json with the provided dummy dataset (after fixing any priceWon=0 closed entries as per constraint).
+- Ensure file encoding remains UTF-8 and JSON is valid.
+
+TASK 3 — VERIFY:
+A) API checks (examples):
+- Call/visit endpoints for multiple dates across the 3-week range:
+  /api/menu?date=2026-01-19
+  /api/menu?date=2026-01-26
+  /api/menu?date=2026-02-02
+- Confirm response status 200 and expected restaurant/corner keys appear.
+
+B) UI checks:
+- Open the app and verify the menu UI renders without crashes.
+- Specifically check breakfast_1000 behavior:
+  - If variants length is 1, it should render a single variant naturally.
+  - If variants length is 2+, it should render multiple variants.
+- Check closed/special-case days:
+  - mainMenuName should show the provided closed text.
+  - priceWon should NOT display as 0 (it should be the corner placeholder price).
+
+TASK 4 — POST-APPLY REPORT (REQUIRED OUTPUT):
+Report in a structured way:
+1) What file(s) you changed and exact path(s).
+2) Backup/rollback artifacts created (backup filename, commit hashes if any).
+3) Any schema issues found and how you fixed them (especially any priceWon=0 cases).
+4) Verification results:
+   - API tests performed + outcomes
+   - UI checks performed + outcomes
+5) If any errors occurred:
+   - Exact error logs
+   - Rollback instructions executed or ready to execute
+
+If any step fails, STOP, DO NOT GUESS, and propose the safest rollback.
+
+Now proceed with Task 0 → Task 4.
