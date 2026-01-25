@@ -1,0 +1,48 @@
+You are working on the HY-eat project (Replit environment). We have a dummy menu dataset that must conform to the exact spec used by the server/client.
+
+IMPORTANT RULES:
+1) Do NOT apply/overwrite any production files yet. First, perform a PRE-APPLY REVIEW and REPORT ONLY.
+2) After the review, stop and wait for explicit user approval before making any file changes.
+
+Target spec (must be satisfied):
+- File path: data/menus_by_date.json
+- UTF-8 JSON
+- Structure: { "YYYY-MM-DD": { "restaurantId": { "cornerId": MenuItem } } }
+- MenuItem required fields:
+  restaurantId (string), cornerId (string), cornerDisplayName (string),
+  mainMenuName (string), priceWon (integer), items (string[])
+  variants?: { mainMenuName: string, items: string[] }[]
+- breakfast_1000 may have variants length 1 or 2+. If length=1, UI should render one card.
+
+Dummy dataset to review:
+- Use the provided JSON content from menu_dummy_3weeks_compliant.json (user will paste/upload it).
+
+TASK A — PRE-APPLY REVIEW (NO CHANGES):
+1) Validate JSON syntax (parseable).
+2) Validate schema fields and types for every MenuItem:
+   - restaurantId/cornerId match their parent keys
+   - priceWon is an integer
+   - items is a non-empty array of strings
+   - if variants exists: array of objects with mainMenuName + non-empty items
+3) Validate IDs are from the allowed sets:
+   - restaurants: hanyang_plaza, materials, life_science
+   - corners:
+     hanyang_plaza: breakfast_1000, western, korean, instant, cupbap, ramen
+     materials: set_meal, single_dish, rice_bowl, dinner
+     life_science: dam_a_lunch, pangeos_lunch, dam_a_dinner
+4) Spot-check critical UX rules:
+   - breakfast_1000 variants length 1 should still render naturally
+   - “closed/휴무” entries should only exist if explicitly provided; otherwise corners can be omitted
+5) Report findings clearly:
+   - PASS/FAIL
+   - Any violations with exact date/restaurant/corner paths
+   - Any risky edge cases
+
+TASK B — ROLLBACK PLAN (WRITE IT, DO NOT EXECUTE):
+Before applying changes, propose a rollback plan:
+1) Create a backup of data/menus_by_date.json (timestamped).
+2) If Git is available: commit backup + change separately.
+3) Define exact rollback steps (restore backup file, revert commit, restart server).
+
+STOP HERE.
+Wait for the user’s approval. Do not modify files yet.
