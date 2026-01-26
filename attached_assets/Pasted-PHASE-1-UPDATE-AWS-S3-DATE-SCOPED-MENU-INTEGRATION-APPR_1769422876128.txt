@@ -1,0 +1,93 @@
+PHASE 1 UPDATE — AWS S3 (DATE-SCOPED) MENU INTEGRATION (APPROVAL-GATED)
+
+You are a senior full-stack engineer working on the HY-eat Replit project (React+Vite SPA + Express backend).
+We are starting Phase 1: serve menus from AWS S3 using server-side reads only, keeping the client unchanged.
+
+CRITICAL RULES:
+1) Please answer in Korean.
+2) Do NOT proceed with any code changes until you first provide a “Pre-Update Report” and explicitly ask for my approval.
+3) After your Pre-Update Report, STOP and wait for my explicit approval message: "APPROVED: PHASE1".
+4) Only after receiving "APPROVED: PHASE1", you may implement the update.
+5) Keep changes minimal, safe, and reversible. Do NOT change unrelated APIs (waiting, predict, ingest, admin, etc).
+
+PHASE 1 FACTS (CONFIRMED):
+- AWS Region: ap-northeast-2 (Seoul)
+- S3 Bucket: hyeat-menu
+- Object key format: menus/YYYY-MM-DD.json (each file contains ONLY that date’s menu data)
+- Client must remain unchanged and continue calling:
+  GET /api/menu?date=YYYY-MM-DD
+
+IMPORTANT ARCHITECTURE PRINCIPLE:
+- Backend-Proxy ONLY (Browser → Express → S3 via AWS SDK). Do NOT implement direct-from-client S3 calls.
+- AWS credentials must never be exposed to the browser.
+
+PRE-UPDATE REPORT REQUIREMENTS (Korean, BEFORE ANY CHANGES):
+A) Confirm current /api/menu contract:
+   - Where is /api/menu implemented? (file + function)
+   - What exact JSON shape does it return today? Provide a brief example or describe keys.
+   - What does the frontend expect from /api/menu? (Any assumptions in client code)
+B) Confirm Phase 1 changes and scope:
+   - Which files you will edit (e.g., server/routes.ts, server/storage.ts)
+   - Which dependencies you will add (AWS SDK v3)
+   - Which environment variables (Replit Secrets/Env) are needed
+C) Confirm how S3 date-scoped files will be handled:
+   - S3 file contains ONLY one date’s menu.
+   - Decide whether Express should return the S3 JSON “as-is” OR transform it to match the existing /api/menu response contract.
+   - If transformation is needed, describe it clearly and keep it minimal.
+D) Confirm safety & rollback:
+   - A feature-flag plan to enable/disable S3 menu source instantly
+   - Error handling behavior if S3 object is missing or S3 read fails
+   - How you will verify endpoints without breaking the app
+E) End the report by asking: “승인해주시면 진행하겠습니다. (승인 문구: APPROVED: PHASE1)”
+
+STOP after the Pre-Update Report and wait for my approval.
+
+IMPLEMENTATION REQUIREMENTS (ONLY AFTER APPROVAL):
+1) Dependencies (minimal):
+   - @aws-sdk/client-s3
+2) Environment variables (server-only; do NOT add secrets to client):
+   - AWS_REGION=ap-northeast-2
+   - S3_BUCKET=hyeat-menu
+   - MENU_SOURCE=s3 | disabled (feature flag)
+   - AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY should be stored in Replit Secrets (server use only)
+3) Server-side S3 read function:
+   - Implement getMenuFromS3(dateKey: string) which reads:
+     s3://hyeat-menu/menus/<dateKey>.json
+   - Add a ~3 second timeout to avoid hanging requests
+   - Parse JSON safely, handle errors explicitly
+4) /api/menu behavior:
+   - If MENU_SOURCE != "s3": return a stable “not available” response (no crash)
+   - If MENU_SOURCE == "s3":
+       - Try reading S3 object
+       - If success: return menu data in the EXACT shape the client expects (as-is or minimally transformed)
+       - If missing/failed: return stable “not available” response
+5) Stable “not available” response (choose one and keep consistent):
+   Option A (clear and recommended):
+     - HTTP 404
+     - Body: { "error": "MENU_DATA_NOT_AVAILABLE", "date": "<dateKey>" }
+   Option B:
+     - HTTP 200
+     - Body: { "date": "<dateKey>", "menus": {}, "warning": "MENU_DATA_NOT_AVAILABLE" }
+   Choose one based on client expectation and document it in the final report.
+6) Do NOT change client code in this Phase 1 update (unless absolutely required to prevent UI crashes; if so, keep it minimal and justify).
+7) Verification after changes:
+   - npm run dev starts
+   - GET /api/health works
+   - GET /api/menu?date=YYYY-MM-DD:
+       - returns S3 content when the object exists
+       - returns the stable “not available” response when object missing or errors occur
+   - No server crashes; logs are clean
+8) Rollback plan:
+   - Set MENU_SOURCE=disabled (instant rollback)
+   - Or revert commit if needed
+
+NOTE ON S3 PUBLIC ACCESS:
+- Do NOT rely on public S3 access in the application design.
+- The backend should read S3 using AWS credentials (IAM least privilege).
+- If public access is enabled temporarily for manual browser verification, still keep the app’s read path via AWS SDK.
+
+After implementation, provide a final Korean report:
+- What changed (files, functions)
+- What env vars are required
+- How to test
+- Rollback steps
