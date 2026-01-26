@@ -1,0 +1,65 @@
+READ-ONLY REVIEW FIRST (NO CODE CHANGES):
+You must NOT modify any code, files, or settings. Do not create commits or apply patches. 
+First, only inspect the repository and provide a diagnostic report and architecture plan.
+
+You are a senior full-stack engineer + cloud architect. I’m building a PoC web service called “HY-eat” on Replit (the code is also stored on GitHub). The service shows cafeteria menus and predicts wait times by restaurant/corner. In the future, I want to store/ingest data on AWS (collection, storage, utilization), connect my current Replit app to AWS, and later migrate the entire service (frontend + backend + data) to AWS.
+
+IMPORTANT:
+1) Please answer in Korean.
+2) Before giving any plan, inspect my repository structure and determine what my stack is (e.g., React+Vite static SPA, Next.js SSR, Node/Express API, Python/FastAPI/Streamlit, etc.).
+3) Explicitly list evidence from files you see (package.json scripts, framework config files, folder structure). If uncertain, present the top 2–3 most likely stacks and explain why.
+
+Goal:
+- Short term (PoC/Demo): Keep developing on Replit but start using AWS for data (menus, queue counts, predictions).
+- Mid term: Make the architecture stable and secure (no AWS keys exposed in browser).
+- Long term: Migrate the entire service to AWS (frontend hosting + backend APIs + database/storage), using a clean production architecture.
+
+What I need from you:
+
+A) Current project diagnosis (stack + runtime + architecture)
+- Identify how the frontend calls the backend (e.g., fetch('/api/...') etc.)
+- Identify where current data is stored (CSV/JSON/in-memory/mock) and how it is loaded
+- Identify how API routes are implemented (if any) and where they live in the repo
+- Identify the build/run process on Replit based on scripts/config
+
+B) AWS integration plan from Replit (two approaches)
+1) Backend-proxy approach (recommended): Replit backend calls AWS services; frontend calls only Replit backend.
+2) Direct-from-client approach: Frontend calls AWS directly using Cognito/temporary credentials (or similar).
+For each approach:
+- Pros/cons for PoC vs production
+- Security risks and mitigations
+- Concrete code-level change list (which files/areas would be updated, what new endpoints/env vars are needed) — but DO NOT implement changes now
+- A minimal “first integration milestone” achievable quickly (1–2 days), such as reading menu JSON from S3 or reading latest queue count from DynamoDB
+
+C) Data architecture recommendation for HY-eat
+I have two data types:
+- Menu data (date-based, restaurant/corner structured; semi-static)
+- Queue/wait-time data (time-series updates per corner; dynamic)
+Recommend AWS services for each (S3, DynamoDB, RDS, Timestream, etc.) for PoC and for scaling.
+Also propose a concrete schema:
+- Keys: restaurantId, cornerId, date/time
+- Example item/object JSON
+- Query patterns: latest per corner, time-series by date, etc.
+
+D) Full migration plan to AWS (frontend + backend + data)
+After diagnosing my stack, propose 2–3 migration options and recommend one.
+Possible options (choose what fits my stack):
+- Frontend hosting: S3 + CloudFront OR AWS Amplify OR SSR-appropriate alternative
+- Backend: API Gateway + Lambda OR ECS/Fargate OR EC2
+- Data: DynamoDB/RDS/etc.
+For each option:
+- Text architecture diagram (components + data flow)
+- Step-by-step migration sequence with checkpoints
+- Incremental cutover strategy to avoid downtime
+- Cost and operational complexity tradeoffs
+
+E) Replit/GitHub workflow advice
+- How to organize environments (dev/demo/prod) and branches
+- How to store and manage secrets safely on Replit and on AWS
+- How to avoid breaking changes and roll back quickly
+
+Finally, output in Korean:
+1) A concise “Recommended path” summary (PoC → AWS integration → AWS full migration).
+2) A detailed checklist of tasks in order.
+3) Any assumptions you made due to missing info (clearly labeled as assumptions).
+Remember: 답변은 한국어로.
