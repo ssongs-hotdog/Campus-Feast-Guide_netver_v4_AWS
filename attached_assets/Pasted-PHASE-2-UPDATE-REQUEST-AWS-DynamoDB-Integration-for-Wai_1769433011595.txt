@@ -1,0 +1,125 @@
+PHASE 2 UPDATE REQUEST (AWS DynamoDB Integration for Waiting Queue Data) — HY-eat
+
+Role:
+You are a senior full-stack engineer and release manager for the HY-eat project.
+
+CRITICAL INSTRUCTIONS:
+1) Your responses MUST be in Korean.
+2) FIRST, do a thorough review/analysis WITHOUT changing any code. Only inspect the repo and report.
+3) After your review report, DO NOT print the literal question line. Instead, you MUST end the report by:
+   - Asking for my approval to proceed, AND
+   - Providing your own recommendation as a direct answer (Yes/No) on whether we should proceed now,
+     with 2–5 bullet reasons.
+4) ONLY AFTER I approve, proceed with the actual code changes.
+5) Keep the client (React) unchanged. All changes must be server-side only unless absolutely required.
+6) Do NOT touch the menu S3 integration (Phase 1) except for compatibility checks. Phase 2 is about waiting queue only.
+7) Do NOT use PostgreSQL for waiting data going forward (NO dual-write). DynamoDB is the single source of truth.
+8) Table name is fixed: hyeat_YOLO_data
+9) AWS region is fixed: ap-northeast-2
+
+GOAL:
+Migrate waiting queue storage + reads to DynamoDB (single source), keeping existing API contracts so the UI continues to work.
+Target endpoints (must remain compatible):
+- POST /api/ingest/waiting
+- GET  /api/waiting/latest?date=YYYY-MM-DD
+- GET  /api/waiting/all?date=YYYY-MM-DD
+- GET  /api/waiting/timestamps?date=YYYY-MM-DD
+(If there are additional waiting endpoints currently used by the UI, list them in your review.)
+
+DATA CONTRACT (Option A, MUST FOLLOW EXACTLY):
+DynamoDB item model:
+- pk (String) = "CORNER#<restaurantId>#<cornerId>"
+- sk (Number) = epochMillis (UTC)
+- restaurantId (String)
+- cornerId (String)
+- queueLen (Number, integer)
+- dataType (String) = observed|predicted|simulated (or keep existing values but document)
+- source (String, optional) e.g. "jetson_camera_01"
+- timestampIso (String) e.g. "2026-01-26T12:30:00+09:00" (for debugging/display)
+- createdAtIso (String) (server-generated)
+- ttl (Number) = epochSeconds for DynamoDB TTL
+TTL POLICY:
+- 3 months retention = fixed 90 days
+- ttl = nowEpochSeconds + 90*24*3600
+IMPORTANT UNITS:
+- sk is milliseconds
+- ttl is seconds
+
+QUERY REQUIREMENTS:
+- Latest per corner:
+  Query by pk, ScanIndexForward=false, Limit=1
+- Date range per corner:
+  Query by pk where sk BETWEEN startEpochMillis AND endEpochMillis
+Date range must be computed for Asia/Seoul day boundaries.
+
+FEATURE FLAGS / CONFIG (server-side env vars):
+- WAITING_SOURCE=ddb (default after rollout)
+- AWS_REGION=ap-northeast-2
+- DDB_TABLE_WAITING=hyeat_YOLO_data
+(You may propose additional env vars only if necessary, but keep minimal.)
+
+IMPLEMENTATION PLAN (when approved):
+A) Dependencies
+- Add AWS SDK v3 for DynamoDB:
+  @aws-sdk/client-dynamodb
+  @aws-sdk/lib-dynamodb (recommended)
+B) Secrets/Env
+- Use Replit Secrets for AWS credentials (server only)
+- Do not expose any AWS keys to client code
+C) Server architecture
+- Implement a DynamoDB repository module (e.g., server/ddbWaitingRepo.ts) that provides:
+  - putSnapshots(snapshots[])  (supports batch ingest)
+  - getLatestByCorner(pk) or getLatestForAllCorners(cornerList)
+  - getRangeByCorner(pk, startMs, endMs)
+  - getTimestampsForDate(cornerList, startMs, endMs)
+- Ensure all /api/waiting* endpoints call the repository and return the same response shape as before.
+D) Corner list source
+- Use existing canonical list of restaurants/corners from shared/types.ts (or the most reliable existing source in the repo).
+- In review phase, identify exactly where this list lives and how to iterate it deterministically.
+E) Ingest endpoint behavior
+- POST /api/ingest/waiting should accept either:
+  (1) a single snapshot object, OR
+  (2) { "snapshots": [ ... ] }
+- For each snapshot:
+  - Validate required fields: timestampIso OR timestampEpochMillis, restaurantId, cornerId, queueLen
+  - Derive pk and sk:
+      pk = `CORNER#${restaurantId}#${cornerId}`
+      sk = timestampEpochMillis (Number). If only timestampIso is provided, convert to epochMillis safely.
+  - Add createdAtIso (server time, ISO string with timezone)
+  - Add ttl (epochSeconds, 90 days)
+  - Write to DynamoDB (Upsert by pk+sk)
+- Maintain existing ingestion auth (INGESTION_TOKEN) unchanged.
+F) Logging (minimal, safe)
+- For /api/waiting/latest and /api/ingest/waiting, add concise logs:
+  - requestId (if available), dateKey, numberOfCorners, success/failure, error category
+- Never log AWS secrets or full payloads.
+
+TEST PLAN (when approved):
+- Confirm npm run dev works
+- curl tests:
+  1) health check endpoints still OK
+  2) ingest one snapshot then verify latest shows it
+  3) ingest multiple snapshots then verify latest aggregates per corner
+  4) verify timestamps for date returns expected list
+- UI verification:
+  - Today tab updates (via existing polling behavior or manual refresh) and shows queue changes
+
+ROLLBACK STRATEGY (when approved):
+- Keep the previous Postgres code path in place but disabled (do not delete immediately).
+- Rollback by setting WAITING_SOURCE back to previous mode (or by reverting commit).
+
+DELIVERABLES:
+1) REVIEW REPORT (Korean, no code changes yet):
+   - Current waiting endpoints and response shapes used by the UI
+   - Current data flow and where Postgres is used
+   - Exact files to change and minimal change set
+   - Risk list (top 5) + mitigations
+   - Proposed step-by-step implementation plan
+   - Required env vars and secrets
+   - How to test + rollback
+   - Finally: Ask for my approval to proceed AND state your own recommendation (Proceed now: YES/NO) with 2–5 reasons.
+
+2) AFTER MY APPROVAL:
+   - Implement the Phase 2 changes exactly as reviewed
+   - Provide a completion report in Korean:
+     what changed (files), how to test (commands/curl), and rollback steps
