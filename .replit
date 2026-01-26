@@ -51,3 +51,6 @@ args = "npx tsx scripts/simulator.ts"
 
 [userenv.shared]
 USE_DB_WAITING = "true"
+AWS_REGION = "ap-northeast-2"
+S3_BUCKET = "hyeat-menu"
+MENU_SOURCE = "s3"

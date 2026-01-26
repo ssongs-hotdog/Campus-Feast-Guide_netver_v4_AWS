@@ -22,6 +22,7 @@
  */
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
+import { getMenuFromS3, isS3MenuEnabled } from "./s3MenuService";
 import { 
   storage, 
   upsertWaitingSnapshots, 
@@ -396,15 +397,39 @@ export async function registerRoutes(
     res.json({ dates: getAvailableDates(), today: getTodayDateKey() });
   });
 
-  app.get('/api/menu', (req: Request, res: Response) => {
+  app.get('/api/menu', async (req: Request, res: Response) => {
     const dateParam = req.query.date as string | undefined;
-    const menusByDate = loadMenusByDate();
     const targetDate = dateParam || getTodayDateKey();
+    
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
+      return res.status(400).json({ 
+        error: 'INVALID_DATE_FORMAT',
+        message: 'Date must be in YYYY-MM-DD format',
+        date: targetDate,
+      });
+    }
+    
+    if (isS3MenuEnabled()) {
+      const s3Result = await getMenuFromS3(targetDate);
+      
+      if (s3Result.success && s3Result.data) {
+        return res.json(s3Result.data);
+      }
+      
+      return res.status(404).json({ 
+        error: 'MENU_DATA_NOT_AVAILABLE',
+        message: s3Result.error || 'Menu data not found in S3',
+        date: targetDate,
+        source: 's3',
+      });
+    }
+    
+    const menusByDate = loadMenusByDate();
     
     if (!menusByDate || Object.keys(menusByDate).length === 0) {
       return res.status(404).json({ 
         error: 'MENU_DATA_NOT_AVAILABLE',
-        message: 'Menu data source not configured. Awaiting Phase 1 (S3 integration).',
+        message: 'Menu data source not configured. Set MENU_SOURCE=s3 to enable S3.',
         date: targetDate,
       });
     }
