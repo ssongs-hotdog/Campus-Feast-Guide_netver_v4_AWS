@@ -1,0 +1,57 @@
+PHASE 1 POST-IMPLEMENTATION AUDIT (READ-ONLY, NO CODE CHANGES)
+
+You are a senior full-stack engineer auditing the HY-eat Replit project after Phase 1 (AWS S3 menu integration).
+
+STRICT RULES:
+1) 답변은 한국어로 작성하세요.
+2) 절대로 코드/파일/의존성/환경설정 변경하지 마세요. (No patches, no commits, no installs, no deletions.)
+3) “검토 및 보고”만 수행하세요.
+
+Audit scope:
+Phase 1 goal was: Express backend reads date-scoped menu JSON from AWS S3 and serves it via GET /api/menu?date=YYYY-MM-DD, with stable error handling and no AWS credentials exposed to the browser.
+
+Your tasks (evidence-based):
+
+A) Architecture confirmation (what is currently true)
+1) Identify the exact files/functions involved in S3 menu integration:
+   - Where is /api/menu implemented?
+   - Where is S3 read logic implemented?
+2) List the environment variables used by this integration:
+   - AWS_REGION, S3_BUCKET, MENU_SOURCE, AWS_ACCESS_KEY_ID/SECRET (server-only)
+3) Confirm the S3 object key strategy:
+   - menus/YYYY-MM-DD.json (date-scoped file per day)
+
+B) Functional verification (does it actually work end-to-end?)
+1) Confirm server-side behavior:
+   - What happens on success (S3 object exists)?
+   - What happens on missing file / S3 error?
+   - Is timeout implemented? (approx value)
+2) Confirm client-side behavior:
+   - Is the UI actually rendering menu names?
+   - If not, state the root cause hypothesis with supporting evidence (shape mismatch, id mapping mismatch, cache issues, etc.)
+3) Confirm “no credential leakage”:
+   - Verify that AWS keys are not present in client bundle or exposed through any endpoint.
+
+C) Regression safety check (did Phase 1 break anything else?)
+1) Confirm these endpoints remain intact:
+   - /api/health
+   - /api/waiting/latest, /api/waiting/all, /api/waiting/timestamps
+   - /api/predict
+   - /api/ingest/waiting
+   - /api/admin/reload
+2) Confirm DB and ingestion tokens remain configured and unchanged.
+
+D) Operational readiness & next steps
+1) Provide a checklist for the operator (me) to run:
+   - How to upload menu files to S3 (path & naming)
+   - How to verify quickly (/api/menu, UI)
+   - How to rollback instantly (e.g., MENU_SOURCE toggle)
+2) List the top 5 remaining risks and mitigations.
+
+Output format (Korean):
+1) “Phase 1 완료 판정” (PASS / PARTIAL / FAIL)
+2) “증거 기반 요약” (files, env vars, endpoints behavior)
+3) “문제점/원인” (if any) + “재현 방법”
+4) “운영 체크리스트” (what I should do now)
+5) “다음 업데이트 추천(우선순위)” (3–6 items)
+Reminder: Read-only inspection only.
