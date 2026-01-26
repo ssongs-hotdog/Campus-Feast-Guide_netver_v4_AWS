@@ -114,14 +114,14 @@ export async function putWaitingSnapshots(snapshots: DdbWaitingSnapshot[]): Prom
   const writeRequests: Array<{ PutRequest: { Item: Record<string, unknown> } }> = [];
 
   for (const snapshot of snapshots) {
-    let sk: number;
+    let skNum: number;
     let timestampIso: string;
 
     if (snapshot.timestampEpochMillis) {
-      sk = snapshot.timestampEpochMillis;
-      timestampIso = snapshot.timestampIso || epochMillisToKSTISO(sk);
+      skNum = snapshot.timestampEpochMillis;
+      timestampIso = snapshot.timestampIso || epochMillisToKSTISO(skNum);
     } else if (snapshot.timestampIso) {
-      sk = isoToEpochMillis(snapshot.timestampIso);
+      skNum = isoToEpochMillis(snapshot.timestampIso);
       timestampIso = snapshot.timestampIso;
     } else {
       errors.push(`Missing timestamp for ${snapshot.restaurantId}/${snapshot.cornerId}`);
@@ -129,6 +129,7 @@ export async function putWaitingSnapshots(snapshots: DdbWaitingSnapshot[]): Prom
     }
 
     const pk = buildPk(snapshot.restaurantId, snapshot.cornerId);
+    const sk = String(skNum);
 
     const item = {
       pk,
@@ -219,7 +220,7 @@ export async function getLatestByDate(dateKey: string): Promise<DdbLatestResult>
 
   const latestItems: Array<{
     pk: string;
-    sk: number;
+    sk: string;
     restaurantId: string;
     cornerId: string;
     queueLen: number;
@@ -237,8 +238,8 @@ export async function getLatestByDate(dateKey: string): Promise<DdbLatestResult>
           KeyConditionExpression: "pk = :pk AND sk BETWEEN :start AND :end",
           ExpressionAttributeValues: {
             ":pk": pk,
-            ":start": startMs,
-            ":end": endMs,
+            ":start": String(startMs),
+            ":end": String(endMs),
           },
           ScanIndexForward: false,
           Limit: 1,
@@ -264,12 +265,12 @@ export async function getLatestByDate(dateKey: string): Promise<DdbLatestResult>
     return { rows: [], latestTimestamp: null };
   }
 
-  const maxSk = Math.max(...latestItems.map((item) => item.sk));
+  const maxSk = Math.max(...latestItems.map((item) => Number(item.sk)));
 
   const rows = latestItems
-    .filter((item) => item.sk === maxSk)
+    .filter((item) => Number(item.sk) === maxSk)
     .map((item) => ({
-      timestamp: new Date(item.sk),
+      timestamp: new Date(Number(item.sk)),
       restaurantId: item.restaurantId,
       cornerId: item.cornerId,
       queueLen: item.queueLen,
@@ -320,14 +321,14 @@ export async function getAllDataByDate(
           KeyConditionExpression: "pk = :pk AND sk BETWEEN :start AND :end",
           ExpressionAttributeValues: {
             ":pk": pk,
-            ":start": startMs,
-            ":end": endMs,
+            ":start": String(startMs),
+            ":end": String(endMs),
           },
           ScanIndexForward: true,
         })
       );
       return (result.Items || []).map((item: Record<string, unknown>) => ({
-        timestamp: epochMillisToKSTISO(item.sk as number),
+        timestamp: epochMillisToKSTISO(Number(item.sk)),
         restaurantId: item.restaurantId as string,
         cornerId: item.cornerId as string,
         queue_len: item.queueLen as number,
@@ -380,14 +381,14 @@ export async function getTimestampsByDate(dateKey: string): Promise<string[]> {
           KeyConditionExpression: "pk = :pk AND sk BETWEEN :start AND :end",
           ExpressionAttributeValues: {
             ":pk": pk,
-            ":start": startMs,
-            ":end": endMs,
+            ":start": String(startMs),
+            ":end": String(endMs),
           },
           ProjectionExpression: "sk",
           ScanIndexForward: true,
         })
       );
-      return (result.Items || []).map((item: Record<string, unknown>) => item.sk as number);
+      return (result.Items || []).map((item: Record<string, unknown>) => Number(item.sk));
     } catch (error) {
       console.error(`[DDB] Query failed for ${pk}:`, (error as Error).message);
       return [];

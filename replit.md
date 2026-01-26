@@ -125,7 +125,29 @@ Expected: Array of corner data (not empty `[]` during operating hours)
 | 2026-01-20 | Active ingestion every 30s |
 | 2026-01-21+ | Exits gracefully (code 0) |
 
-## Recent Changes (2026-01-19)
+## Recent Changes (2026-01-26)
+
+### Phase 2: DynamoDB Integration for Waiting Queue Data
+- **WAITING_SOURCE=ddb**: Feature flag to switch waiting data source to DynamoDB
+- **DDB_TABLE_WAITING=hyeat_YOLO_data**: DynamoDB table name
+- All waiting endpoints now support DynamoDB:
+  - `POST /api/ingest/waiting`: Writes to DynamoDB with 90-day TTL
+  - `GET /api/waiting/latest`: Reads latest from DynamoDB
+  - `GET /api/waiting/all`: Reads all data from DynamoDB
+  - `GET /api/waiting/timestamps`: Gets timestamps from DynamoDB
+  - `GET /api/waiting`: Base endpoint with DDB support
+- DynamoDB data model:
+  - pk (String): `CORNER#{restaurantId}#{cornerId}`
+  - sk (String): epochMillis as string
+  - ttl: 90 days retention
+- PostgreSQL code path preserved for rollback (set WAITING_SOURCE=postgres)
+
+### Key Files Added/Modified
+- `server/ddbWaitingRepo.ts` - NEW: DynamoDB repository module
+- `server/routes.ts` - Updated with DDB routing logic
+- AWS SDK v3 packages: @aws-sdk/client-dynamodb, @aws-sdk/lib-dynamodb
+
+## Previous Changes (2026-01-19)
 
 ### Beta Package Update Implementation
 - **8-1**: Client timezone alignment with server-authoritative todayKey (60s refresh)

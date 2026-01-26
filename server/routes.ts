@@ -503,6 +503,27 @@ export async function registerRoutes(
     const targetDate = dateParam || getTodayDateKey();
     
     try {
+      if (isDdbWaitingEnabled()) {
+        if (timeParam) {
+          const allData = await ddbGetAllDataByDate(targetDate, computeWaitMinutes);
+          if (timeParam.includes('T') || timeParam.includes('+')) {
+            const filtered = allData.filter(row => row.timestamp === timeParam);
+            return res.json(filtered);
+          }
+          const [hours, minutes] = timeParam.split(':').map(Number);
+          const targetPrefix = `${targetDate}T${String(hours).padStart(2, '0')}:${String(Math.floor(minutes / 5) * 5).padStart(2, '0')}`;
+          const filtered = allData.filter(row => row.timestamp.startsWith(targetPrefix));
+          return res.json(filtered);
+        }
+        const allData = await ddbGetAllDataByDate(targetDate, computeWaitMinutes);
+        if (allData.length === 0) {
+          return res.json([]);
+        }
+        const latestTs = allData[allData.length - 1].timestamp;
+        const filtered = allData.filter(row => row.timestamp === latestTs);
+        return res.json(filtered);
+      }
+      
       if (aggregateParam === '5min' && timeParam) {
         const aggregated = await getHistoricalAggregated(targetDate, timeParam, computeWaitMinutes);
         return res.json(aggregated);
@@ -526,7 +547,7 @@ export async function registerRoutes(
       const filtered = allData.filter(row => row.timestamp === latestTs);
       return res.json(filtered);
     } catch (error) {
-      console.error('[API] DB waiting query failed:', error);
+      console.error('[API] waiting query failed:', error);
       return res.status(503).json({ error: 'Database unavailable' });
     }
   });
