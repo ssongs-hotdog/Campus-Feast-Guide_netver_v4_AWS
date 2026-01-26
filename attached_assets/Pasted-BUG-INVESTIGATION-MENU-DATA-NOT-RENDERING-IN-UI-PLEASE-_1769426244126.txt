@@ -1,0 +1,58 @@
+BUG INVESTIGATION (MENU DATA NOT RENDERING IN UI) — PLEASE DIAGNOSE
+
+You are a senior full-stack engineer reviewing the HY-eat Replit project.
+
+Context:
+- Phase 1 S3 menu integration seems to work: the server can read the S3 JSON successfully (S3 read success message + table preview confirms content).
+- However, in the actual HY-eat UI, each corner card still shows “데이터 없음” and menu names are not displayed.
+
+IMPORTANT:
+1) 답변/보고는 한국어로 작성해 주세요.
+2) 먼저 “코드 변경 없이(Read-only)” 원인 분석을 진행해 주세요.
+3) 분석 후에만, 필요한 최소 수정안(어디를 어떻게 고칠지)을 제안해 주세요. (수정 전에는 꼭 제게 확인을 요청해 주세요.)
+
+What I need you to check (step-by-step, evidence-based):
+
+A) Confirm the actual API response sent to the client
+1) Call/inspect GET /api/menu?date=YYYY-MM-DD in the running app (or logs) and paste a SMALL representative sample of the JSON (redact secrets).
+2) Confirm whether the response shape matches what the client expects.
+   - If you added S3 “date-scoped” files, confirm whether the server returns:
+     (i) raw S3 JSON “as-is”
+     OR
+     (ii) transformed JSON to match the previous contract.
+
+B) Confirm what the client expects (why UI says “데이터 없음”)
+1) Find where the menu data is consumed in the client:
+   - dataProvider.ts / TanStack Query usage / Home.tsx / Corner components
+2) Identify the exact keys the UI uses to find menu items, such as:
+   - restaurantId (e.g., "hanyang_plaza") vs display name (e.g., "한양플라자")
+   - cornerId (e.g., "korean") vs display name (e.g., "한식", "천원의 아침밥")
+   - fields like mainMenuName, priceWon, items, etc.
+3) If the UI uses IDs (restaurantId/cornerId) but S3 JSON is keyed by Korean display text (or different ids), the UI will fail lookup and show “데이터 없음”.
+   - Please verify if this is the mismatch.
+
+C) Check the mapping layer / normalization
+1) shared/types.ts / restaurant & corner definitions:
+   - What are the canonical restaurantId and cornerId values used by UI cards?
+2) Compare those canonical IDs to the keys in the S3 JSON file.
+3) Confirm whether the server (routes.ts/storage.ts) is normalizing/transforming:
+   - Example: "한양플라자" → "hanyang_plaza"
+   - Example: "한식" → "korean"
+   If not, propose the minimal mapping approach.
+
+D) Check dateKey/timezone and cache issues
+1) Confirm the exact dateKey used by the UI for the selected date (e.g., 2026-01-26).
+2) Confirm that /api/menu is called with that same dateKey.
+3) Confirm no stale caching is serving empty menus (TanStack Query cache, server cache, or reload token behavior).
+
+E) Deliverables (Korean report)
+1) Root cause (one clear conclusion)
+2) Evidence: exact fields/keys that mismatch or the failing code path
+3) Minimal fix proposal:
+   - Where to change (server transform vs client consumption)
+   - Which approach is safest (prefer server-side transform to preserve client contract)
+4) Risk + test checklist:
+   - How to confirm menus render after the fix
+   - What endpoints to test (/api/menu, UI corner cards)
+
+Reminder: Start with read-only diagnosis first, then propose fix and ask for my approval before applying changes.
