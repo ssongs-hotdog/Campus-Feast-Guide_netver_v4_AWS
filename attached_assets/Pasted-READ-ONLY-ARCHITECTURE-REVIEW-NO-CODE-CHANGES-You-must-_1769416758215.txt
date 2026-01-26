@@ -1,0 +1,73 @@
+READ-ONLY ARCHITECTURE REVIEW (NO CODE CHANGES):
+You must NOT modify any code, files, dependencies, or project settings. Do not apply patches, do not create commits, and do not run migrations. This is a planning + verification report only.
+
+Context:
+I am backing up and remixing my HY-eat Replit project. I want to re-align the development direction clearly and safely before any implementation. Please treat this as a “reset + confirmation” checkpoint.
+
+IMPORTANT:
+- Answer in Korean.
+- Do not change code. Only inspect and report.
+
+Project summary (what HY-eat does):
+- A full-stack web service that shows cafeteria menus and predicts wait times by restaurant/corner.
+- Current stack diagnosed previously: React 18 + TypeScript + Vite (frontend SPA), Wouter routing, Node.js + Express (backend), PostgreSQL (Neon) + Drizzle ORM, plus local JSON/CSV fallback data.
+
+My target direction (what we are aiming for):
+Goal 0 (now): Keep development on Replit for speed and stability (PoC/Demo).
+Goal 1 (near-term): Start using AWS for data in a safe way WITHOUT exposing AWS credentials to the browser.
+Goal 2 (mid-term): Decide whether to keep PostgreSQL for waiting/prediction during PoC or to move waiting snapshots to DynamoDB (possibly dual-write).
+Goal 3 (long-term): Migrate the entire service to AWS (frontend + backend + data) with a serverless-first architecture.
+
+Preferred integration principle:
+- Use the Backend-Proxy approach: Browser → Express(/api/...) → AWS services.
+- Avoid direct-from-client AWS calls (Cognito) for PoC unless there is a strong reason.
+
+Your task (deliver a clean, structured report):
+A) Confirm the current architecture (evidence-based)
+- Re-verify the stack and list evidence (key files, scripts, folder structure).
+- Re-verify current API endpoints used by the client (e.g., /api/menu, /api/waiting/latest, /api/waiting/all, /api/config).
+- Re-verify current data sources (local JSON/CSV vs PostgreSQL tables) and the role of shared/schema.ts.
+
+B) Propose the definitive development path (PoC → AWS integration → AWS full migration)
+Provide one recommended path with phased milestones and explicit “why”:
+Phase 0: Stabilization checklist (no behavior changes, just verification targets)
+Phase 1: AWS Menu integration (S3 first) with safety mechanisms
+- S3 object layout recommendation: menus/YYYY-MM-DD.json
+- Server-side S3 read plan (Express reads S3; client stays unchanged)
+- Fallback strategy: if S3 fails, fall back to local JSON
+- Feature flag idea: switch S3 on/off via environment variable (do not implement, just specify)
+Checkpoint: The app can read menus from S3 reliably without breaking the UI.
+
+Phase 2: Waiting/prediction data strategy decision
+Provide two clear options and recommend one for a PoC demo:
+Option A (Safe & fast): Keep PostgreSQL (Neon) for waiting_snapshots & prediction aggregation during PoC; move later.
+Option B (AWS-forward): Introduce DynamoDB for waiting snapshots (time-series) and optionally dual-write (Postgres + DDB) during transition.
+For each option:
+- Pros/cons (risk, complexity, speed, demo stability)
+- What changes would be required (high-level only; no implementation)
+- The “earliest milestone” for that option
+- How to avoid data model conflicts
+
+Phase 3: Full AWS migration (long-term blueprint)
+- Recommend the best-fit target architecture for this stack:
+  Frontend: S3 + CloudFront (or Amplify if you strongly prefer)
+  Backend: API Gateway + Lambda (serverless-http or a refactor plan)
+  Data: S3 (menus), DynamoDB (waiting), and whether Postgres remains or is removed
+- Provide an incremental cutover plan (avoid downtime): maintain current env while introducing AWS endpoints.
+- Provide rollback plan (DNS / environment switch / keep Netlify/Replit operational).
+
+C) Security & Operations checklist (PoC-friendly)
+- Where secrets must live (Replit Secrets, AWS IAM least privilege, no keys in client).
+- A minimum IAM policy scope for S3 read (menus only).
+- Logging/monitoring basics for AWS (CloudWatch) and app-level health endpoint expectations.
+
+D) Final outputs (in Korean)
+1) “Recommended Direction” summary (5–10 bullet points)
+2) A phased checklist with order (what to do first, next, later)
+3) Risks and mitigations (top 5)
+4) Assumptions clearly labeled as “가정”
+
+Remember:
+- No code changes.
+- Answer in Korean.
+- This is a planning/verification report to align development direction while I’m backing up and remixing the app.
