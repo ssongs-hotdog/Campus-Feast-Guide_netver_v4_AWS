@@ -1,0 +1,37 @@
+READ-ONLY VERIFICATION REPORT (NO CODE CHANGES)
+
+You are a senior full-stack engineer reviewing the HY-eat Replit project.
+
+Context:
+We have (or should have) removed the previously included local dummy menu dataset from the repo as a pre-processing step before the large AWS Phase 1 integration. I am currently backing up/remixing and I want a strict verification report that the cleanup is complete and safe.
+
+IMPORTANT:
+1) Answer in Korean.
+2) Do NOT modify any code, files, dependencies, or settings. No patches, no commits, no deletions. Read-only inspection only.
+
+Your task:
+A) Verify whether the local dummy menu dataset removal is fully completed.
+- Identify any remaining menu dummy dataset files in the repository (examples: data/menus_by_date.json or any other JSON/CSV used for menus).
+- If any such files remain, list their exact paths and approximate file sizes.
+- Check if there are any references in code to these local menu files (server/routes.ts, server/storage.ts, any scripts, or client code).
+- Clearly conclude: “완료(남은 것 없음)” or “미완료(남은 것 있음)”.
+
+B) Verify that the app is prepared for the upcoming AWS Phase 1 menu integration.
+Without changing code, confirm the current /api/menu behavior:
+- Locate where /api/menu is implemented and describe what it currently returns when menu data is missing.
+- Confirm whether /api/menu can respond without crashing even if local menu files are missing.
+- Confirm what the frontend expects (does it handle empty data/error response gracefully?).
+
+C) Quick sanity checks for AWS pre-update readiness (no changes, just report).
+- Confirm the existence of /api/health and what it checks.
+- Confirm that waiting queue DB logic is untouched (PostgreSQL/Drizzle still configured).
+- List relevant environment variables already present (DATABASE_URL, USE_DB_WAITING, INGESTION_TOKEN, etc.).
+- Identify where new AWS env vars would likely be added later (Replit Secrets), but do NOT add them now.
+
+Output format (in Korean):
+1) “정리 상태 요약” (one paragraph)
+2) “남아있는 더미 메뉴 데이터/참조 목록” (bullet list; if none, explicitly say none)
+3) “/api/menu 현재 동작” (what it does now, and whether it is safe)
+4) “AWS Phase 1 전처리 준비도 평가” (Ready / Partially ready / Not ready + reasons)
+5) “즉시 해야 할 것(코드 변경 없이 가능한 것)” (e.g., documentation, backups, checklist)
+Remember: Do NOT change code.
