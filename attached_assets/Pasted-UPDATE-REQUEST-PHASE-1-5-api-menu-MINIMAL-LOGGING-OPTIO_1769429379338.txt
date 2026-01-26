@@ -1,0 +1,73 @@
+UPDATE REQUEST (PHASE 1.5) — /api/menu MINIMAL LOGGING + OPTIONAL SHORT IN-MEMORY CACHE
+
+You are a senior full-stack engineer working on the HY-eat Replit project.
+
+IMPORTANT:
+1) Answer in Korean.
+2) Implement the update safely and minimally.
+3) After the update, provide a Korean completion report with: what changed, how to test, and rollback steps.
+4) Do NOT touch unrelated endpoints (/api/waiting*, /api/predict, /api/ingest/waiting, /api/admin/reload, etc.).
+
+Goal:
+Improve operational visibility and stability for the S3-backed menu endpoint:
+- Add minimal debug logs to /api/menu:
+  * dateKey
+  * S3 object key (menus/YYYY-MM-DD.json)
+  * success/failure
+  * failure reason category (AccessDenied / NoSuchKey / JSONParseError / Timeout / Unknown)
+- Add an OPTIONAL short in-memory cache for menu responses (server-side only)
+  * Cache key: dateKey
+  * TTL default: 60 seconds (configurable by env var)
+  * Cache should store successful S3 results only
+  * Cache must be safe (no memory blow-up): simple Map with max entries (e.g., 50) and TTL eviction
+
+Constraints / Security:
+- Never log AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY or any secrets.
+- Do not log full menu JSON payload; only log metadata (sizes, counts) if needed.
+- Keep the client unchanged.
+
+Implementation details:
+A) Logging
+1) In the /api/menu handler (or shared S3 loader), add structured logs like:
+   - "[menu] date=2026-01-26 key=menus/2026-01-26.json source=s3 status=success"
+   - On failure, add: reasonCategory and errorCode if available.
+2) Categorize common failures:
+   - AccessDenied (403)
+   - NoSuchKey / NotFound (404)
+   - JSONParseError
+   - Timeout (if you use AbortController or custom timeout)
+   - Unknown
+3) Ensure logs are concise and consistent.
+
+B) Optional in-memory cache
+1) Add a tiny cache layer (Map) in the server process:
+   - get(dateKey) returns cached data if not expired
+   - set(dateKey, data) stores data with expiresAt
+2) Cache only if:
+   - MENU_CACHE_ENABLED=true (feature flag)
+3) Cache TTL:
+   - MENU_CACHE_TTL_SECONDS (default 60)
+4) Max entries:
+   - MENU_CACHE_MAX_ENTRIES (default 50)
+5) Eviction:
+   - On set, if size exceeds max entries, delete the oldest (or any simple eviction strategy)
+   - Always delete expired entries on read/write (simple cleanup)
+
+C) Verification checklist (must confirm)
+1) npm run dev starts successfully
+2) GET /api/menu?date=YYYY-MM-DD:
+   - On first request: logs show S3 fetch + success
+   - On subsequent requests within TTL: logs show cache hit
+   - On missing key: logs show failure + reasonCategory
+3) UI still renders menus correctly
+4) No other endpoints are affected
+
+D) Completion report (Korean)
+After implementation, provide:
+1) 변경 요약 (edited files + what you added)
+2) 새 환경변수 목록 및 기본값:
+   - MENU_CACHE_ENABLED
+   - MENU_CACHE_TTL_SECONDS
+   - MENU_CACHE_MAX_ENTRIES
+3) 테스트 방법 (exact curl examples)
+4) 롤백 방법 (disable cache/logging changes if needed)
