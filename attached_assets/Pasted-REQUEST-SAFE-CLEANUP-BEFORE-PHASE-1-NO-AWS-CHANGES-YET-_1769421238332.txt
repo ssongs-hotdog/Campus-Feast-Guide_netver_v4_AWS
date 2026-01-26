@@ -1,0 +1,38 @@
+REQUEST: SAFE CLEANUP BEFORE PHASE 1 (NO AWS CHANGES YET)
+
+You are a senior full-stack engineer maintaining the HY-eat Replit project.
+
+Context:
+We are about to start Phase 1 (AWS S3 menu integration). Before doing that, I want to remove the existing local dummy menu dataset from the production codebase because I already saved a backup on my computer, and I do not need to keep it inside the repo.
+
+Goal:
+- Cleanly remove the old local dummy menu dataset and any related references, so the project is ready for Phase 1.
+- Keep the app stable and buildable after cleanup.
+- Do NOT start AWS integration in this step.
+
+IMPORTANT RULES:
+1) Please answer in Korean.
+2) Make changes safely and minimally.
+3) Before editing anything, first do a READ-ONLY inspection and list exactly:
+   - Which files currently store local menu dummy data (e.g., data/menus_by_date.json or other menu files)
+   - Which server routes or code paths read those files (e.g., /api/menu implementation in server/routes.ts or storage.ts)
+   - Which client code calls /api/menu (do not change client unless absolutely necessary)
+
+Cleanup requirements:
+A) Delete the local dummy menu dataset file(s) from the repository (e.g., data/menus_by_date.json) and any other menu dummy data artifacts.
+B) Update the server so the application still runs without crashing:
+   - If /api/menu depends on local files, update it to return a clear, consistent error response when menu data is not available yet (e.g., 404 with { error: "MENU_DATA_NOT_AVAILABLE" }).
+   - Keep response format predictable so the frontend does not hard-crash. If necessary, return an empty object with a warning message, but be consistent.
+C) Remove any unused imports, dead code, or references specifically tied to the deleted menu dummy files.
+D) Do NOT remove waiting queue data or database logic. This cleanup is ONLY for local menu dummy data.
+E) After changes, confirm:
+   - `npm run dev` still starts successfully
+   - `/api/health` still works
+   - `/api/menu?date=YYYY-MM-DD` returns the new “not available” response cleanly (no server crash)
+   - The UI does not crash (it can show an empty state or error message)
+
+Deliverables:
+1) A short summary in Korean of what you found (files and references).
+2) A step-by-step change plan.
+3) Then apply the changes.
+4) Provide a final verification checklist and any rollback tips (e.g., how to restore the deleted file if needed).

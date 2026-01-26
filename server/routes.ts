@@ -399,16 +399,24 @@ export async function registerRoutes(
   app.get('/api/menu', (req: Request, res: Response) => {
     const dateParam = req.query.date as string | undefined;
     const menusByDate = loadMenusByDate();
+    const targetDate = dateParam || getTodayDateKey();
     
-    if (!menusByDate) {
-      return res.status(404).json({ error: 'Menu data not found' });
+    if (!menusByDate || Object.keys(menusByDate).length === 0) {
+      return res.status(404).json({ 
+        error: 'MENU_DATA_NOT_AVAILABLE',
+        message: 'Menu data source not configured. Awaiting Phase 1 (S3 integration).',
+        date: targetDate,
+      });
     }
     
-    const targetDate = dateParam || getTodayDateKey();
     const menuData = menusByDate[targetDate];
     
     if (!menuData) {
-      return res.status(404).json({ error: `Menu data not found for date ${targetDate}` });
+      return res.status(404).json({ 
+        error: 'MENU_DATA_NOT_FOUND_FOR_DATE',
+        message: `No menu data available for ${targetDate}`,
+        date: targetDate,
+      });
     }
     
     res.json(menuData);
