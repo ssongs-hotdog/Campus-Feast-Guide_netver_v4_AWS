@@ -1,0 +1,40 @@
+You are the lead engineer on the HY-eat Replit project.
+
+Context / Bug:
+- The UI renders menus correctly for “tomorrow”.
+- However, menus for “the day after tomorrow” (specifically Jan 28) exist in the dataset and should be available, but they do NOT appear in the UI.
+- I suspect a previous change where the “time selection” (or date/time picker logic) was intentionally made to show only “tomorrow”, and that might now be filtering out Jan 28.
+
+Your task:
+1) Reproduce and diagnose the issue end-to-end (NO assumptions).
+   - Verify the dataset truly contains Jan 28 data in the expected shape and keys.
+   - Verify the API endpoint(s) return Jan 28 data when requested (e.g., /api/menu?date=YYYY-MM-DD or the project’s dayKey format).
+   - Verify the client request parameters and any date/dayKey generation logic for Jan 28.
+   - Check for any UI filtering/guard clauses that restrict selectable dates to “tomorrow only” or otherwise block “day after tomorrow”.
+
+2) Identify the root cause clearly.
+   - Is it a date-key mismatch? (timezone/localization, formatting, dayKey generation)
+   - Is it a client-side UI constraint? (date range limitation, disabled route, hidden tab)
+   - Is it server-side logic? (date validation, whitelist, caching, fallback)
+
+3) Provide a concise report in Korean to me:
+   - What you checked (data → API → client)
+   - What you found (with exact file paths and line numbers)
+   - Root cause and why it prevents Jan 28 rendering
+   - Recommended fix options (minimal/safer first)
+
+4) If the fix is small and low-risk, implement it.
+   - Keep changes minimal and localized.
+   - Do not break the “tomorrow” flow.
+   - Add a quick sanity check (e.g., log or small unit check) to prevent regression.
+
+5) If the fix is not trivial, do NOT implement it.
+   - Instead, propose the minimal change plan and the exact code locations.
+
+Important:
+- Please include exact code references (file paths + line numbers) in your report.
+- Confirm what date format/dayKey format the system uses (e.g., "2026-01-28" vs "20260128").
+- Pay special attention to timezone: user timezone is Asia/Seoul.
+
+Output requirement:
+- After your investigation (and potential small fix), respond ONLY in Korean with the report + next steps for me.
