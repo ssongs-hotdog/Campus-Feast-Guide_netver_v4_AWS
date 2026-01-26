@@ -1,0 +1,44 @@
+You are the lead engineer and architecture reviewer for the HY-eat project.
+
+Request:
+I need an overall “end-to-end” report to explain the current system to my teammates. Please write the report in Korean.
+
+Scope (cover everything in one cohesive document):
+1) Project Goal & Current Phase
+- What HY-eat is trying to solve (problem → user value)
+- Current stage (PoC / demo / MVP) and what is implemented vs planned
+
+2) System Architecture Overview (Big Picture)
+- Client (UI) vs Server (API) vs Data layer
+- How data flows: user action → client state → API calls → data provider → rendering
+- What is static/dummy now, and what is planned to become real-time later
+
+3) Current Implementation Details (Concrete)
+- Main folders/modules and their responsibilities (e.g., client/src..., server routes, lib/data, components)
+- Key endpoints and what they return (menu, wait time, etc.)
+- Key data structures / schemas (restaurantId, cornerId, dayKey/date format, MenuDataMap, WaitTimeMap, etc.)
+- Where the “source of truth” lives today (CSV/in-memory/mock)
+
+4) Known Constraints & Risks
+- Date/time handling, timezone (Asia/Seoul), dayKey formatting pitfalls
+- UI filtering constraints (e.g., “tomorrow only” logic) and similar guard clauses
+- Caching/refresh behaviors, potential mismatch between dataset and UI
+
+5) Development Direction (Next Steps Roadmap)
+- Short-term (1~2 weeks): stabilize UI, validation, logging, error handling, dataset QA, test cases
+- Mid-term: real-time queue data ingestion pipeline concept (camera → detector → backend → storage → API → UI)
+- Long-term: deployment strategy beyond Replit, persistence (DB/S3), scalability, monitoring
+
+6) Team Onboarding Guide
+- How to run locally / in Replit
+- Where to change menus, where to change UI, where to change API logic
+- “If something breaks” troubleshooting checklist (API response 확인, Network 탭, 로그 위치)
+
+Requirements:
+- Output must be written ONLY in Korean.
+- Make it readable as a team document: headings, bullet points, and a short summary at the top.
+- Include concrete file paths and key functions/classes where possible (no guessing; check the codebase).
+- Do not change any code in this task. This is report-only.
+
+Deliverable:
+- A single Korean “Overall Architecture & Development Report” that I can paste into a team doc or Notion.
