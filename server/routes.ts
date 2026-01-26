@@ -43,6 +43,14 @@ import {
   getDayOfWeekNameKo,
   getPredictionByDayAndTime,
 } from "./storage";
+import {
+  isDdbWaitingEnabled,
+  putWaitingSnapshots,
+  getLatestByDate as ddbGetLatestByDate,
+  getAllDataByDate as ddbGetAllDataByDate,
+  getTimestampsByDate as ddbGetTimestampsByDate,
+  checkDdbConnection,
+} from "./ddbWaitingRepo";
 import * as fs from "fs";
 import * as path from "path";
 import { computeWaitMinutes } from "./waitModel";
@@ -457,10 +465,14 @@ export async function registerRoutes(
     const targetDate = dateParam || getTodayDateKey();
     
     try {
+      if (isDdbWaitingEnabled()) {
+        const timestamps = await ddbGetTimestampsByDate(targetDate);
+        return res.json({ timestamps });
+      }
       const timestamps = await getHistoricalTimestamps(targetDate);
       return res.json({ timestamps });
     } catch (error) {
-      console.error('[API] DB timestamps query failed:', error);
+      console.error('[API] timestamps query failed:', error);
       return res.status(503).json({ error: 'Database unavailable' });
     }
   });
@@ -529,10 +541,14 @@ export async function registerRoutes(
     const targetDate = dateParam || getTodayDateKey();
     
     try {
+      if (isDdbWaitingEnabled()) {
+        const data = await ddbGetAllDataByDate(targetDate, computeWaitMinutes);
+        return res.json(data);
+      }
       const data = await getHistoricalAllData(targetDate, computeWaitMinutes);
       return res.json(data);
     } catch (error) {
-      console.error('[API] DB all-data query failed:', error);
+      console.error('[API] all-data query failed:', error);
       return res.status(503).json({ error: 'Database unavailable' });
     }
   });
@@ -650,6 +666,46 @@ export async function registerRoutes(
   app.get('/api/waiting/latest', async (req: Request, res: Response) => {
     const startTime = Date.now();
     const dateParam = (req.query.date as string) || getTodayDateKey();
+    
+    if (isDdbWaitingEnabled()) {
+      try {
+        const { rows, latestTimestamp } = await ddbGetLatestByDate(dateParam);
+        
+        if (rows.length === 0) {
+          console.log(`[Latest] DDB OK: date=${dateParam} ts=null rows=0 latencyMs=${Date.now() - startTime}`);
+          return res.json([]);
+        }
+
+        const latestTime = new Date(latestTimestamp!).getTime();
+        const nowTime = Date.now();
+        const ageSec = Math.floor((nowTime - latestTime) / 1000);
+        
+        if (ageSec > WAITING_STALE_SECONDS) {
+          const latency = Date.now() - startTime;
+          console.log(`[Latest] DDB STALE: date=${dateParam} latest=${latestTimestamp} ageSec=${ageSec} thresholdSec=${WAITING_STALE_SECONDS} latencyMs=${latency}`);
+          return res.json([]);
+        }
+
+        const result: WaitingDataRow[] = rows.map(row => ({
+          timestamp: latestTimestamp!,
+          restaurantId: row.restaurantId,
+          cornerId: row.cornerId,
+          queue_len: row.queueLen,
+          est_wait_time_min: computeWaitMinutes(row.queueLen, row.restaurantId, row.cornerId),
+          data_type: row.dataType || 'observed',
+        }));
+
+        const latency = Date.now() - startTime;
+        console.log(`[Latest] DDB OK: date=${dateParam} ts=${latestTimestamp} rows=${rows.length} ageSec=${ageSec} latencyMs=${latency}`);
+        
+        return res.json(result);
+      } catch (error) {
+        const latency = Date.now() - startTime;
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.log(`[Latest] DDB_FAIL: ${errorMessage} latencyMs=${latency}`);
+        return res.status(503).json({ error: 'DynamoDB unavailable' });
+      }
+    }
     
     if (!USE_DB_WAITING) {
       console.log(`[Latest] FALLBACK_TO_FILE: reason=USE_DB_WAITING disabled`);
@@ -821,6 +877,34 @@ export async function registerRoutes(
           queueLen: queue_len,
           dataType: data_type || 'observed',
           source: source || undefined,
+        });
+      }
+
+      if (isDdbWaitingEnabled()) {
+        const ddbSnapshots = validatedRows.map(row => ({
+          restaurantId: row.restaurantId,
+          cornerId: row.cornerId,
+          queueLen: row.queueLen,
+          timestampIso: timestamp,
+          dataType: row.dataType,
+          source: row.source,
+        }));
+        
+        const result = await putWaitingSnapshots(ddbSnapshots);
+        const latency = Date.now() - startTime;
+        
+        if (!result.success) {
+          console.error(`[Ingest] DDB_FAIL: errors=${result.errors.join('; ')} latency=${latency}ms`);
+          return res.status(503).json({ error: 'DynamoDB error', details: result.errors });
+        }
+        
+        console.log(`[Ingest] DDB OK: ${result.inserted} corners at ${timestamp} source=${source || 'unknown'} latency=${latency}ms`);
+        
+        return res.status(200).json({ 
+          ok: true, 
+          inserted: result.inserted, 
+          timestamp,
+          latencyMs: latency 
         });
       }
 
