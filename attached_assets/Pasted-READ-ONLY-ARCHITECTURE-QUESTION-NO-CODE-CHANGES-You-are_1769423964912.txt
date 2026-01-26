@@ -1,0 +1,68 @@
+READ-ONLY ARCHITECTURE QUESTION (NO CODE CHANGES)
+
+You are a senior backend + data architect reviewing the HY-eat codebase on Replit.
+Do NOT modify any code, files, dependencies, or settings. This is a read-only analysis and recommendation request.
+
+IMPORTANT:
+- Answer in Korean.
+- Do not implement anything. Only inspect and report.
+
+Context:
+We may migrate queue/waiting snapshot storage from PostgreSQL (current) to AWS DynamoDB (future). Another team (data/ingestion team) will produce and push queue length data (per restaurant/corner over time). We need a DynamoDB data model that is compatible with our current API contract and internal domain model to minimize integration issues.
+
+Your tasks:
+
+A) Confirm the current “source of truth” fields in our code (evidence-based)
+1) Inspect shared/schema.ts and any types in shared/types.ts and server routes related to waiting snapshots.
+2) List the exact field names and meanings currently used for queue snapshots, including at minimum:
+   - timestamp (timezone handling)
+   - restaurantId
+   - cornerId
+   - queueLen
+   - dataType (e.g., observed/predicted)
+   - source (camera/simulator/manual)
+   - createdAt (if used)
+3) Identify any uniqueness constraints / dedup logic (e.g., unique index by timestamp+restaurantId+cornerId).
+
+B) Define a DynamoDB schema that is MOST compatible with the current code and API behavior
+1) Propose a DynamoDB table design (keys + attributes) that supports these query patterns:
+   - Latest snapshot per corner (restaurantId+cornerId)
+   - All snapshots for a given date (or date range) for a corner
+   - (Optional) All snapshots across all corners for a date/time window
+2) Provide:
+   - Table name recommendation
+   - Partition Key (PK) and Sort Key (SK) design
+   - Any GSI (Global Secondary Index) if needed, with key definitions
+   - TTL strategy (e.g., 30 days) and how to implement
+
+C) Provide concrete data contract for the data/ingestion team
+We need a precise “what to send” spec so the ingestion team can push consistent records.
+1) Provide an exact JSON-like example payload for one snapshot record with recommended field names:
+   Example record should include:
+   - restaurantId, cornerId, timestamp (ISO 8601 with timezone), queueLen, dataType, source
+2) Provide an example “batch” payload (multiple corners in one request) if helpful.
+3) Provide a short table/matrix style definition for each field:
+   - Field name
+   - Type (string/number/etc.)
+   - Example value
+   - Required vs optional
+   - Notes (constraints, allowed enums)
+
+D) Compatibility mapping (important)
+1) Map DynamoDB item fields to our current PostgreSQL fields (schema.ts) and to our API endpoints:
+   - /api/ingest/waiting (POST)
+   - /api/waiting/latest (GET)
+   - /api/waiting/all (GET)
+   - /api/waiting/timestamps (GET)
+2) Highlight any field naming differences or transformations we would need to keep current APIs stable.
+3) Recommend the minimal set of changes needed later to adopt DynamoDB without breaking the frontend (high-level only).
+
+E) Final output format (in Korean)
+1) “현재 코드 기준 필드 표준” (field list + meaning)
+2) “권장 DynamoDB 테이블/키 설계” (PK/SK + query patterns + GSI/TTL)
+3) “데이터팀 전달용 스펙” (example payloads + field matrix)
+4) “호환성/마이그레이션 체크포인트” (risks + mitigations)
+
+Reminder:
+- This is a design/spec request only. Do NOT change code.
+- Answer in Korean.
