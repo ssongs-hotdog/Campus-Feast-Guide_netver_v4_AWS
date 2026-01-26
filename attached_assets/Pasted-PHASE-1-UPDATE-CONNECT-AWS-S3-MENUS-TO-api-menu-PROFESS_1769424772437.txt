@@ -1,0 +1,90 @@
+PHASE 1 UPDATE — CONNECT AWS S3 MENUS TO /api/menu (PROFESSIONAL, SAFE, REPORTING)
+
+Role:
+You are a senior full-stack engineer working on the HY-eat Replit project (React+Vite SPA + Express backend).
+
+IMPORTANT REQUIREMENTS:
+1) 답변은 한국어로 작성해 주세요.
+2) 변경은 최소/안전/가역적으로 진행하세요.
+3) 작업이 끝나면 “완료 보고서(무엇이 잘 되었는지/남은 리스크/사용자가 이제 무엇을 해야 하는지)”를 반드시 작성하세요.
+
+Goal (Phase 1):
+- The client remains unchanged and continues calling:
+  GET /api/menu?date=YYYY-MM-DD
+- The Express backend reads menu JSON from AWS S3 and returns it.
+- Backend-Proxy only: Browser must NOT call S3 directly.
+- No AWS credentials are exposed to the browser.
+- Stable behavior on errors: /api/menu must not crash even if S3 is missing or fails.
+
+Confirmed AWS details:
+- AWS Region: ap-northeast-2
+- S3 Bucket: hyeat-menu
+- S3 Key format: menus/YYYY-MM-DD.json
+- Each S3 JSON file contains ONLY that date’s menu data.
+
+Step 0 — Read-only inspection before changes (required):
+Before editing, inspect the repo and report (in Korean):
+A) Where is /api/menu implemented? (file + function)
+B) What response shape does /api/menu currently return? (describe briefly)
+C) What does the frontend expect from /api/menu? Identify any assumptions that could break the UI.
+
+Implementation requirements:
+1) Add AWS SDK v3 dependency (minimal):
+   - @aws-sdk/client-s3
+2) Add server-only environment variables (do NOT add secrets to client):
+   - AWS_REGION=ap-northeast-2
+   - S3_BUCKET=hyeat-menu
+   - MENU_SOURCE=s3  (feature flag; allow disabling later)
+   - AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must be read from Replit Secrets
+3) Implement server-side S3 menu loader (safe & timeout):
+   - Create a function like getMenuFromS3(dateKey: string)
+   - It must fetch object: s3://hyeat-menu/menus/<dateKey>.json using AWS SDK GetObject
+   - Use a ~3 second timeout to avoid hanging requests
+   - Parse JSON safely; handle errors explicitly
+4) Update ONLY the /api/menu route:
+   - If MENU_SOURCE != "s3": return a stable “not available” response
+   - If MENU_SOURCE == "s3":
+       - Try S3 read
+       - On success: return the menu data in the EXACT shape the client expects
+         (If transformation is needed, do the minimum and document it.)
+       - On missing file or errors: return a stable “not available” response
+5) Stable “not available” response (choose one and be consistent):
+   Option A (recommended):
+     - HTTP 404
+     - { "error": "MENU_DATA_NOT_AVAILABLE", "date": "<dateKey>" }
+   Option B:
+     - HTTP 200
+     - { "date": "<dateKey>", "menus": {}, "warning": "MENU_DATA_NOT_AVAILABLE" }
+   Choose the option that best prevents frontend crashes based on your inspection.
+6) Do NOT change other endpoints:
+   - waiting, predict, ingest, admin, config, health must remain unchanged.
+
+Verification checklist (must run/confirm):
+- npm run dev starts successfully
+- GET /api/health works
+- GET /api/menu?date=YYYY-MM-DD:
+   * returns S3 data when the object exists
+   * returns the stable “not available” response when object missing or S3 errors
+- No server crash; logs show clear errors (no sensitive data)
+- The UI does not hard-crash (it may show empty/error state)
+
+Security requirements:
+- Do NOT embed AWS keys in any client code.
+- Recommend least-privilege IAM (s3:GetObject only for arn:aws:s3:::hyeat-menu/menus/*)
+- Never print AWS secrets in logs.
+
+Deliverables after implementation (in Korean):
+1) 변경 요약: 수정한 파일 목록 + 무엇을 바꿨는지
+2) 환경변수/시크릿 설정 가이드 (Replit Secrets 포함)
+3) 테스트 방법: 어떤 날짜로 /api/menu 호출해서 확인할지
+4) 롤백 방법:
+   - MENU_SOURCE를 disabled로 바꾸는 즉시 롤백
+   - 또는 Git revert 방식
+5) “사용자가 이제 해야 할 일”:
+   - S3에 어떤 파일을 어떤 경로로 올려야 하는지
+   - 업로드 검증 방법 (브라우저 URL 확인은 검증용으로만)
+   - 다음 Phase 준비 사항
+
+Notes:
+- Do not attempt Cognito or direct-from-client S3 calls.
+- Do not create AWS resources here; just implement the app-side integration.
