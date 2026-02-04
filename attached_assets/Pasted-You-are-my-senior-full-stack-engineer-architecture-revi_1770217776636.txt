@@ -1,0 +1,83 @@
+You are my senior full-stack engineer + architecture reviewer for the HY-eat project.
+
+🚫 CRITICAL RULE (MUST FOLLOW)
+- DO NOT modify, create, delete, or commit any code or files.
+- DO NOT run any auto-fix, formatting, refactor, or dependency update.
+- DO NOT apply patches. This is READ-ONLY analysis only.
+- If changes are needed, ONLY describe them as suggestions with exact file paths/lines, but DO NOT edit anything.
+
+Goal
+- Analyze the current HY-eat codebase end-to-end (frontend, backend, data layer) and write a detailed report in **Korean**.
+- Be strict, evidence-based, and actionable. If something is uncertain, explicitly say so and suggest how to verify.
+
+What I need you to do (step-by-step)
+1) Repo / Architecture Overview
+- Summarize the overall architecture and request/response flow:
+  - Client (frontend) → API routes (backend) → data sources (AWS / local) → back to UI.
+- Draw a simple text diagram (ASCII) showing the data flow.
+- List the key folders/files and their responsibilities (frontend pages/components, server routes, dataProvider, utils, config).
+
+2) Frontend (Client) Deep Dive
+- Identify where menu/waiting data is fetched in the UI.
+- Confirm whether the UI uses a centralized dataProvider or does direct fetch calls (and where).
+- Check date/time handling on the client:
+  - How dates are generated (today/next day, etc.)
+  - How timestamps are displayed (timezone +09:00 / KST) and whether conversion is correct
+  - Any off-by-one day bugs due to timezone/ISO parsing
+- Report UX logic that could hide data (filters, time selector, default date range, etc.)
+
+3) Backend (Server / API) Deep Dive
+- List all API endpoints related to:
+  - Menu: e.g., GET /api/menu?date=YYYY-MM-DD
+  - Waiting: e.g., GET /api/waiting/latest, /api/waiting/all, /api/waiting/timestamps, /api/waiting (aggregate/time filters), POST /api/ingest/waiting
+- For each endpoint, document:
+  - Input params (query/body)
+  - Output schema (fields + example)
+  - Any inconsistencies in naming (snake_case vs camelCase), types, or missing fields
+  - Error handling and what happens on AWS/network failure
+
+4) Data Layer / AWS Verification (IMPORTANT)
+- Identify every AWS dependency used in the code (S3, DynamoDB, etc.):
+  - Which service is used for menu data and which for waiting data
+  - Exact tables/buckets/paths used (as found in config/code)
+  - Where AWS credentials/region are read from (env vars, config)
+- Verify whether the server is actually pulling data from AWS at runtime:
+  - Point to the exact code paths that call AWS SDK
+  - If needed, propose what logs to add (without leaking secrets), but DO NOT add them yourself.
+- Check timezone correctness for DynamoDB timestamps:
+  - Are timestamps stored with +09:00?
+  - If stored as UTC, does the client convert to KST correctly?
+  - Any reason UI would not show items due to timestamp format mismatch?
+
+5) Findings: Bugs, Risks, and Fix Plan (SUGGESTIONS ONLY)
+- Provide a prioritized list:
+  - P0: must-fix to make app work correctly
+  - P1: important reliability / consistency improvements
+  - P2: refactors / nice-to-have
+- For each item include:
+  - symptom
+  - root cause (with file references)
+  - suggested fix steps (do NOT apply)
+  - how to test/verify the fix
+
+6) Quick “Validation Checklist”
+- Give a checklist I can follow to confirm end-to-end correctness:
+  - “If I do X, I should see Y” style
+  - Include test cases for:
+    - menu shows for multiple days
+    - waiting data shows for multiple timestamps
+    - AWS connectivity confirmed
+    - timezone rendering correct
+
+Security / Safety
+- Do NOT output any secrets (AWS keys, tokens).
+- If you need them, tell me exactly which env vars are missing and how to set them safely.
+- Keep everything reversible and READ-ONLY.
+
+Output format (Korean)
+- Title + date
+- Executive summary (핵심 요약)
+- Sections 1)~6) with bullet points and code/file references
+- Final: “Next Actions (오늘 바로 할 일)” 5 items
+
+Please start now by scanning the codebase and reporting what you find.
