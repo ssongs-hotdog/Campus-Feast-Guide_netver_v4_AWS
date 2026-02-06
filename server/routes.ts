@@ -16,24 +16,20 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { getMenuFromS3, isS3MenuEnabled, getMenuCacheStats } from "./s3MenuService";
-import { 
-  storage, 
+import {
   getKSTDateKey,
   getKSTISOTimestamp,
-  getLastIngestionTime,
-  checkDbConnection,
-  getPredictionByDayAndTime,
   getTomorrowKSTDateKey,
   getDayOfWeekKST,
-  getDayOfWeekNameKo,
-  ensureKSTDateIndex,
-} from "./storage";
+  getDayOfWeekNameKo
+} from "./utils/date";
 import {
   isDdbWaitingEnabled,
   getLatestByDate as ddbGetLatestByDate,
   getAllDataByDate as ddbGetAllDataByDate,
   getTimestampsByDate as ddbGetTimestampsByDate,
   checkDdbConnection,
+  getPredictionByDayAndTime
 } from "./ddbWaitingRepo";
 import { computeWaitMinutes } from "./waitModel";
 
@@ -54,11 +50,8 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  
-  // Ensure DB indexes exist on startup
-  ensureKSTDateIndex().catch(err => {
-    console.error('[Startup] Failed to ensure DB indexes:', err);
-  });
+
+  // Postgres index creation removed (Legacy)
 
   app.get('/api/dates', (_req: Request, res: Response) => {
     // We only provide today's date shortcut. 
@@ -71,32 +64,32 @@ export async function registerRoutes(
   app.get('/api/menu', async (req: Request, res: Response) => {
     const dateParam = req.query.date as string | undefined;
     const targetDate = dateParam || getTodayDateKey();
-    
+
     if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'INVALID_DATE_FORMAT',
         message: 'Date must be in YYYY-MM-DD format',
         date: targetDate,
       });
     }
-    
+
     // Strict S3-only logic
     if (isS3MenuEnabled()) {
       const s3Result = await getMenuFromS3(targetDate);
-      
+
       if (s3Result.success && s3Result.data) {
         return res.json(s3Result.data);
       }
-      
-      return res.status(404).json({ 
+
+      return res.status(404).json({
         error: 'MENU_DATA_NOT_AVAILABLE',
         message: s3Result.error || 'Menu data not found in S3',
         date: targetDate,
         source: 's3',
       });
     }
-    
-    return res.status(503).json({ 
+
+    return res.status(503).json({
       error: 'MENU_SERVICE_DISABLED',
       message: 'Menu data source is not configured (MENU_SOURCE != s3).',
       date: targetDate,
@@ -105,19 +98,19 @@ export async function registerRoutes(
 
   app.get('/api/waiting/timestamps', async (req: Request, res: Response) => {
     const dateParam = req.query.date as string | undefined;
-    
+
     if (dateParam && !/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
       return res.status(400).json({ error: 'Invalid date format' });
     }
-    
+
     const targetDate = dateParam || getTodayDateKey();
-    
+
     try {
       if (isDdbWaitingEnabled()) {
         const timestamps = await ddbGetTimestampsByDate(targetDate);
         return res.json({ timestamps });
       }
-      
+
       // If DDB is disabled, we cannot serve this request
       return res.status(503).json({ error: 'DynamoDB waiting source is disabled' });
     } catch (error) {
@@ -129,17 +122,17 @@ export async function registerRoutes(
   app.get('/api/waiting', async (req: Request, res: Response) => {
     const dateParam = req.query.date as string | undefined;
     const timeParam = req.query.time as string | undefined;
-    
+
     // Validate date format
     if (dateParam && !/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
       return res.status(400).json({ error: 'Invalid date format' });
     }
-    
+
     // Validate time format
     if (timeParam) {
       const isISOFormat = timeParam.includes('T') || timeParam.includes('+');
       const isHHMMFormat = /^\d{2}:\d{2}$/.test(timeParam);
-      
+
       if (isISOFormat) {
         const parsed = Date.parse(timeParam);
         if (isNaN(parsed)) {
@@ -149,31 +142,31 @@ export async function registerRoutes(
         return res.status(400).json({ error: 'Invalid time format. Use HH:MM or ISO timestamp' });
       }
     }
-    
+
     const targetDate = dateParam || getTodayDateKey();
-    
+
     try {
       if (isDdbWaitingEnabled()) {
         const allData = await ddbGetAllDataByDate(targetDate, computeWaitMinutes);
-        
+
         if (timeParam) {
           if (timeParam.includes('T') || timeParam.includes('+')) {
             // ISO timestamp match
             const filtered = allData.filter(row => row.timestamp === timeParam);
             return res.json(filtered);
           }
-          
+
           // HH:MM aggregation match logic (5-min bucket)
           const [hours, minutes] = timeParam.split(':').map(Number);
           // Construct partial match prefix for "YYYY-MM-DDTHH:MM" (approximate)
           // Actually, precise 5min bucketing might need more logic, 
           // but for basic DDB retrieval we filter the full set here.
           const targetPrefix = `${targetDate}T${String(hours).padStart(2, '0')}:${String(Math.floor(minutes / 5) * 5).padStart(2, '0')}`;
-          
+
           const filtered = allData.filter(row => row.timestamp.startsWith(targetPrefix));
           return res.json(filtered);
         }
-        
+
         // No time param -> return latest in that day
         if (allData.length === 0) {
           return res.json([]);
@@ -182,7 +175,7 @@ export async function registerRoutes(
         const filtered = allData.filter(row => row.timestamp === latestTs);
         return res.json(filtered);
       }
-      
+
       return res.status(503).json({ error: 'DynamoDB waiting source is disabled' });
     } catch (error) {
       console.error('[API] waiting query failed:', error);
@@ -192,13 +185,13 @@ export async function registerRoutes(
 
   app.get('/api/waiting/all', async (req: Request, res: Response) => {
     const dateParam = req.query.date as string | undefined;
-    
+
     if (dateParam && !/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
       return res.status(400).json({ error: 'Invalid date format' });
     }
-    
+
     const targetDate = dateParam || getTodayDateKey();
-    
+
     try {
       if (isDdbWaitingEnabled()) {
         const data = await ddbGetAllDataByDate(targetDate, computeWaitMinutes);
@@ -212,7 +205,7 @@ export async function registerRoutes(
   });
 
   app.get('/api/config', (_req: Request, res: Response) => {
-    res.json({ 
+    res.json({
       useDbWaiting: isDdbWaitingEnabled(),
       today: getTodayDateKey(),
       tomorrow: getTomorrowKSTDateKey(),
@@ -222,38 +215,38 @@ export async function registerRoutes(
 
   app.get('/api/predict', async (req: Request, res: Response) => {
     const timeParam = req.query.time as string | undefined;
-    
+
     if (!timeParam || !/^\d{2}:\d{2}$/.test(timeParam)) {
       return res.status(400).json({ error: 'Invalid time format. Use HH:MM' });
     }
-    
+
     const [hours, minutes] = timeParam.split(':').map(Number);
     if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
       return res.status(400).json({ error: 'Invalid time format. Use HH:MM' });
     }
-    
+
     const tomorrow = getTomorrowKSTDateKey();
     const dayOfWeek = getDayOfWeekKST(tomorrow);
     const dayOfWeekName = getDayOfWeekNameKo(dayOfWeek);
-    
+
     const bucketStart = Math.floor(minutes / 5) * 5;
     const bucketStartStr = `${String(hours).padStart(2, '0')}:${String(bucketStart).padStart(2, '0')}`;
     const bucketEndStr = `${String(hours).padStart(2, '0')}:${String(bucketStart + 4).padStart(2, '0')}`;
-    
+
     try {
       const result = await getPredictionByDayAndTime(dayOfWeek, timeParam, computeWaitMinutes);
-      
+
       const confidence = result.basedOnDays >= 4 ? 'high'
-                       : result.basedOnDays >= 2 ? 'medium'
-                       : result.basedOnDays >= 1 ? 'low' : 'none';
-      
+        : result.basedOnDays >= 2 ? 'medium'
+          : result.basedOnDays >= 1 ? 'low' : 'none';
+
       const predictions = result.predictions.map(p => ({
         restaurantId: p.restaurantId,
         cornerId: p.cornerId,
         predictedQueueLen: p.avgQueueLen,
         predictedWaitMin: p.waitMin,
       }));
-      
+
       return res.json({
         predictions,
         metadata: {
@@ -301,11 +294,11 @@ export async function registerRoutes(
   app.get('/api/waiting/latest', async (req: Request, res: Response) => {
     const startTime = Date.now();
     const dateParam = (req.query.date as string) || getTodayDateKey();
-    
+
     if (isDdbWaitingEnabled()) {
       try {
         const { rows, latestTimestamp } = await ddbGetLatestByDate(dateParam);
-        
+
         // 1. No data in DB for this date
         if (rows.length === 0) {
           console.log(`[Latest] DDB OK: date=${dateParam} ts=null rows=0 latencyMs=${Date.now() - startTime}`);
@@ -315,11 +308,8 @@ export async function registerRoutes(
         const latestTime = new Date(latestTimestamp!).getTime();
         const nowTime = Date.now();
         const ageSec = Math.floor((nowTime - latestTime) / 1000);
-        
+
         // 2. Data exists but is stale (older than threshold)
-        // Note: In strict mode, we might want to return it anyway, but stale logic dictates hiding it?
-        // Current requirement: "Display queue snapshots". If stale, it's safer to show nothing or show stale with warning.
-        // The original logic hid stale data. We keep that behavior for now.
         if (ageSec > WAITING_STALE_SECONDS) {
           const latency = Date.now() - startTime;
           console.log(`[Latest] DDB STALE: date=${dateParam} latest=${latestTimestamp} ageSec=${ageSec} thresholdSec=${WAITING_STALE_SECONDS} latencyMs=${latency}`);
@@ -338,7 +328,7 @@ export async function registerRoutes(
 
         const latency = Date.now() - startTime;
         console.log(`[Latest] DDB OK: date=${dateParam} ts=${latestTimestamp} rows=${rows.length} ageSec=${ageSec} latencyMs=${latency}`);
-        
+
         return res.json(result);
       } catch (error) {
         const latency = Date.now() - startTime;
@@ -347,7 +337,7 @@ export async function registerRoutes(
         return res.status(503).json({ error: 'DynamoDB unavailable' });
       }
     }
-    
+
     // Fallback? NO. strict SSOT means if DB is disabled, we return error.
     return res.status(503).json({ error: 'DynamoDB waiting source is disabled' });
   });

@@ -25,9 +25,9 @@ import { Badge } from '@/components/ui/badge';
 import { CongestionBar } from '@/components/CongestionBar';
 import { useTicketContext } from '@/lib/ticketContext';
 import { useTimeContext } from '@/lib/timeContext';
-import { 
-  RESTAURANTS, 
-  formatPrice, 
+import {
+  RESTAURANTS,
+  formatPrice,
   formatTime,
   getCongestionLevel,
   CONGESTION_LABELS,
@@ -35,7 +35,7 @@ import {
   getMenuVariants,
   isBreakfastCorner,
   hasRealVariants,
-  type WaitingData, 
+  type WaitingData,
   type MenuData,
   type MenuVariant,
   type MenuItem,
@@ -55,27 +55,28 @@ export default function CornerDetail() {
   const params = matchNew ? paramsNew : paramsOld;
   const restaurantId = params?.restaurantId || '';
   const cornerId = params?.cornerId || '';
-  
+
   const searchParams = new URLSearchParams(searchString);
   const timestampParam = searchParams.get('t') || '';
   const dateParam = searchParams.get('date') || '';
   const time5minParam = searchParams.get('time5min') || '';
-  
+
   // Derive date from URL path, query param, or fallback to today
   const dayKeyFromPath: DayKey = (matchNew && paramsNew?.dayKey) ? paramsNew.dayKey : '';
   const rawDate = dayKeyFromPath || dateParam || todayKey;
   const effectiveDate: DayKey = isValidDayKey(rawDate) ? rawDate : todayKey;
-  
+
   const isToday = effectiveDate === todayKey;
 
   const restaurant = RESTAURANTS.find((r) => r.id === restaurantId);
 
-  const { data: menuData } = useQuery<MenuData>({
+  const { data: menuData } = useQuery<MenuData | null>({
     queryKey: ['/api/menu', effectiveDate],
     queryFn: async () => {
       const result = await getMenus(effectiveDate);
       if (result.error) throw new Error(result.error);
-      return result.data as MenuData | null;
+      if (!result.data) return null; // Ensure null is returned if undefined
+      return result.data as MenuData;
     },
   });
 
@@ -113,7 +114,7 @@ export default function CornerDetail() {
   const { data: waitingData } = useQuery<WaitingData[]>({
     queryKey: useLiveEndpoint
       ? ['/api/waiting/latest', effectiveDate]
-      : isToday 
+      : isToday
         ? ['/api/waiting', effectiveDate, effectiveTimestamp]
         : ['/api/waiting', effectiveDate, time5minParam || '11:00', '5min'],
     queryFn: async () => {
@@ -147,12 +148,13 @@ export default function CornerDetail() {
   // Check data availability
   const hasMenuData = !!menu;
   const hasWaitingData = !!cornerWaiting;
-  
-  const estWait = cornerWaiting?.est_wait_time_min;
-  const queueLen = cornerWaiting?.queue_len;
+
+  // Phase 2 Update: use camelCase from API
+  const estWait = cornerWaiting?.estWaitTimeMin;
+  const queueLen = cornerWaiting?.queueLen;
   const level = hasWaitingData && estWait !== undefined ? getCongestionLevel(estWait) : null;
-  
-  const loadedTimestamp = isToday && waitingData?.[0]?.timestamp 
+
+  const loadedTimestamp = isToday && waitingData?.[0]?.timestamp
     ? formatTime(new Date(waitingData[0].timestamp))
     : !isToday ? (time5minParam || '11:00') : null;
 
@@ -190,9 +192,9 @@ export default function CornerDetail() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border px-4 py-3">
         <div className="flex items-center gap-3 max-w-lg mx-auto">
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={handleBack}
             data-testid="button-back"
           >
@@ -230,10 +232,10 @@ export default function CornerDetail() {
             <CongestionBar estWaitTime={estWait} size="md" noData={!hasWaitingData} />
           </div>
           {hasWaitingData && level ? (
-            <Badge 
+            <Badge
               variant="secondary"
               className="mt-1"
-              style={{ 
+              style={{
                 backgroundColor: `${CONGESTION_COLORS[level]}20`,
                 color: CONGESTION_COLORS[level],
                 borderColor: CONGESTION_COLORS[level],
@@ -242,7 +244,7 @@ export default function CornerDetail() {
               {CONGESTION_LABELS[level]}
             </Badge>
           ) : (
-            <Badge 
+            <Badge
               variant="secondary"
               className="mt-1 text-muted-foreground"
             >
@@ -287,7 +289,7 @@ export default function CornerDetail() {
                   </span>
                   {isToday && (
                     hasExistingTicket ? (
-                      <Button 
+                      <Button
                         variant="outline"
                         size="sm"
                         onClick={() => setLocation('/ticket')}
@@ -296,7 +298,7 @@ export default function CornerDetail() {
                         주문권 확인
                       </Button>
                     ) : (
-                      <Button 
+                      <Button
                         size="sm"
                         onClick={() => handlePaymentForVariant(variant.mainMenuName)}
                         data-testid={`button-payment-variant-${variantIdx}`}
@@ -342,7 +344,7 @@ export default function CornerDetail() {
 
             {isToday && hasMenuData && (
               hasExistingTicket ? (
-                <Button 
+                <Button
                   variant="outline"
                   className="w-full h-12 text-base"
                   onClick={() => setLocation('/ticket')}
@@ -351,7 +353,7 @@ export default function CornerDetail() {
                   주문권 확인하기
                 </Button>
               ) : (
-                <Button 
+                <Button
                   className="w-full h-12 text-base"
                   onClick={handlePayment}
                   data-testid="button-payment"

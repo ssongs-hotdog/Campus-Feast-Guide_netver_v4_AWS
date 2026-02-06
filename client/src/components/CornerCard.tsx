@@ -26,8 +26,14 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CongestionBar } from './CongestionBar';
 import { useTimeContext } from '@/lib/timeContext';
-import type { MenuItem, WaitingData } from '@shared/types';
-import { getMenuVariants, isBreakfastCorner, hasRealVariants } from '@shared/types';
+import { useTicketContext } from '@/lib/ticketContext';
+import {
+  getMenuVariants,
+  isBreakfastCorner,
+  hasRealVariants,
+  type MenuItem,
+  type WaitingData
+} from '@shared/types';
 import type { DayKey } from '@/lib/dateUtils';
 
 interface CornerCardProps {
@@ -40,10 +46,10 @@ interface CornerCardProps {
   isActive?: boolean;  // Whether corner is currently operating
 }
 
-export function CornerCard({ 
-  menu, 
-  waitingData, 
-  dayKey, 
+export function CornerCard({
+  menu,
+  waitingData,
+  dayKey,
   restaurantId,
   cornerId,
   cornerDisplayName,
@@ -51,12 +57,13 @@ export function CornerCard({
 }: CornerCardProps) {
   const [, setLocation] = useLocation();
   const { availableTimestamps, timeState, selectedTime5Min, todayKey } = useTimeContext();
-  
+
   // Check if we have actual data
   const hasMenuData = !!menu;
   const hasWaitingData = !!waitingData;
-  const estWait = waitingData?.est_wait_time_min;
-  
+  // Use camelCase property
+  const estWait = waitingData?.estWaitTimeMin;
+
   const isToday = dayKey === todayKey;
 
   // Get display name for menu - handle breakfast variants
@@ -77,14 +84,14 @@ export function CornerCard({
   const handleClick = () => {
     const baseUrl = `/d/${dayKey}/restaurant/${restaurantId}/corner/${cornerId}`;
     const params = new URLSearchParams();
-    
+
     if (!isToday && selectedTime5Min) {
       params.set('time5min', selectedTime5Min);
     } else if (isToday && availableTimestamps.length > 0) {
       const targetTime = timeState.displayTime.getTime();
       let closestTs = availableTimestamps[0];
       let minDiff = Math.abs(new Date(availableTimestamps[0]).getTime() - targetTime);
-      
+
       for (const ts of availableTimestamps) {
         const diff = Math.abs(new Date(ts).getTime() - targetTime);
         if (diff < minDiff) {
@@ -94,7 +101,7 @@ export function CornerCard({
       }
       params.set('t', closestTs);
     }
-    
+
     const queryString = params.toString();
     setLocation(queryString ? `${baseUrl}?${queryString}` : baseUrl);
   };
@@ -107,19 +114,19 @@ export function CornerCard({
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <Badge 
-            variant="secondary" 
+          <Badge
+            variant="secondary"
             className="mb-2 text-xs font-medium px-2 py-0.5 flex items-center gap-1.5 w-fit"
             data-testid={`badge-corner-${cornerId}`}
           >
-            <span 
+            <span
               className={`w-2 h-2 rounded-full flex-shrink-0 ${isActive ? 'bg-green-500' : 'bg-gray-400'}`}
               data-testid={`status-${cornerId}`}
               aria-label={isActive ? '운영 중' : '운영 종료'}
             />
             {menu?.cornerDisplayName || cornerDisplayName}
           </Badge>
-          <h3 
+          <h3
             className={`text-lg font-semibold truncate ${hasMenuData ? 'text-foreground' : 'text-muted-foreground'}`}
             data-testid={`text-menu-${cornerId}`}
           >
@@ -127,14 +134,14 @@ export function CornerCard({
           </h3>
         </div>
         <div className="w-24 flex-shrink-0">
-          <CongestionBar 
-            estWaitTime={hasWaitingData ? estWait : undefined} 
-            size="md" 
+          <CongestionBar
+            estWaitTime={hasWaitingData ? estWait : undefined}
+            size="md"
             noData={!hasWaitingData}
           />
         </div>
       </div>
-      <p 
+      <p
         className="mt-3 text-sm text-muted-foreground"
         data-testid={`text-wait-${cornerId}`}
       >

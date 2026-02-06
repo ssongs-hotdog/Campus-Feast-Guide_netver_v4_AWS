@@ -56,8 +56,8 @@ export interface WaitingDataItem {
   timestamp: string;
   restaurantId: string;
   cornerId: string;
-  queue_len: number;
-  est_wait_time_min: number;
+  queueLen: number;
+  estWaitTimeMin: number;
   data_type?: 'observed' | 'predicted';
 }
 
@@ -70,281 +70,100 @@ export interface DataResponse<T> {
   error?: string;
 }
 
+// ----------------------------------------------------------------------------
+// API Interaction Functions
+// ----------------------------------------------------------------------------
+
 /**
  * Fetches menu data for a specific date.
- * 
- * @param dayKey - The date in YYYY-MM-DD format
- * @returns Menu data organized by restaurant/corner, or null if no data
- * 
- * Example:
- *   const result = await getMenus('2026-01-15');
- *   if (result.hasData) {
- *     console.log(result.data?.hanyang_plaza?.korean);
- *   }
  */
 export async function getMenus(dayKey: DayKey): Promise<DataResponse<MenuDataMap>> {
   try {
     const res = await fetch(`/api/menu?date=${dayKey}`);
-    
     if (!res.ok) {
-      if (res.status === 404) {
-        // No data for this date - this is expected for future dates
+      if (res.status === 404 || res.status === 503) {
         return { data: null, hasData: false };
       }
-      throw new Error(`Failed to fetch menu data: ${res.status}`);
+      throw new Error(`API Error: ${res.statusText}`);
     }
-    
     const data = await res.json();
     return { data, hasData: true };
   } catch (error) {
-    console.error('Error fetching menus:', error);
-    return { 
-      data: null, 
-      hasData: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
-    };
+    console.error('Failed to fetch menus:', error);
+    return { data: null, hasData: false, error: 'Failed to load menu data' };
   }
 }
 
 /**
- * Fetches a single menu item detail.
- * 
- * @param dayKey - The date
- * @param restaurantId - Restaurant identifier
- * @param cornerId - Corner identifier
- * @returns The menu item or null if not found
+ * Fetches available timestamps for waiting data on a specific date.
  */
-export async function getMenuDetail(
-  dayKey: DayKey,
-  restaurantId: string,
-  cornerId: string
-): Promise<DataResponse<MenuItemData>> {
-  const menusResult = await getMenus(dayKey);
-  
-  if (!menusResult.hasData || !menusResult.data) {
-    return { data: null, hasData: false };
-  }
-  
-  const menuItem = menusResult.data[restaurantId]?.[cornerId];
-  
-  if (!menuItem) {
-    return { data: null, hasData: false };
-  }
-  
-  return { data: menuItem, hasData: true };
-}
-
-/**
- * Fetches available timestamps for a specific date.
- * Used to populate the time slider and determine data availability.
- * 
- * @param dayKey - The date
- * @returns Array of ISO timestamp strings
- */
-export async function getAvailableTimestamps(
-  dayKey: DayKey
-): Promise<DataResponse<string[]>> {
+export async function getAvailableTimestamps(dayKey: DayKey): Promise<DataResponse<string[]>> {
   try {
     const res = await fetch(`/api/waiting/timestamps?date=${dayKey}`);
-    
     if (!res.ok) {
-      return { 
-        data: [], 
-        hasData: false, 
-        error: `Failed to fetch timestamps: ${res.status}` 
-      };
+      // If 503 (DB disabled), we just return empty list
+      if (res.status === 503) {
+        return { data: [], hasData: false };
+      }
+      throw new Error(`API Error: ${res.statusText}`);
     }
-    
-    const result = await res.json();
-    const timestamps = result.timestamps || [];
-    
-    return { 
-      data: timestamps, 
-      hasData: timestamps.length > 0 
-    };
+    const json = await res.json();
+    return { data: json.timestamps || [], hasData: true };
   } catch (error) {
-    console.error('Error fetching timestamps:', error);
-    return { 
-      data: [], 
-      hasData: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
-    };
+    console.error('Failed to fetch timestamps:', error);
+    return { data: [], hasData: false, error: 'Failed to load timestamps' };
   }
 }
 
 /**
- * Fetches wait time data for a specific date and time.
- * 
- * @param dayKey - The date
- * @param time - Either an ISO timestamp (for realtime) or HH:MM (for historical)
- * @param aggregate - Whether to aggregate data (e.g., '5min')
- * @returns Array of waiting data items
+ * Fetches wait times for a specific date and time.
+ * If granularity is '10min', it finds the closest available timestamp.
  */
 export async function getWaitTimes(
   dayKey: DayKey,
-  time?: string,
-  aggregate?: '5min'
+  time: string,
+  _granularity: 'raw' | '5min' | '10min' = '10min' // Granularity logic handled by API for now
 ): Promise<DataResponse<WaitingDataItem[]>> {
   try {
-    let url = `/api/waiting?date=${dayKey}`;
-    
-    if (time) {
-      url += `&time=${encodeURIComponent(time)}`;
-    }
-    
-    if (aggregate) {
-      url += `&aggregate=${aggregate}`;
-    }
-    
-    const res = await fetch(url);
-    
+    const res = await fetch(`/api/waiting?date=${dayKey}&time=${time}`);
     if (!res.ok) {
-      return { 
-        data: [], 
-        hasData: false, 
-        error: `Failed to fetch wait times: ${res.status}` 
-      };
+      if (res.status === 503) return { data: [], hasData: false };
+      throw new Error(`API Error: ${res.statusText}`);
     }
-    
-    const data = await res.json();
-    
-    return { 
-      data, 
-      hasData: Array.isArray(data) && data.length > 0 
-    };
-  } catch (error) {
-    console.error('Error fetching wait times:', error);
-    return { 
-      data: [], 
-      hasData: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
-    };
-  }
-}
-
-/**
- * Fetches all wait time data for a specific date (unfiltered).
- * Used by ChartsPanel for displaying historical trends.
- * 
- * @param dayKey - The date
- * @returns Array of all waiting data items for the date
- */
-export async function getAllWaitTimes(
-  dayKey: DayKey
-): Promise<DataResponse<WaitingDataItem[]>> {
-  try {
-    const res = await fetch(`/api/waiting/all?date=${dayKey}`);
-    
-    if (!res.ok) {
-      return { 
-        data: [], 
-        hasData: false, 
-        error: `Failed to fetch all wait times: ${res.status}` 
-      };
-    }
-    
-    const data = await res.json();
-    
-    return { 
-      data, 
-      hasData: Array.isArray(data) && data.length > 0 
-    };
-  } catch (error) {
-    console.error('Error fetching all wait times:', error);
-    return { 
-      data: [], 
-      hasData: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
-    };
-  }
-}
-
-/**
- * Checks if data exists for a given date.
- * Useful for showing "no data" states without loading full data.
- * 
- * @param dayKey - The date to check
- * @returns true if any data exists for this date
- */
-export async function hasDataForDate(dayKey: DayKey): Promise<boolean> {
-  const [menuResult, timestampResult] = await Promise.all([
-    getMenus(dayKey),
-    getAvailableTimestamps(dayKey),
-  ]);
-  
-  return menuResult.hasData || timestampResult.hasData;
-}
-
-/**
- * App configuration from server.
- */
-export interface AppConfig {
-  useDbWaiting: boolean;
-  today: string;
-  tomorrow: string;
-}
-
-/**
- * Fetches app configuration from server.
- * Returns feature flags and today's date (KST).
- */
-export async function getConfig(): Promise<DataResponse<AppConfig>> {
-  try {
-    const res = await fetch('/api/config');
-    
-    if (!res.ok) {
-      return { 
-        data: null, 
-        hasData: false, 
-        error: `Failed to fetch config: ${res.status}` 
-      };
-    }
-    
     const data = await res.json();
     return { data, hasData: true };
   } catch (error) {
-    console.error('Error fetching config:', error);
-    return { 
-      data: null, 
-      hasData: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
-    };
+    console.error('Failed to fetch wait times:', error);
+    return { data: [], hasData: false, error: 'Failed to load wait times' };
   }
 }
 
 /**
- * Fetches the latest wait time data for a specific date.
- * This endpoint reads from the database when USE_DB_WAITING is enabled.
- * 
- * @param dayKey - The date in YYYY-MM-DD format
- * @returns Array of latest waiting data items
+ * Fetches the LATEST wait times for today.
  */
-export async function getLatestWaitTimes(
-  dayKey: DayKey
-): Promise<DataResponse<WaitingDataItem[]>> {
+export async function getLatestWaitTimes(dayKey: DayKey): Promise<DataResponse<WaitingDataItem[]>> {
   try {
     const res = await fetch(`/api/waiting/latest?date=${dayKey}`);
-    
     if (!res.ok) {
-      return { 
-        data: [], 
-        hasData: false, 
-        error: `Failed to fetch latest wait times: ${res.status}` 
-      };
+      if (res.status === 503) return { data: [], hasData: false };
+      throw new Error(`API Error: ${res.statusText}`);
     }
-    
     const data = await res.json();
-    
-    return { 
-      data, 
-      hasData: Array.isArray(data) && data.length > 0 
-    };
+    return { data, hasData: true };
   } catch (error) {
-    console.error('Error fetching latest wait times:', error);
-    return { 
-      data: [], 
-      hasData: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
-    };
+    console.error('Failed to fetch latest wait times:', error);
+    return { data: [], hasData: false, error: 'Failed to load latest wait times' };
+  }
+}
+
+export async function getConfig() {
+  try {
+    const res = await fetch('/api/config');
+    if (!res.ok) throw new Error('Config fetch failed');
+    const data = await res.json();
+    return { data, hasData: true };
+  } catch (e) {
+    console.error(e);
+    return { data: null, hasData: false, error: 'Failed to load config' };
   }
 }

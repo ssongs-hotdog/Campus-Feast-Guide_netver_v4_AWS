@@ -6,6 +6,10 @@ import {
   BatchWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { RESTAURANTS } from "@shared/types";
+import {
+  getKSTISOTimestamp,
+  getPastDatesByDayOfWeek
+} from "./utils/date";
 
 const AWS_REGION = process.env.AWS_REGION || "ap-northeast-2";
 const DDB_TABLE_WAITING = process.env.DDB_TABLE_WAITING || "hyeat_YOLO_data";
@@ -33,36 +37,12 @@ function buildPk(restaurantId: string, cornerId: string): string {
   return `CORNER#${restaurantId}#${cornerId}`;
 }
 
-function getKSTISOTimestamp(): string {
-  const now = new Date();
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
-  const parts = formatter.formatToParts(now);
-  const get = (type: string) => parts.find((p) => p.type === type)?.value || "00";
-  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}:${get("second")}+09:00`;
-}
-
+// Helper to convert ISO string to Epoch Millis
 function isoToEpochMillis(isoString: string): number {
   return new Date(isoString).getTime();
 }
 
-function getKSTDayBoundaries(dateKey: string): { startMs: number; endMs: number } {
-  const startKST = new Date(`${dateKey}T00:00:00+09:00`);
-  const endKST = new Date(`${dateKey}T23:59:59.999+09:00`);
-  return {
-    startMs: startKST.getTime(),
-    endMs: endKST.getTime(),
-  };
-}
-
+// Convert Epoch Millis to KST ISO string (+09:00)
 function epochMillisToKSTISO(epochMs: number): string {
   const date = new Date(epochMs);
   const formatter = new Intl.DateTimeFormat("sv-SE", {
@@ -76,6 +56,16 @@ function epochMillisToKSTISO(epochMs: number): string {
     hour12: false,
   });
   return formatter.format(date).replace(" ", "T") + "+09:00";
+}
+
+function getKSTDayBoundaries(dateKey: string): { startMs: number; endMs: number } {
+  // dateKey is YYYY-MM-DD
+  const startKST = new Date(`${dateKey}T00:00:00+09:00`);
+  const endKST = new Date(`${dateKey}T23:59:59.999+09:00`);
+  return {
+    startMs: startKST.getTime(),
+    endMs: endKST.getTime(),
+  };
 }
 
 export interface DdbWaitingSnapshot {
@@ -106,6 +96,8 @@ export async function putWaitingSnapshots(snapshots: DdbWaitingSnapshot[]): Prom
   const client = getDdbClient();
   const nowEpochSeconds = Math.floor(Date.now() / 1000);
   const ttl = nowEpochSeconds + TTL_DAYS * 24 * 60 * 60;
+
+  // Use centralized util
   const createdAtIso = getKSTISOTimestamp();
 
   const errors: string[] = [];
@@ -427,4 +419,142 @@ export async function checkDdbConnection(): Promise<boolean> {
     console.error("[DDB] Connection check failed:", (error as Error).message);
     return false;
   }
+}
+
+// ============================================================================
+// Prediction Logic (Migrated from Storage.ts)
+// ============================================================================
+
+export interface PredictionRow {
+  restaurantId: string;
+  cornerId: string;
+  avgQueueLen: number;
+  waitMin: number;
+}
+
+export interface PredictionResult {
+  predictions: PredictionRow[];
+  basedOnDays: number;
+  sampleSize: number;
+}
+
+/**
+ * Get prediction data by day-of-week and time bucket.
+ * Uses historical averages from same day-of-week and same 5-min time bucket.
+ * Fetches past 4 weeks of data from DynamoDB and aggregates in-memory.
+ */
+export async function getPredictionByDayAndTime(
+  dayOfWeek: number,
+  timeHHMM: string,
+  computeWaitFn: (queueLen: number, restaurantId: string, cornerId: string) => number
+): Promise<PredictionResult> {
+  if (!isDdbWaitingEnabled()) {
+    throw new Error("DynamoDB waiting source is disabled");
+  }
+
+  const client = getDdbClient();
+  const pastDates = getPastDatesByDayOfWeek(dayOfWeek, 4); // Check last 4 weeks
+
+  const [hours, minutes] = timeHHMM.split(':').map(Number);
+  if (isNaN(hours) || isNaN(minutes)) {
+    return { predictions: [], basedOnDays: 0, sampleSize: 0 };
+  }
+
+  // Define 5-minute bucket window
+  const bucketStart = Math.floor(minutes / 5) * 5;
+  const startMinutes = hours * 60 + bucketStart;
+  const endMinutes = startMinutes + 4; // 5 minute window (inclusive)
+
+  const allCorners: Array<{ restaurantId: string; cornerId: string }> = [];
+  for (const restaurant of RESTAURANTS) {
+    for (const cornerId of restaurant.cornerOrder) {
+      allCorners.push({ restaurantId: restaurant.id, cornerId });
+    }
+  }
+
+  // Aggregation map: key = "restId#cornerId", value = list of queueLens
+  const aggregation = new Map<string, number[]>();
+  // We need to track how many UNIQUE days actually contributed data
+  const daysWithData = new Set<string>();
+  let totalSampleCount = 0;
+
+  // Parallel execution of all corner-date queries
+  const queryPromises = [];
+
+  for (const dateKey of pastDates) {
+    // Construct start/end millis for this date's bucket
+    const dateStartObj = new Date(`${dateKey}T00:00:00+09:00`);
+    const dateStartMs = dateStartObj.getTime();
+
+    // Safety check for date validity
+    if (isNaN(dateStartMs)) continue;
+
+    const bucketStartMs = dateStartMs + (startMinutes * 60 * 1000);
+    // End of the bucket window (e.g. 12:00 -> 12:04:59.999)
+    const bucketEndMs = dateStartMs + (endMinutes * 60 * 1000) + 59999;
+
+    for (const { restaurantId, cornerId } of allCorners) {
+      const pk = buildPk(restaurantId, cornerId);
+
+      const p = client.send(
+        new QueryCommand({
+          TableName: DDB_TABLE_WAITING,
+          KeyConditionExpression: "pk = :pk AND sk BETWEEN :start AND :end",
+          ExpressionAttributeValues: {
+            ":pk": pk,
+            ":start": String(bucketStartMs),
+            ":end": String(bucketEndMs),
+          },
+        })
+      ).then(result => {
+        if (result.Items && result.Items.length > 0) {
+          // Found data for this corner on this day/time
+          const items = result.Items;
+
+          // Calculate average for this specific bucket instance
+          const sum = items.reduce((acc: number, item: any) => acc + (Number(item.queueLen) || 0), 0);
+          const avg = sum / items.length;
+
+          const key = `${restaurantId}#${cornerId}`;
+          if (!aggregation.has(key)) {
+            aggregation.set(key, []);
+          }
+          aggregation.get(key)!.push(avg);
+
+          daysWithData.add(dateKey);
+          totalSampleCount += items.length;
+        }
+      }).catch(err => {
+        console.error(`[DDB] Prediction Query Error ${pk} on ${dateKey}`, err);
+      });
+
+      queryPromises.push(p);
+    }
+  }
+
+  // Wait for all queries to complete
+  await Promise.all(queryPromises);
+
+  const predictions: PredictionRow[] = [];
+
+  for (const [key, values] of aggregation.entries()) {
+    const [restaurantId, cornerId] = key.split('#');
+
+    // Average of averages (mean of means)
+    const totalAvg = values.reduce((a: number, b: number) => a + b, 0) / values.length;
+    const roundedAvg = Math.round(totalAvg);
+
+    predictions.push({
+      restaurantId,
+      cornerId,
+      avgQueueLen: roundedAvg,
+      waitMin: computeWaitFn(roundedAvg, restaurantId, cornerId),
+    });
+  }
+
+  return {
+    predictions,
+    basedOnDays: daysWithData.size,
+    sampleSize: totalSampleCount,
+  };
 }

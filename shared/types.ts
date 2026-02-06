@@ -2,8 +2,8 @@ export interface WaitingData {
   timestamp: string;
   restaurantId: string;
   cornerId: string;
-  queue_len: number;
-  est_wait_time_min: number;
+  queueLen: number;
+  estWaitTimeMin: number;
 }
 
 export interface MenuVariant {
