@@ -9,6 +9,7 @@ const allowlist = [
   "axios",
   "cors",
   "date-fns",
+  "dotenv",
   "express",
   "express-rate-limit",
   "jsonwebtoken",

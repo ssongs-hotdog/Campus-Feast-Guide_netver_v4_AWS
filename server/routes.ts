@@ -32,6 +32,8 @@ import {
   getPredictionByDayAndTime
 } from "./ddbWaitingRepo";
 import { computeWaitMinutes } from "./waitModel";
+import { validate, DateParamSchema, DateTimeQuerySchema } from "./utils/validation"; // [New] Import Validation
+import { log, logError } from "./utils/logger"; // [New] Import Logger
 
 // Stale threshold for waiting data
 const WAITING_STALE_SECONDS = (() => {
@@ -61,17 +63,12 @@ export async function registerRoutes(
     res.json({ dates: [], today: getTodayDateKey() });
   });
 
-  app.get('/api/menu', async (req: Request, res: Response) => {
+  // [New] Applied validation middleware
+  app.get('/api/menu', validate(DateParamSchema), async (req: Request, res: Response) => {
     const dateParam = req.query.date as string | undefined;
     const targetDate = dateParam || getTodayDateKey();
 
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(targetDate)) {
-      return res.status(400).json({
-        error: 'INVALID_DATE_FORMAT',
-        message: 'Date must be in YYYY-MM-DD format',
-        date: targetDate,
-      });
-    }
+    // Manual check removed - Zod handled it
 
     // Strict S3-only logic
     if (isS3MenuEnabled()) {
@@ -96,13 +93,9 @@ export async function registerRoutes(
     });
   });
 
-  app.get('/api/waiting/timestamps', async (req: Request, res: Response) => {
+  // [New] Applied validation middleware
+  app.get('/api/waiting/timestamps', validate(DateParamSchema), async (req: Request, res: Response) => {
     const dateParam = req.query.date as string | undefined;
-
-    if (dateParam && !/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
-      return res.status(400).json({ error: 'Invalid date format' });
-    }
-
     const targetDate = dateParam || getTodayDateKey();
 
     try {
@@ -114,34 +107,17 @@ export async function registerRoutes(
       // If DDB is disabled, we cannot serve this request
       return res.status(503).json({ error: 'DynamoDB waiting source is disabled' });
     } catch (error) {
-      console.error('[API] timestamps query failed:', error);
+      logError('[API] timestamps query failed:', error);
       return res.status(503).json({ error: 'Database unavailable' });
     }
   });
 
-  app.get('/api/waiting', async (req: Request, res: Response) => {
+  // [New] Applied validation middleware for both date and time
+  app.get('/api/waiting', validate(DateTimeQuerySchema), async (req: Request, res: Response) => {
     const dateParam = req.query.date as string | undefined;
     const timeParam = req.query.time as string | undefined;
 
-    // Validate date format
-    if (dateParam && !/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
-      return res.status(400).json({ error: 'Invalid date format' });
-    }
-
-    // Validate time format
-    if (timeParam) {
-      const isISOFormat = timeParam.includes('T') || timeParam.includes('+');
-      const isHHMMFormat = /^\d{2}:\d{2}$/.test(timeParam);
-
-      if (isISOFormat) {
-        const parsed = Date.parse(timeParam);
-        if (isNaN(parsed)) {
-          return res.status(400).json({ error: 'Invalid time format. Use HH:MM or ISO timestamp' });
-        }
-      } else if (!isHHMMFormat) {
-        return res.status(400).json({ error: 'Invalid time format. Use HH:MM or ISO timestamp' });
-      }
-    }
+    // Manual Regex checks removed - Zod handled them
 
     const targetDate = dateParam || getTodayDateKey();
 
@@ -178,18 +154,14 @@ export async function registerRoutes(
 
       return res.status(503).json({ error: 'DynamoDB waiting source is disabled' });
     } catch (error) {
-      console.error('[API] waiting query failed:', error);
+      logError('[API] waiting query failed:', error);
       return res.status(503).json({ error: 'Database unavailable' });
     }
   });
 
-  app.get('/api/waiting/all', async (req: Request, res: Response) => {
+  // [New] Applied validation middleware
+  app.get('/api/waiting/all', validate(DateParamSchema), async (req: Request, res: Response) => {
     const dateParam = req.query.date as string | undefined;
-
-    if (dateParam && !/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
-      return res.status(400).json({ error: 'Invalid date format' });
-    }
-
     const targetDate = dateParam || getTodayDateKey();
 
     try {
@@ -199,7 +171,7 @@ export async function registerRoutes(
       }
       return res.status(503).json({ error: 'DynamoDB waiting source is disabled' });
     } catch (error) {
-      console.error('[API] all-data query failed:', error);
+      logError('[API] all-data query failed:', error);
       return res.status(503).json({ error: 'Database unavailable' });
     }
   });
@@ -214,6 +186,8 @@ export async function registerRoutes(
   });
 
   app.get('/api/predict', async (req: Request, res: Response) => {
+    // Note: predict has specific time param logic (HH:MM only), so we can make a specific schema or just check manually for now.
+    // Let's keep manual check for now or add a TimeOnly schema later.
     const timeParam = req.query.time as string | undefined;
 
     if (!timeParam || !/^\d{2}:\d{2}$/.test(timeParam)) {
@@ -264,7 +238,7 @@ export async function registerRoutes(
         },
       });
     } catch (error) {
-      console.error('[API] Prediction query failed:', error);
+      logError('[API] Prediction query failed:', error);
       return res.status(503).json({ error: 'Database unavailable (Prediction)' });
     }
   });
@@ -291,7 +265,8 @@ export async function registerRoutes(
     });
   });
 
-  app.get('/api/waiting/latest', async (req: Request, res: Response) => {
+  // [New] Applied validation middleware
+  app.get('/api/waiting/latest', validate(DateParamSchema), async (req: Request, res: Response) => {
     const startTime = Date.now();
     const dateParam = (req.query.date as string) || getTodayDateKey();
 
@@ -301,7 +276,7 @@ export async function registerRoutes(
 
         // 1. No data in DB for this date
         if (rows.length === 0) {
-          console.log(`[Latest] DDB OK: date=${dateParam} ts=null rows=0 latencyMs=${Date.now() - startTime}`);
+          log(`[Latest] DDB OK: date=${dateParam} ts=null rows=0 latencyMs=${Date.now() - startTime}`);
           return res.json([]);
         }
 
@@ -312,7 +287,10 @@ export async function registerRoutes(
         // 2. Data exists but is stale (older than threshold)
         if (ageSec > WAITING_STALE_SECONDS) {
           const latency = Date.now() - startTime;
-          console.log(`[Latest] DDB STALE: date=${dateParam} latest=${latestTimestamp} ageSec=${ageSec} thresholdSec=${WAITING_STALE_SECONDS} latencyMs=${latency}`);
+          log(`[Latest] DDB STALE: date=${dateParam} latest=${latestTimestamp} ageSec=${ageSec} thresholdSec=${WAITING_STALE_SECONDS} latencyMs=${latency}`, {
+            warn: true,
+            ageSec
+          });
           return res.json([]);
         }
 
@@ -327,13 +305,13 @@ export async function registerRoutes(
         }));
 
         const latency = Date.now() - startTime;
-        console.log(`[Latest] DDB OK: date=${dateParam} ts=${latestTimestamp} rows=${rows.length} ageSec=${ageSec} latencyMs=${latency}`);
+        log(`[Latest] DDB OK: date=${dateParam} ts=${latestTimestamp} rows=${rows.length} ageSec=${ageSec} latencyMs=${latency}`);
 
         return res.json(result);
       } catch (error) {
         const latency = Date.now() - startTime;
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        console.log(`[Latest] DDB_FAIL: ${errorMessage} latencyMs=${latency}`);
+        logError(`[Latest] DDB_FAIL: ${errorMessage} latencyMs=${latency}`, error);
         return res.status(503).json({ error: 'DynamoDB unavailable' });
       }
     }
