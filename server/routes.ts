@@ -125,31 +125,58 @@ export async function registerRoutes(
       if (isDdbWaitingEnabled()) {
         const allData = await ddbGetAllDataByDate(targetDate, computeWaitMinutes);
 
+        let filtered = allData;
+
         if (timeParam) {
           if (timeParam.includes('T') || timeParam.includes('+')) {
             // ISO timestamp match
-            const filtered = allData.filter(row => row.timestamp === timeParam);
-            return res.json(filtered);
+            filtered = allData.filter(row => row.timestamp === timeParam);
+          } else {
+            // HH:MM aggregation match logic (5-min bucket)
+            const [hours, minutes] = timeParam.split(':').map(Number);
+
+            // Filter data that falls within [HH:MM, HH:MM+5)
+            // e.g. 12:00 -> 12:00:00 ~ 12:04:59
+            filtered = allData.filter(row => {
+              // row.timestamp is ISO string (e.g. 2023-01-01T12:01:30+09:00)
+              const date = new Date(row.timestamp);
+              const h = date.getHours();
+              const m = date.getMinutes();
+
+              if (h !== hours) return false;
+              // Check 5-minute bucket
+              const bucketStart = Math.floor(m / 5) * 5;
+              return bucketStart === minutes;
+            });
           }
-
-          // HH:MM aggregation match logic (5-min bucket)
-          const [hours, minutes] = timeParam.split(':').map(Number);
-          // Construct partial match prefix for "YYYY-MM-DDTHH:MM" (approximate)
-          // Actually, precise 5min bucketing might need more logic, 
-          // but for basic DDB retrieval we filter the full set here.
-          const targetPrefix = `${targetDate}T${String(hours).padStart(2, '0')}:${String(Math.floor(minutes / 5) * 5).padStart(2, '0')}`;
-
-          const filtered = allData.filter(row => row.timestamp.startsWith(targetPrefix));
-          return res.json(filtered);
+        } else {
+          // No time param -> return latest in that day
+          if (allData.length > 0) {
+            const latestTs = allData[allData.length - 1].timestamp;
+            filtered = allData.filter(row => row.timestamp === latestTs);
+          } else {
+            filtered = [];
+          }
         }
 
-        // No time param -> return latest in that day
-        if (allData.length === 0) {
-          return res.json([]);
-        }
-        const latestTs = allData[allData.length - 1].timestamp;
-        const filtered = allData.filter(row => row.timestamp === latestTs);
-        return res.json(filtered);
+        // Fix snake_case to camelCase mismatch for frontend (WaitingData interface)
+        // Defensive check: support both snake_case (legacy) and camelCase (new) from DDB
+        const mapped = filtered.map(row => {
+          // Check both, fallback to 0 or defaults if missing
+          const qLen = (row as any).queueLen ?? (row as any).queue_len ?? 0;
+          const waitMin = (row as any).estWaitTimeMin ?? (row as any).est_wait_time_min ?? 0;
+
+          return {
+            timestamp: row.timestamp,
+            restaurantId: row.restaurantId,
+            cornerId: row.cornerId,
+            queueLen: Number(qLen),
+            estWaitTimeMin: Number(waitMin),
+            data_type: row.data_type,
+          };
+        });
+
+        return res.json(mapped);
       }
 
       return res.status(503).json({ error: 'DynamoDB waiting source is disabled' });
