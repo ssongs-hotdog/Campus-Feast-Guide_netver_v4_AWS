@@ -208,10 +208,13 @@ export async function registerRoutes(
         return res.json(data);
       }
       return res.status(503).json({ error: 'DynamoDB waiting source is disabled' });
-    } catch (error) {
-      logError('[API] all-data query failed:', error);
       return res.status(503).json({ error: 'Database unavailable' });
     }
+  });
+
+  // [DEBUG] Test route to verify deployment
+  app.get('/api/waiting/test-v1', (_req: Request, res: Response) => {
+    res.json({ message: 'Deployment is Working!', timestamp: new Date().toISOString() });
   });
 
   app.get('/api/config', (_req: Request, res: Response) => {
