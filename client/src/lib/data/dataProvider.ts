@@ -18,6 +18,8 @@
 
 import type { DayKey } from '../dateUtils';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+
 /**
  * Menu variant for corners with multiple main dishes (e.g., breakfast_1000).
  */
@@ -79,7 +81,7 @@ export interface DataResponse<T> {
  */
 export async function getMenus(dayKey: DayKey): Promise<DataResponse<MenuDataMap>> {
   try {
-    const res = await fetch(`/api/menu?date=${dayKey}`);
+    const res = await fetch(`${API_BASE_URL}/api/menu?date=${dayKey}`);
     if (!res.ok) {
       if (res.status === 404 || res.status === 503) {
         return { data: null, hasData: false };
@@ -99,7 +101,7 @@ export async function getMenus(dayKey: DayKey): Promise<DataResponse<MenuDataMap
  */
 export async function getAvailableTimestamps(dayKey: DayKey): Promise<DataResponse<string[]>> {
   try {
-    const res = await fetch(`/api/waiting/timestamps?date=${dayKey}`);
+    const res = await fetch(`${API_BASE_URL}/api/waiting/timestamps?date=${dayKey}`);
     if (!res.ok) {
       // If 503 (DB disabled), we just return empty list
       if (res.status === 503) {
@@ -125,7 +127,7 @@ export async function getWaitTimes(
   _granularity: 'raw' | '5min' | '10min' = '10min' // Granularity logic handled by API for now
 ): Promise<DataResponse<WaitingDataItem[]>> {
   try {
-    const res = await fetch(`/api/waiting?date=${dayKey}&time=${time}`);
+    const res = await fetch(`${API_BASE_URL}/api/waiting?date=${dayKey}&time=${time}`);
     if (!res.ok) {
       if (res.status === 503) return { data: [], hasData: false };
       throw new Error(`API Error: ${res.statusText}`);
@@ -143,7 +145,7 @@ export async function getWaitTimes(
  */
 export async function getLatestWaitTimes(dayKey: DayKey): Promise<DataResponse<WaitingDataItem[]>> {
   try {
-    const res = await fetch(`/api/waiting/latest?date=${dayKey}`);
+    const res = await fetch(`${API_BASE_URL}/api/waiting/latest?date=${dayKey}`);
     if (!res.ok) {
       if (res.status === 503) return { data: [], hasData: false };
       throw new Error(`API Error: ${res.statusText}`);
@@ -158,12 +160,27 @@ export async function getLatestWaitTimes(dayKey: DayKey): Promise<DataResponse<W
 
 export async function getConfig() {
   try {
-    const res = await fetch('/api/config');
+    const res = await fetch(`${API_BASE_URL}/api/config`);
     if (!res.ok) throw new Error('Config fetch failed');
     const data = await res.json();
     return { data, hasData: true };
   } catch (e) {
     console.error(e);
     return { data: null, hasData: false, error: 'Failed to load config' };
+  }
+}
+
+/**
+ * Fetches ALL waiting data for a specific date (for charts).
+ */
+export async function getAllWaitTimes(dayKey: DayKey): Promise<any[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/waiting/all?date=${dayKey}`);
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json;
+  } catch (error) {
+    console.error('Failed to fetch all wait times:', error);
+    return [];
   }
 }

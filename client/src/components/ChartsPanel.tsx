@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 import { RESTAURANTS } from "@shared/types";
+import { getAllWaitTimes } from "@/lib/data/dataProvider";
 
 interface ChartsPanelTriggerProps {
   onClick: () => void;
@@ -37,10 +38,7 @@ export function ChartsPanel({ isOpen, onClose, selectedDate }: ChartsPanelProps)
   const { data: dayData } = useQuery({
     queryKey: ['/api/waiting/all', selectedDate],
     queryFn: async () => {
-      const res = await fetch(`/api/waiting/all?date=${selectedDate}`);
-      if (!res.ok) return [];
-      const json = await res.json();
-      return json;
+      return await getAllWaitTimes(selectedDate);
     },
     enabled: isOpen && !!selectedDate,
   });
