@@ -181,7 +181,19 @@ export async function registerRoutes(
       return res.status(503).json({ error: 'DynamoDB waiting source is disabled' });
     } catch (error) {
       logError('[API] waiting query failed:', error);
-      return res.status(503).json({ error: 'Database unavailable' });
+
+      // [DEBUG] Force return full error details
+      const errorDetails = {
+        message: (error as Error).message,
+        name: (error as Error).name,
+        stack: (error as Error).stack,
+        code: (error as any).code
+      };
+
+      return res.status(500).json({
+        error: 'DEBUG: Route Level Error',
+        details: errorDetails
+      });
     }
   });
 
