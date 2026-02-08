@@ -14,7 +14,7 @@
  * - If AWS services are unavailable/disabled, return 503/404 errors.
  */
 import type { Express, Request, Response } from "express";
-import { createServer, type Server } from "http";
+
 import { getMenuFromS3, isS3MenuEnabled, getMenuCacheStats } from "./s3MenuService";
 import {
   getKSTDateKey,
@@ -49,9 +49,8 @@ function getTodayDateKey(): string {
  * Register all API routes
  */
 export async function registerRoutes(
-  httpServer: Server,
   app: Express
-): Promise<Server> {
+): Promise<void> {
 
   // Postgres index creation removed (Legacy)
 
@@ -292,6 +291,29 @@ export async function registerRoutes(
     });
   });
 
+  // Alias for AWS Lambda health check (matches API Gateway GET /health)
+  app.get('/health', async (_req: Request, res: Response) => {
+    const now = getKSTISOTimestamp();
+    const ddbStatus = isDdbWaitingEnabled() ? (await checkDdbConnection()) : false;
+    const s3Enabled = isS3MenuEnabled();
+    const menuCacheStats = getMenuCacheStats();
+
+    res.json({
+      status: 'ok',
+      timestamp: now,
+      services: {
+        dynamoDB: {
+          enabled: isDdbWaitingEnabled(),
+          connected: ddbStatus,
+        },
+        s3: {
+          enabled: s3Enabled,
+          cache: menuCacheStats,
+        }
+      }
+    });
+  });
+
   // [New] Applied validation middleware
   app.get('/api/waiting/latest', validate(DateParamSchema), async (req: Request, res: Response) => {
     const startTime = Date.now();
@@ -347,5 +369,5 @@ export async function registerRoutes(
     return res.status(503).json({ error: 'DynamoDB waiting source is disabled' });
   });
 
-  return httpServer;
+
 }

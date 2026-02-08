@@ -1,0 +1,92 @@
+name: Deploy to AWS Lambda
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Utilities
+        run: sudo apt-get install -y zip
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build Lambda Artifact
+        run: npx tsx scripts/build-lambda.ts
+
+      - name: Create Zip Package
+        run: |
+          cd dist
+          zip -r ../function.zip .
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Deploy to Lambda
+        run: |
+          aws lambda update-function-code \
+            --function-name ${{ vars.LAMBDA_FUNCTION_NAME }} \
+            --zip-file fileb://function.zip
+
+      - name: Verify Deployment (Health Check)
+        run: |
+          API_URL="https://${{ vars.AWS_API_ID }}.execute-api.${{ vars.AWS_REGION }}.amazonaws.com"
+          
+          # 함수: 재시도 및 검증 로직 ($1: PATH)
+          check_health() {
+            local PATH=$1
+            local MAX_RETRIES=5
+            local WAIT_SECONDS=3
+            
+            echo "Checking $PATH ..."
+            
+            for ((i=1; i<=MAX_RETRIES; i++)); do
+              RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" "$API_URL$PATH")
+              HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS" | cut -d':' -f2)
+              BODY=$(echo "$RESPONSE" | sed 's/HTTP_STATUS:.*//')
+              
+              if [ "$HTTP_STATUS" -eq 200 ]; then
+                if echo "$BODY" | grep -q '"status".*"ok"'; then
+                  echo "✅ Success: $PATH (Attempt $i)"
+                  return 0
+                else
+                  echo "⚠️ Status 200 but content verification failed. Retrying... ($i/$MAX_RETRIES)"
+                fi
+              else
+                echo "⚠️ Failed: HTTP $HTTP_STATUS. Retrying... ($i/$MAX_RETRIES)"
+              fi
+              
+              if [ $i -lt $MAX_RETRIES ]; then
+                sleep $WAIT_SECONDS
+              fi
+            done
+            
+            echo "❌ Verify Failed: $PATH after $MAX_RETRIES attempts."
+            return 1
+          }
+          
+          # 1. Lambda Direct Health Check
+          check_health "/health" || exit 1
+          
+          # 2. API Gateway Proxy Check
+          check_health "/api/health" || exit 1
