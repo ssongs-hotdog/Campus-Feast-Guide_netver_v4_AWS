@@ -33,6 +33,8 @@ import {
 } from "./ddbWaitingRepo";
 import { computeWaitMinutes } from "./waitModel";
 import { validate, DateParamSchema, DateTimeQuerySchema } from "./utils/validation"; // [New] Import Validation
+import { validate, DateParamSchema, DateTimeQuerySchema } from "./utils/validation"; // [New] Import Validation
+
 import { log, logError } from "./utils/logger"; // [New] Import Logger
 
 // Stale threshold for waiting data
@@ -208,6 +210,8 @@ export async function registerRoutes(
         return res.json(data);
       }
       return res.status(503).json({ error: 'DynamoDB waiting source is disabled' });
+    } catch (error) {
+      logError('[API] all-data query failed:', error);
       return res.status(503).json({ error: 'Database unavailable' });
     }
   });
