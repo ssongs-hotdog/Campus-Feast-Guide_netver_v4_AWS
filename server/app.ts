@@ -56,9 +56,17 @@ export async function createApp() {
 
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
         const status = err.status || err.statusCode || 500;
+        // [DEBUG] Return actual error message for debugging
         const message = err.message || "Internal Server Error";
 
-        res.status(status).json({ message });
+        // If message is generic, try to capture the whole error object
+        const fullError = {
+            message,
+            errorObject: JSON.parse(JSON.stringify(err, Object.getOwnPropertyNames(err))),
+            stack: err.stack
+        };
+
+        res.status(status).json(fullError);
         throw err;
     });
 
