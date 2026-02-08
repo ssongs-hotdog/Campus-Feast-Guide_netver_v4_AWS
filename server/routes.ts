@@ -92,8 +92,8 @@ export async function registerRoutes(
     });
   });
 
-  // [New] Applied validation middleware
-  app.get('/api/waiting/timestamps', validate(DateParamSchema), async (req: Request, res: Response) => {
+  // [DEBUG] Middleware removed
+  app.get('/api/waiting/timestamps', async (req: Request, res: Response) => {
     const dateParam = req.query.date as string | undefined;
     const targetDate = dateParam || getTodayDateKey();
 
@@ -111,8 +111,8 @@ export async function registerRoutes(
     }
   });
 
-  // [New] Applied validation middleware for both date and time
-  app.get('/api/waiting', validate(DateTimeQuerySchema), async (req: Request, res: Response) => {
+  // [DEBUG] Middleware removed
+  app.get('/api/waiting', async (req: Request, res: Response) => {
     const dateParam = req.query.date as string | undefined;
     const timeParam = req.query.time as string | undefined;
 
@@ -197,8 +197,8 @@ export async function registerRoutes(
     }
   });
 
-  // [New] Applied validation middleware
-  app.get('/api/waiting/all', validate(DateParamSchema), async (req: Request, res: Response) => {
+  // [DEBUG] Middleware removed
+  app.get('/api/waiting/all', async (req: Request, res: Response) => {
     const dateParam = req.query.date as string | undefined;
     const targetDate = dateParam || getTodayDateKey();
 
