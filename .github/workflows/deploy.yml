@@ -49,44 +49,45 @@ jobs:
             --zip-file fileb://function.zip
 
       - name: Verify Deployment (Health Check)
+        shell: bash
+        env:
+          API_URL: "https://${{ vars.AWS_API_ID }}.execute-api.${{ vars.AWS_REGION }}.amazonaws.com"
         run: |
-          API_URL="https://${{ vars.AWS_API_ID }}.execute-api.${{ vars.AWS_REGION }}.amazonaws.com"
+          echo "Target API: $API_URL"
+          MAX_RETRIES=5
           
-          # 함수: 재시도 및 검증 로직 ($1: PATH)
-          check_health() {
-            local PATH=$1
-            local MAX_RETRIES=5
-            local WAIT_SECONDS=3
-            
-            echo "Checking $PATH ..."
+          # Check paths in loop
+          for PATH_TO_CHECK in "/health" "/api/health"; do
+            echo "----------------------------------------"
+            echo "Checking $PATH_TO_CHECK ..."
+            SUCCESS=false
             
             for ((i=1; i<=MAX_RETRIES; i++)); do
-              RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" "$API_URL$PATH")
-              HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS" | cut -d':' -f2)
-              BODY=$(echo "$RESPONSE" | sed 's/HTTP_STATUS:.*//')
+              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL$PATH_TO_CHECK")
+              RESPONSE=$(curl -s "$API_URL$PATH_TO_CHECK")
               
-              if [ "$HTTP_STATUS" -eq 200 ]; then
-                if echo "$BODY" | grep -q '"status".*"ok"'; then
-                  echo "✅ Success: $PATH (Attempt $i)"
-                  return 0
+              if [ "$HTTP_CODE" -eq 200 ]; then
+                if echo "$RESPONSE" | grep -q '"status".*"ok"'; then
+                  echo "✅ Success: $PATH_TO_CHECK (Attempt $i)"
+                  SUCCESS=true
+                  break
                 else
-                  echo "⚠️ Status 200 but content verification failed. Retrying... ($i/$MAX_RETRIES)"
+                  echo "⚠️ Status 200 but content verify failed. Response: $RESPONSE"
+                  echo "Retrying... ($i/$MAX_RETRIES)"
                 fi
               else
-                echo "⚠️ Failed: HTTP $HTTP_STATUS. Retrying... ($i/$MAX_RETRIES)"
+                echo "⚠️ Failed: HTTP $HTTP_CODE. Retrying... ($i/$MAX_RETRIES)"
               fi
               
               if [ $i -lt $MAX_RETRIES ]; then
-                sleep $WAIT_SECONDS
+                sleep 3
               fi
             done
             
-            echo "❌ Verify Failed: $PATH after $MAX_RETRIES attempts."
-            return 1
-          }
+            if [ "$SUCCESS" = false ]; then
+              echo "❌ Final Failure: $PATH_TO_CHECK after $MAX_RETRIES attempts"
+              exit 1
+            fi
+          done
           
-          # 1. Lambda Direct Health Check
-          check_health "/health" || exit 1
-          
-          # 2. API Gateway Proxy Check
-          check_health "/api/health" || exit 1
+          echo "🎉 All checks passed!"
