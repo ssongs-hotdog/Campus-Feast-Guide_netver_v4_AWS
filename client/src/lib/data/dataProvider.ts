@@ -86,7 +86,9 @@ export async function getMenus(dayKey: DayKey): Promise<DataResponse<MenuDataMap
       if (res.status === 404 || res.status === 503) {
         return { data: null, hasData: false };
       }
-      throw new Error(`API Error: ${res.statusText}`);
+      const errText = await res.text();
+      console.error(`[API Error] ${res.status} /api/menu:`, errText);
+      throw new Error(`API Error: ${res.statusText} - ${errText}`);
     }
     const data = await res.json();
     return { data, hasData: true };
@@ -107,7 +109,9 @@ export async function getAvailableTimestamps(dayKey: DayKey): Promise<DataRespon
       if (res.status === 503) {
         return { data: [], hasData: false };
       }
-      throw new Error(`API Error: ${res.statusText}`);
+      const errText = await res.text();
+      console.error(`[API Error] ${res.status} /api/waiting/timestamps:`, errText);
+      throw new Error(`API Error: ${res.statusText} - ${errText}`);
     }
     const json = await res.json();
     return { data: json.timestamps || [], hasData: true };
@@ -130,7 +134,9 @@ export async function getWaitTimes(
     const res = await fetch(`${API_BASE_URL}/api/waiting?date=${dayKey}&time=${time}`);
     if (!res.ok) {
       if (res.status === 503) return { data: [], hasData: false };
-      throw new Error(`API Error: ${res.statusText}`);
+      const errText = await res.text();
+      console.error(`[API Error] ${res.status} /api/waiting:`, errText);
+      throw new Error(`API Error: ${res.statusText} - ${errText}`);
     }
     const data = await res.json();
     return { data, hasData: true };
@@ -148,7 +154,9 @@ export async function getLatestWaitTimes(dayKey: DayKey): Promise<DataResponse<W
     const res = await fetch(`${API_BASE_URL}/api/waiting/latest?date=${dayKey}`);
     if (!res.ok) {
       if (res.status === 503) return { data: [], hasData: false };
-      throw new Error(`API Error: ${res.statusText}`);
+      const errText = await res.text();
+      console.error(`[API Error] ${res.status} /api/waiting/latest:`, errText);
+      throw new Error(`API Error: ${res.statusText} - ${errText}`);
     }
     const data = await res.json();
     return { data, hasData: true };
@@ -161,7 +169,11 @@ export async function getLatestWaitTimes(dayKey: DayKey): Promise<DataResponse<W
 export async function getConfig() {
   try {
     const res = await fetch(`${API_BASE_URL}/api/config`);
-    if (!res.ok) throw new Error('Config fetch failed');
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`[API Error] ${res.status} /api/config:`, errText);
+      throw new Error(`Config fetch failed: ${res.status} ${errText}`);
+    }
     const data = await res.json();
     return { data, hasData: true };
   } catch (e) {
@@ -176,7 +188,11 @@ export async function getConfig() {
 export async function getAllWaitTimes(dayKey: DayKey): Promise<any[]> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/waiting/all?date=${dayKey}`);
-    if (!res.ok) return [];
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error(`[API Error] ${res.status} /api/waiting/all:`, errText);
+      return [];
+    }
     const json = await res.json();
     return json;
   } catch (error) {
