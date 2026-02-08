@@ -33,8 +33,6 @@ import {
 } from "./ddbWaitingRepo";
 import { computeWaitMinutes } from "./waitModel";
 import { validate, DateParamSchema, DateTimeQuerySchema } from "./utils/validation"; // [New] Import Validation
-import { validate, DateParamSchema, DateTimeQuerySchema } from "./utils/validation"; // [New] Import Validation
-
 import { log, logError } from "./utils/logger"; // [New] Import Logger
 
 // Stale threshold for waiting data
@@ -94,8 +92,8 @@ export async function registerRoutes(
     });
   });
 
-  // [DEBUG] Middleware removed
-  app.get('/api/waiting/timestamps', async (req: Request, res: Response) => {
+  // [New] Applied validation middleware
+  app.get('/api/waiting/timestamps', validate(DateParamSchema), async (req: Request, res: Response) => {
     const dateParam = req.query.date as string | undefined;
     const targetDate = dateParam || getTodayDateKey();
 
@@ -113,8 +111,8 @@ export async function registerRoutes(
     }
   });
 
-  // [DEBUG] Middleware removed
-  app.get('/api/waiting', async (req: Request, res: Response) => {
+  // [New] Applied validation middleware for both date and time
+  app.get('/api/waiting', validate(DateTimeQuerySchema), async (req: Request, res: Response) => {
     const dateParam = req.query.date as string | undefined;
     const timeParam = req.query.time as string | undefined;
 
@@ -183,24 +181,12 @@ export async function registerRoutes(
       return res.status(503).json({ error: 'DynamoDB waiting source is disabled' });
     } catch (error) {
       logError('[API] waiting query failed:', error);
-
-      // [DEBUG] Force return full error details
-      const errorDetails = {
-        message: (error as Error).message,
-        name: (error as Error).name,
-        stack: (error as Error).stack,
-        code: (error as any).code
-      };
-
-      return res.status(500).json({
-        error: 'DEBUG: Route Level Error',
-        details: errorDetails
-      });
+      return res.status(503).json({ error: 'Database unavailable' });
     }
   });
 
-  // [DEBUG] Middleware removed
-  app.get('/api/waiting/all', async (req: Request, res: Response) => {
+  // [New] Applied validation middleware
+  app.get('/api/waiting/all', validate(DateParamSchema), async (req: Request, res: Response) => {
     const dateParam = req.query.date as string | undefined;
     const targetDate = dateParam || getTodayDateKey();
 
@@ -214,11 +200,6 @@ export async function registerRoutes(
       logError('[API] all-data query failed:', error);
       return res.status(503).json({ error: 'Database unavailable' });
     }
-  });
-
-  // [DEBUG] Test route to verify deployment
-  app.get('/api/waiting/test-v1', (_req: Request, res: Response) => {
-    res.json({ message: 'Deployment is Working!', timestamp: new Date().toISOString() });
   });
 
   app.get('/api/config', (_req: Request, res: Response) => {
