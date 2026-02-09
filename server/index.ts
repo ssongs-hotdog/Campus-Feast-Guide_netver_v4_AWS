@@ -3,7 +3,31 @@ import { createServer } from "http";
 import { createApp } from "./app";
 import { log } from "./utils/logger";
 
+/**
+ * Validate critical environment variables at startup
+ * Fail fast if configuration is incorrect
+ */
+function validateEnvironment() {
+  const waitingSource = process.env.WAITING_SOURCE;
+  const ddbTable = process.env.DDB_TABLE_WAITING;
+
+  // If DDB is enabled, table name must be provided
+  if (waitingSource === 'ddb' && !ddbTable) {
+    throw new Error(
+      'FATAL: DDB_TABLE_WAITING must be set when WAITING_SOURCE=ddb'
+    );
+  }
+
+  // Log non-fatal warnings
+  if (!waitingSource) {
+    console.warn('[WARN] WAITING_SOURCE not set, waiting data will be disabled');
+  }
+}
+
 (async () => {
+  // Validate environment before starting server
+  validateEnvironment();
+
   const app = await createApp();
   const httpServer = createServer(app);
 
