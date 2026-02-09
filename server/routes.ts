@@ -34,6 +34,7 @@ import {
 import { computeWaitMinutes } from "./waitModel";
 import { validate, DateParamSchema, DateTimeQuerySchema } from "./utils/validation"; // [New] Import Validation
 import { log, logError } from "./utils/logger"; // [New] Import Logger
+import { RESTAURANTS } from "@shared/types"; // [New] Import for time-range query optimization
 
 // Stale threshold for waiting data
 const WAITING_STALE_SECONDS = (() => {
@@ -121,40 +122,109 @@ export async function registerRoutes(
     const dateParam = req.query.date as string | undefined;
     const timeParam = req.query.time as string | undefined;
 
-    // Manual Regex checks removed - Zod handled them
-
     const targetDate = dateParam || getTodayDateKey();
 
     try {
       if (isDdbWaitingEnabled()) {
-        const allData = await ddbGetAllDataByDate(targetDate, computeWaitMinutes);
-
-        let filtered = allData;
+        let filtered;
 
         if (timeParam) {
           if (timeParam.includes('T') || timeParam.includes('+')) {
-            // ISO timestamp match
+            // ISO timestamp match - query all then filter (rare case)
+            const allData = await ddbGetAllDataByDate(targetDate, computeWaitMinutes);
             filtered = allData.filter(row => row.timestamp === timeParam);
           } else {
-            // HH:MM aggregation match logic (5-min bucket)
+            // HH:MM format - calculate 5-minute time range and query DynamoDB directly
             const [hours, minutes] = timeParam.split(':').map(Number);
+            const bucketStart = Math.floor(minutes / 5) * 5;
 
-            // Filter data that falls within [HH:MM, HH:MM+5)
-            // e.g. 12:00 -> 12:00:00 ~ 12:04:59
-            filtered = allData.filter(row => {
-              // row.timestamp is ISO string (e.g. 2023-01-01T12:01:30+09:00)
-              const date = new Date(row.timestamp);
-              const h = date.getHours();
-              const m = date.getMinutes();
+            // Build KST time range for this 5-minute bucket
+            const startHHMM = `${String(hours).padStart(2, '0')}:${String(bucketStart).padStart(2, '0')}`;
+            const endMinutes = bucketStart + 4;
+            const endHHMM = `${String(hours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
 
-              if (h !== hours) return false;
-              // Check 5-minute bucket
-              const bucketStart = Math.floor(m / 5) * 5;
-              return bucketStart === minutes;
-            });
+            // Convert to epoch milliseconds (KST)
+            const dateStartKST = new Date(`${targetDate}T${startHHMM}:00+09:00`);
+            const dateEndKST = new Date(`${targetDate}T${endHHMM}:59.999+09:00`);
+
+            const startMs = dateStartKST.getTime();
+            const endMs = dateEndKST.getTime();
+
+            log(`[API] Querying DDB for time range: ${startHHMM} - ${endHHMM} (${startMs} - ${endMs})`);
+
+            // Query only this specific time range from DynamoDB
+            const allCorners: Array<{ restaurantId: string; cornerId: string }> = [];
+            for (const restaurant of RESTAURANTS) {
+              for (const cornerId of restaurant.cornerOrder) {
+                allCorners.push({ restaurantId: restaurant.id, cornerId });
+              }
+            }
+
+            const results: any[] = [];
+
+            for (const { restaurantId, cornerId } of allCorners) {
+              const pk = `CORNER#${restaurantId}#${cornerId}`;
+              try {
+                const { DynamoDBDocumentClient } = await import('@aws-sdk/lib-dynamodb');
+                const { DynamoDBClient } = await import('@aws-sdk/client-dynamodb');
+                const { QueryCommand } = await import('@aws-sdk/lib-dynamodb');
+
+                // This is a workaround - ideally we'd import from ddbWaitingRepo
+                // but it doesn't expose a time-range query function yet
+                const ddbClient = new DynamoDBClient({ region: process.env.AWS_REGION || "ap-northeast-2" });
+                const docClient = DynamoDBDocumentClient.from(ddbClient, {
+                  marshallOptions: { removeUndefinedValues: true },
+                });
+
+                const result = await docClient.send(
+                  new QueryCommand({
+                    TableName: process.env.DDB_TABLE_WAITING || "",
+                    KeyConditionExpression: "pk = :pk AND sk BETWEEN :start AND :end",
+                    ExpressionAttributeValues: {
+                      ":pk": pk,
+                      ":start": String(startMs),
+                      ":end": String(endMs),
+                    },
+                  })
+                );
+
+                if (result.Items && result.Items.length > 0) {
+                  for (const item of result.Items) {
+                    const timestampMs = Number(item.sk);
+                    const date = new Date(timestampMs);
+                    const formatter = new Intl.DateTimeFormat("sv-SE", {
+                      timeZone: "Asia/Seoul",
+                      year: "numeric",
+                      month: "2-digit",
+                      day: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                      hour12: false,
+                    });
+                    const timestampIso = formatter.format(date).replace(" ", "T") + "+09:00";
+
+                    results.push({
+                      timestamp: timestampIso,
+                      restaurantId: item.restaurantId,
+                      cornerId: item.cornerId,
+                      queue_len: item.queueLen,
+                      est_wait_time_min: computeWaitMinutes(item.queueLen as number, item.restaurantId as string, item.cornerId as string),
+                      data_type: (item.dataType as string) || "observed",
+                    });
+                  }
+                }
+              } catch (error) {
+                logError(`[API] Query failed for ${pk}:`, error);
+              }
+            }
+
+            filtered = results;
+            log(`[API] Time-range query returned ${filtered.length} items`);
           }
         } else {
           // No time param -> return latest in that day
+          const allData = await ddbGetAllDataByDate(targetDate, computeWaitMinutes);
           if (allData.length > 0) {
             const latestTs = allData[allData.length - 1].timestamp;
             filtered = allData.filter(row => row.timestamp === latestTs);
@@ -164,9 +234,7 @@ export async function registerRoutes(
         }
 
         // Fix snake_case to camelCase mismatch for frontend (WaitingData interface)
-        // Defensive check: support both snake_case (legacy) and camelCase (new) from DDB
         const mapped = filtered.map(row => {
-          // Check both, fallback to 0 or defaults if missing
           const qLen = (row as any).queueLen ?? (row as any).queue_len ?? 0;
           const waitMin = (row as any).estWaitTimeMin ?? (row as any).est_wait_time_min ?? 0;
 
