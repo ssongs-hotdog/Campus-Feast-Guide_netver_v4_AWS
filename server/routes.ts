@@ -99,15 +99,20 @@ export async function registerRoutes(
 
     try {
       if (isDdbWaitingEnabled()) {
+        log(`[API] Fetching timestamps for date: ${targetDate}`);
         const timestamps = await ddbGetTimestampsByDate(targetDate);
+        log(`[API] Successfully fetched ${timestamps.length} timestamps`);
         return res.json({ timestamps });
       }
 
       // If DDB is disabled, we cannot serve this request
       return res.status(503).json({ error: 'DynamoDB waiting source is disabled' });
     } catch (error) {
-      logError('[API] timestamps query failed:', error);
-      return res.status(503).json({ error: 'Database unavailable' });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : 'No stack trace';
+      logError(`[API] timestamps query failed for date ${targetDate}:`, error);
+      console.error('[API] Full error details:', { errorMessage, errorStack, targetDate });
+      return res.status(503).json({ error: 'Database unavailable', details: errorMessage });
     }
   });
 
