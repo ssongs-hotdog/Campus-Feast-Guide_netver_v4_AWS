@@ -12,7 +12,7 @@ import {
 } from "./utils/date";
 
 const AWS_REGION = process.env.AWS_REGION || "ap-northeast-2";
-const DDB_TABLE_WAITING = process.env.DDB_TABLE_WAITING;
+const DDB_TABLE_WAITING = process.env.DDB_TABLE_WAITING || "";
 const WAITING_SOURCE = process.env.WAITING_SOURCE || "disabled";
 
 const TTL_DAYS = 90;
