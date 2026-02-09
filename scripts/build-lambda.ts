@@ -21,7 +21,7 @@ async function buildLambda() {
         // However, excluding it reduces size significantly.
         // If we use features not in the runtime version, we should bundle.
         // For now, exclude it as per standard practice for lean lambdas.
-        external: ["@aws-sdk/*"],
+        // external: ["@aws-sdk/*"], // Bundled for stability
         logLevel: "info",
         minify: true,
         treeShaking: true,
