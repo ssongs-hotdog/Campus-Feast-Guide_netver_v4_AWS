@@ -12,12 +12,18 @@ import {
 } from "./utils/date";
 
 const AWS_REGION = process.env.AWS_REGION || "ap-northeast-2";
-const DDB_TABLE_WAITING = process.env.DDB_TABLE_WAITING || "hyeat_YOLO_data";
-const WAITING_SOURCE = process.env.WAITING_SOURCE || "postgres";
+const DDB_TABLE_WAITING = process.env.DDB_TABLE_WAITING;
+const WAITING_SOURCE = process.env.WAITING_SOURCE || "disabled";
 
 const TTL_DAYS = 90;
 
 let ddbDocClient: DynamoDBDocumentClient | null = null;
+
+// [DEBUG] Check Environment Variables
+console.log("[DEBUG] Env Check:", {
+  DDB_TABLE_WAITING_ENV: process.env.DDB_TABLE_WAITING,
+  Result: DDB_TABLE_WAITING || "UNDEFINED (will be disabled)"
+});
 
 function getDdbClient(): DynamoDBDocumentClient {
   if (!ddbDocClient) {
@@ -30,7 +36,14 @@ function getDdbClient(): DynamoDBDocumentClient {
 }
 
 export function isDdbWaitingEnabled(): boolean {
-  return WAITING_SOURCE === "ddb";
+  if (WAITING_SOURCE === "ddb") {
+    if (!DDB_TABLE_WAITING) {
+      console.error("[DDB] WAITING_SOURCE is 'ddb' but DDB_TABLE_WAITING is not set. Disabling DDB.");
+      return false;
+    }
+    return true;
+  }
+  return false;
 }
 
 function buildPk(restaurantId: string, cornerId: string): string {
