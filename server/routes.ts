@@ -223,13 +223,21 @@ export async function registerRoutes(
             log(`[API] Time-range query returned ${filtered.length} items`);
           }
         } else {
-          // No time param -> return latest in that day
-          const allData = await ddbGetAllDataByDate(targetDate, computeWaitMinutes);
-          if (allData.length > 0) {
-            const latestTs = allData[allData.length - 1].timestamp;
-            filtered = allData.filter(row => row.timestamp === latestTs);
-          } else {
+          // No time param -> return latest in that day using optimized query
+          const { rows, latestTimestamp } = await ddbGetLatestByDate(targetDate);
+
+          if (rows.length === 0) {
             filtered = [];
+          } else {
+            // Convert from ddbGetLatestByDate format to expected format
+            filtered = rows.map(row => ({
+              timestamp: latestTimestamp!,
+              restaurantId: row.restaurantId,
+              cornerId: row.cornerId,
+              queue_len: row.queueLen,
+              est_wait_time_min: computeWaitMinutes(row.queueLen, row.restaurantId, row.cornerId),
+              data_type: row.dataType || 'observed',
+            }));
           }
         }
 
