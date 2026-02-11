@@ -143,3 +143,5 @@ npm run build
 
 **Maintainer**: Antigravity Team
 **License**: MIT
+
+<!-- GitHub Actions CI/CD 테스트: 2026-02-12 -->
