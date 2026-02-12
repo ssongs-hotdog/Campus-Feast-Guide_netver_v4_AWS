@@ -33,7 +33,7 @@ import {
   checkDdbConnection,
   getPredictionByDayAndTime
 } from "./ddbWaitingRepo";
-import { computeWaitMinutes } from "./waitModel";
+// import { computeWaitMinutes } from "./waitModel"; // ❌ REMOVED: Now using DynamoDB estWaitTimeMin
 import { validate, DateParamSchema, DateTimeQuerySchema } from "./utils/validation"; // [New] Import Validation
 import { log, logError } from "./utils/logger"; // [New] Import Logger
 import { RESTAURANTS } from "@shared/types"; // [New] Import for time-range query optimization
@@ -133,7 +133,7 @@ export async function registerRoutes(
         if (timeParam) {
           if (timeParam.includes('T') || timeParam.includes('+')) {
             // ISO timestamp match - query all then filter (rare case)
-            const allData = await ddbGetAllDataByDate(targetDate, computeWaitMinutes);
+            const allData = await ddbGetAllDataByDate(targetDate);
             filtered = allData.filter(row => row.timestamp === timeParam);
           } else {
             // HH:MM format - calculate 5-minute time range and query DynamoDB directly
@@ -213,7 +213,7 @@ export async function registerRoutes(
                       restaurantId: item.restaurantId,
                       cornerId: item.cornerId,
                       queue_len: item.queueLen,
-                      est_wait_time_min: computeWaitMinutes(item.queueLen as number, item.restaurantId as string, item.cornerId as string),
+                      est_wait_time_min: (item as any).estWaitTimeMin ?? 0,
                       data_type: (item.dataType as string) || "observed",
                     };
                   });
@@ -259,7 +259,7 @@ export async function registerRoutes(
               restaurantId: row.restaurantId,
               cornerId: row.cornerId,
               queue_len: row.queueLen,
-              est_wait_time_min: computeWaitMinutes(row.queueLen, row.restaurantId, row.cornerId),
+              est_wait_time_min: row.estWaitTimeMin ?? 0,
               data_type: row.dataType || 'observed',
             }));
           }
@@ -297,7 +297,7 @@ export async function registerRoutes(
 
     try {
       if (isDdbWaitingEnabled()) {
-        const data = await ddbGetAllDataByDate(targetDate, computeWaitMinutes);
+        const data = await ddbGetAllDataByDate(targetDate);
         return res.json(data);
       }
       return res.status(503).json({ error: 'DynamoDB waiting source is disabled' });
@@ -339,7 +339,7 @@ export async function registerRoutes(
     const bucketEndStr = `${String(hours).padStart(2, '0')}:${String(bucketStart + 4).padStart(2, '0')}`;
 
     try {
-      const result = await getPredictionByDayAndTime(dayOfWeek, timeParam, computeWaitMinutes);
+      const result = await getPredictionByDayAndTime(dayOfWeek, timeParam);
 
       const confidence = result.basedOnDays >= 4 ? 'high'
         : result.basedOnDays >= 2 ? 'medium'
@@ -454,7 +454,7 @@ export async function registerRoutes(
           restaurantId: row.restaurantId,
           cornerId: row.cornerId,
           queue_len: row.queueLen,
-          est_wait_time_min: computeWaitMinutes(row.queueLen, row.restaurantId, row.cornerId),
+          est_wait_time_min: row.estWaitTimeMin ?? 0,
           data_type: row.dataType || 'observed',
         }));
 

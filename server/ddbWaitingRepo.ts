@@ -85,6 +85,7 @@ export interface DdbWaitingSnapshot {
   restaurantId: string;
   cornerId: string;
   queueLen: number;
+  estWaitTimeMin?: number;  // ✅ Added for camera team pre-calculated wait time
   timestampIso?: string;
   timestampEpochMillis?: number;
   dataType?: string;
@@ -202,6 +203,7 @@ export interface DdbLatestResult {
     restaurantId: string;
     cornerId: string;
     queueLen: number;
+    estWaitTimeMin?: number;  // ✅ Added for camera team data
     dataType: string | null;
     source: string | null;
   }>;
@@ -298,8 +300,8 @@ export interface DdbAllDataRow {
 }
 
 export async function getAllDataByDate(
-  dateKey: string,
-  computeWaitFn: (queueLen: number, restaurantId: string, cornerId: string) => number
+  dateKey: string
+  // computeWaitFn removed - using DynamoDB estWaitTimeMin instead
 ): Promise<DdbAllDataRow[]> {
   if (!isDdbWaitingEnabled()) {
     throw new Error("DynamoDB waiting source is disabled");
@@ -337,11 +339,7 @@ export async function getAllDataByDate(
         restaurantId: item.restaurantId as string,
         cornerId: item.cornerId as string,
         queue_len: item.queueLen as number,
-        est_wait_time_min: computeWaitFn(
-          item.queueLen as number,
-          item.restaurantId as string,
-          item.cornerId as string
-        ),
+        est_wait_time_min: (item as any).estWaitTimeMin ?? 0,  // Use DDB value
         data_type: (item.dataType as string) || "observed",
       }));
     } catch (error) {
@@ -458,8 +456,8 @@ export interface PredictionResult {
  */
 export async function getPredictionByDayAndTime(
   dayOfWeek: number,
-  timeHHMM: string,
-  computeWaitFn: (queueLen: number, restaurantId: string, cornerId: string) => number
+  timeHHMM: string
+  // computeWaitFn removed - using DynamoDB estWaitTimeMin instead
 ): Promise<PredictionResult> {
   if (!isDdbWaitingEnabled()) {
     throw new Error("DynamoDB waiting source is disabled");
@@ -485,8 +483,8 @@ export async function getPredictionByDayAndTime(
     }
   }
 
-  // Aggregation map: key = "restId#cornerId", value = list of queueLens
-  const aggregation = new Map<string, number[]>();
+  // Aggregation map: key = "restId#cornerId", value = {queueLens: [], waitTimes: []}
+  const aggregation = new Map<string, { queueLens: number[], waitTimes: number[] }>();
   // We need to track how many UNIQUE days actually contributed data
   const daysWithData = new Set<string>();
   let totalSampleCount = 0;
@@ -525,14 +523,18 @@ export async function getPredictionByDayAndTime(
           const items = result.Items;
 
           // Calculate average for this specific bucket instance
-          const sum = items.reduce((acc: number, item: any) => acc + (Number(item.queueLen) || 0), 0);
-          const avg = sum / items.length;
+          const sumQueue = items.reduce((acc: number, item: any) => acc + (Number(item.queueLen) || 0), 0);
+          const avgQueue = sumQueue / items.length;
+
+          const sumWait = items.reduce((acc: number, item: any) => acc + (Number((item as any).estWaitTimeMin) || 0), 0);
+          const avgWait = sumWait / items.length;
 
           const key = `${restaurantId}#${cornerId}`;
           if (!aggregation.has(key)) {
-            aggregation.set(key, []);
+            aggregation.set(key, { queueLens: [], waitTimes: [] });
           }
-          aggregation.get(key)!.push(avg);
+          aggregation.get(key)!.queueLens.push(avgQueue);
+          aggregation.get(key)!.waitTimes.push(avgWait);
 
           daysWithData.add(dateKey);
           totalSampleCount += items.length;
@@ -550,18 +552,22 @@ export async function getPredictionByDayAndTime(
 
   const predictions: PredictionRow[] = [];
 
-  for (const [key, values] of aggregation.entries()) {
+  for (const [key, data] of aggregation.entries()) {
     const [restaurantId, cornerId] = key.split('#');
 
     // Average of averages (mean of means)
-    const totalAvg = values.reduce((a: number, b: number) => a + b, 0) / values.length;
-    const roundedAvg = Math.round(totalAvg);
+    const totalAvgQueue = data.queueLens.reduce((a: number, b: number) => a + b, 0) / data.queueLens.length;
+    const roundedAvg = Math.round(totalAvgQueue);
+
+    // Average estWaitTimeMin from DDB samples
+    const totalAvgWait = data.waitTimes.reduce((a: number, b: number) => a + b, 0) / data.waitTimes.length;
+    const avgWaitMin = Math.round(totalAvgWait);
 
     predictions.push({
       restaurantId,
       cornerId,
       avgQueueLen: roundedAvg,
-      waitMin: computeWaitFn(roundedAvg, restaurantId, cornerId),
+      waitMin: avgWaitMin,  // Use averaged DDB estWaitTimeMin
     });
   }
 
