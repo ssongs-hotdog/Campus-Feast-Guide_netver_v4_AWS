@@ -1,6 +1,8 @@
 /**
  * routes.ts - API Route Definitions
  * 
+ * 🧪 Git Workflow Practice - Test comment by 송준의 (2026-02-12)
+ * 
  * Purpose: Defines all REST API endpoints for the HY-eat application.
  * This is the server-side data access layer that serves:
  * - Menu data (from S3 only)
