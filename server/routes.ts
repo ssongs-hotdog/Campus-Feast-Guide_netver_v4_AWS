@@ -32,9 +32,9 @@ import {
   getPredictionByDayAndTime
 } from "./ddbWaitingRepo";
 import { computeWaitMinutes } from "./waitModel";
-import { validate, DateParamSchema, DateTimeQuerySchema } from "./utils/validation"; // [New] Import Validation
-import { log, logError } from "./utils/logger"; // [New] Import Logger
-import { RESTAURANTS } from "@shared/types"; // [New] Import for time-range query optimization
+import { validate, DateParamSchema, DateTimeQuerySchema } from "./utils/validation";
+import { log, logError } from "./utils/logger";
+import { RESTAURANTS } from "@shared/types";
 
 // Stale threshold for waiting data
 const WAITING_STALE_SECONDS = (() => {
@@ -63,7 +63,6 @@ export async function registerRoutes(
     res.json({ dates: [], today: getTodayDateKey() });
   });
 
-  // [New] Applied validation middleware
   app.get('/api/menu', validate(DateParamSchema), async (req: Request, res: Response) => {
     const dateParam = req.query.date as string | undefined;
     const targetDate = dateParam || getTodayDateKey();
@@ -93,31 +92,24 @@ export async function registerRoutes(
     });
   });
 
-  // [New] Applied validation middleware
   app.get('/api/waiting/timestamps', validate(DateParamSchema), async (req: Request, res: Response) => {
     const dateParam = req.query.date as string | undefined;
     const targetDate = dateParam || getTodayDateKey();
 
     try {
       if (isDdbWaitingEnabled()) {
-        log(`[API] Fetching timestamps for date: ${targetDate}`);
         const timestamps = await ddbGetTimestampsByDate(targetDate);
-        log(`[API] Successfully fetched ${timestamps.length} timestamps`);
         return res.json({ timestamps });
       }
 
       // If DDB is disabled, we cannot serve this request
       return res.status(503).json({ error: 'DynamoDB waiting source is disabled' });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorStack = error instanceof Error ? error.stack : 'No stack trace';
-      logError(`[API] timestamps query failed for date ${targetDate}:`, error);
-      console.error('[API] Full error details:', { errorMessage, errorStack, targetDate });
-      return res.status(503).json({ error: 'Database unavailable', details: errorMessage });
+      logError(`Timestamps query failed for date ${targetDate}`, error);
+      return res.status(503).json({ error: 'Database unavailable' });
     }
   });
 
-  // [New] Applied validation middleware for both date and time
   app.get('/api/waiting', validate(DateTimeQuerySchema), async (req: Request, res: Response) => {
     const dateParam = req.query.date as string | undefined;
     const timeParam = req.query.time as string | undefined;
@@ -150,8 +142,6 @@ export async function registerRoutes(
             const startMs = dateStartKST.getTime();
             const endMs = dateEndKST.getTime();
 
-            log(`[API] Querying DDB for time range: ${startHHMM} - ${endHHMM} (${startMs} - ${endMs})`);
-
             // Query only this specific time range from DynamoDB
             const allCorners: Array<{ restaurantId: string; cornerId: string }> = [];
             for (const restaurant of RESTAURANTS) {
@@ -169,8 +159,6 @@ export async function registerRoutes(
                 const { DynamoDBClient } = await import('@aws-sdk/client-dynamodb');
                 const { QueryCommand } = await import('@aws-sdk/lib-dynamodb');
 
-                // This is a workaround - ideally we'd import from ddbWaitingRepo
-                // but it doesn't expose a time-range query function yet
                 const ddbClient = new DynamoDBClient({ region: process.env.AWS_REGION || "ap-northeast-2" });
                 const docClient = DynamoDBDocumentClient.from(ddbClient, {
                   marshallOptions: { removeUndefinedValues: true },
@@ -220,7 +208,6 @@ export async function registerRoutes(
             }
 
             filtered = results;
-            log(`[API] Time-range query returned ${filtered.length} items`);
           }
         } else {
           // No time param -> return latest in that day using optimized query
@@ -266,7 +253,6 @@ export async function registerRoutes(
     }
   });
 
-  // [New] Applied validation middleware
   app.get('/api/waiting/all', validate(DateParamSchema), async (req: Request, res: Response) => {
     const dateParam = req.query.date as string | undefined;
     const targetDate = dateParam || getTodayDateKey();
@@ -395,7 +381,6 @@ export async function registerRoutes(
     });
   });
 
-  // [New] Applied validation middleware
   app.get('/api/waiting/latest', validate(DateParamSchema), async (req: Request, res: Response) => {
     const startTime = Date.now();
     const dateParam = (req.query.date as string) || getTodayDateKey();
