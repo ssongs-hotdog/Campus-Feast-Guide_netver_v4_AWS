@@ -19,6 +19,12 @@ const TTL_DAYS = 90;
 
 let ddbDocClient: DynamoDBDocumentClient | null = null;
 
+// [DEBUG] Check Environment Variables
+console.log("[DEBUG] Env Check:", {
+  DDB_TABLE_WAITING_ENV: process.env.DDB_TABLE_WAITING,
+  Result: DDB_TABLE_WAITING || "UNDEFINED (will be disabled)"
+});
+
 function getDdbClient(): DynamoDBDocumentClient {
   if (!ddbDocClient) {
     const ddbClient = new DynamoDBClient({ region: AWS_REGION });
