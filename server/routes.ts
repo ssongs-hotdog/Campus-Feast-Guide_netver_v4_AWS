@@ -160,22 +160,24 @@ export async function registerRoutes(
               }
             }
 
-            const results: any[] = [];
+            // ✅ HOTFIX: Move imports and client creation outside loop for performance
+            const { DynamoDBDocumentClient } = await import('@aws-sdk/lib-dynamodb');
+            const { DynamoDBClient } = await import('@aws-sdk/client-dynamodb');
+            const { QueryCommand } = await import('@aws-sdk/lib-dynamodb');
 
-            for (const { restaurantId, cornerId } of allCorners) {
+            // This is a workaround - ideally we'd import from ddbWaitingRepo
+            // but it doesn't expose a time-range query function yet
+            const ddbClient = new DynamoDBClient({ region: process.env.AWS_REGION || "ap-northeast-2" });
+            const docClient = DynamoDBDocumentClient.from(ddbClient, {
+              marshallOptions: { removeUndefinedValues: true },
+            });
+
+            // ✅ HOTFIX: Convert sequential queries to parallel execution
+            // Before: 15 sequential await calls = ~7.5s (causing timeout)
+            // After: 15 parallel queries = max(query times) = ~0.5s
+            const queryPromises = allCorners.map(async ({ restaurantId, cornerId }) => {
               const pk = `CORNER#${restaurantId}#${cornerId}`;
               try {
-                const { DynamoDBDocumentClient } = await import('@aws-sdk/lib-dynamodb');
-                const { DynamoDBClient } = await import('@aws-sdk/client-dynamodb');
-                const { QueryCommand } = await import('@aws-sdk/lib-dynamodb');
-
-                // This is a workaround - ideally we'd import from ddbWaitingRepo
-                // but it doesn't expose a time-range query function yet
-                const ddbClient = new DynamoDBClient({ region: process.env.AWS_REGION || "ap-northeast-2" });
-                const docClient = DynamoDBDocumentClient.from(ddbClient, {
-                  marshallOptions: { removeUndefinedValues: true },
-                });
-
                 const result = await docClient.send(
                   new QueryCommand({
                     TableName: process.env.DDB_TABLE_WAITING || "",
@@ -189,7 +191,7 @@ export async function registerRoutes(
                 );
 
                 if (result.Items && result.Items.length > 0) {
-                  for (const item of result.Items) {
+                  return result.Items.map((item: any) => {
                     const timestampMs = Number(item.sk);
                     const date = new Date(timestampMs);
                     const formatter = new Intl.DateTimeFormat("sv-SE", {
@@ -204,19 +206,39 @@ export async function registerRoutes(
                     });
                     const timestampIso = formatter.format(date).replace(" ", "T") + "+09:00";
 
-                    results.push({
+                    return {
                       timestamp: timestampIso,
                       restaurantId: item.restaurantId,
                       cornerId: item.cornerId,
                       queue_len: item.queueLen,
                       est_wait_time_min: computeWaitMinutes(item.queueLen as number, item.restaurantId as string, item.cornerId as string),
                       data_type: (item.dataType as string) || "observed",
-                    });
-                  }
+                    };
+                  });
                 }
+                return [];
               } catch (error) {
                 logError(`[API] Query failed for ${pk}:`, error);
+                return [];
               }
+            });
+
+            // ✅ Use Promise.allSettled to handle partial failures gracefully
+            const queryResults = await Promise.allSettled(queryPromises);
+
+            const results: any[] = [];
+            let failedQueries = 0;
+
+            for (const settledResult of queryResults) {
+              if (settledResult.status === 'fulfilled') {
+                results.push(...settledResult.value);
+              } else {
+                failedQueries++;
+              }
+            }
+
+            if (failedQueries > 0) {
+              log(`[API] Warning: ${failedQueries} out of ${allCorners.length} queries failed`);
             }
 
             filtered = results;
