@@ -14,14 +14,14 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     
-    # 환경변수 결정 로직 (브랜치에 따라 다른 Secret 선택)
+    # 환경변수 결정 로직 (따옴표로 감싸서 YAML 경고 방지)
     env:
-      LAMBDA_NAME: ${{ github.ref == 'refs/heads/main' && secrets.PROD_LAMBDA_NAME || secrets.DEV_LAMBDA_NAME }}
-      DDB_TABLE: ${{ github.ref == 'refs/heads/main' && secrets.PROD_DDB_TABLE || secrets.DEV_DDB_TABLE }}
-      S3_BUCKET: ${{ github.ref == 'refs/heads/main' && secrets.PROD_S3_BUCKET || secrets.DEV_S3_BUCKET }}
-      API_ID: ${{ github.ref == 'refs/heads/main' && vars.AWS_API_ID || vars.DEV_AWS_API_ID }}
-      # 환경별 상수 설정
-      ENV_NAME: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
+      LAMBDA_NAME: "${{ github.ref == 'refs/heads/main' && secrets.PROD_LAMBDA_NAME || secrets.DEV_LAMBDA_NAME }}"
+      DDB_TABLE: "${{ github.ref == 'refs/heads/main' && secrets.PROD_DDB_TABLE || secrets.DEV_DDB_TABLE }}"
+      S3_BUCKET: "${{ github.ref == 'refs/heads/main' && secrets.PROD_S3_BUCKET || secrets.DEV_S3_BUCKET }}"
+      API_ID: "${{ github.ref == 'refs/heads/main' && vars.AWS_API_ID || vars.DEV_AWS_API_ID }}"
+      ENV_NAME: "${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}"
+      STAGE_NAME: "${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}"
       MENU_CACHE_ENABLED: "true"
 
     steps:
@@ -59,47 +59,37 @@ jobs:
           
           # 1. 코드 업데이트
           aws lambda update-function-code \
-            --function-name $LAMBDA_NAME \
+            --function-name "$LAMBDA_NAME" \
             --zip-file fileb://function.zip
 
-          # 2. 환경변수 업데이트 (Wait for code update to finish / Code update is async but usually fast)
-          # 잠시 대기하여 업데이트 충돌 방지
+          # 2. 환경변수 업데이트
+          # 업데이트 충돌 방지를 위한 대기
           sleep 5
 
           echo "Updating configuration for: $LAMBDA_NAME"
-          echo "Setting DDB_TABLE_WAITING=$DDB_TABLE"
-          echo "Setting S3_BUCKET=$S3_BUCKET"
+          
+          # Variables JSON 문자열을 한 줄로 구성 (공백 문제 방지)
+          VARIABLES="Variables={AWS_REGION=${{ vars.AWS_REGION }},DDB_TABLE_WAITING=$DDB_TABLE,S3_BUCKET=$S3_BUCKET,WAITING_SOURCE=ddb,MENU_SOURCE=s3,MENU_CACHE_ENABLED=$MENU_CACHE_ENABLED,NODE_ENV=$ENV_NAME}"
           
           aws lambda update-function-configuration \
-            --function-name $LAMBDA_NAME \
-            --environment "Variables={
-              AWS_REGION=${{ vars.AWS_REGION }},
-              DDB_TABLE_WAITING=$DDB_TABLE,
-              S3_BUCKET=$S3_BUCKET,
-              WAITING_SOURCE=ddb,
-              MENU_SOURCE=s3,
-              MENU_CACHE_ENABLED=$MENU_CACHE_ENABLED,
-              NODE_ENV=$ENV_NAME
-            }"
+            --function-name "$LAMBDA_NAME" \
+            --environment "$VARIABLES"
 
       - name: Verify Deployment (Health Check)
         shell: bash
-        env:
-          # API Gateway URL 구성 (env.API_ID 사용)
-          API_URL: "https://${{ env.API_ID }}.execute-api.${{ vars.AWS_REGION }}.amazonaws.com/${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}"
         run: |
+          # API Gateway URL 동적 구성
+          API_URL="https://${API_ID}.execute-api.${{ vars.AWS_REGION }}.amazonaws.com/${STAGE_NAME}"
+          
           echo "Target API: $API_URL"
           MAX_RETRIES=5
           
-          # Check paths in loop
-          # /health (Lambda URL/API GW root) and /api/health (App router)
           for PATH_TO_CHECK in "/health" "/api/health"; do
             echo "----------------------------------------"
             echo "Checking $PATH_TO_CHECK ..."
             SUCCESS=false
             
             for ((i=1; i<=MAX_RETRIES; i++)); do
-              # -L to follow redirects if any
               HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -L "$API_URL$PATH_TO_CHECK")
               RESPONSE=$(curl -s -L "$API_URL$PATH_TO_CHECK")
               
@@ -123,9 +113,6 @@ jobs:
             
             if [ "$SUCCESS" = false ]; then
               echo "❌ Final Failure: $PATH_TO_CHECK after $MAX_RETRIES attempts"
-              echo "Note: If this is a new deployment, API Gateway might need a moment to propagate."
-              # We don't exit 1 here immediately to check other paths, or just warn.
-              # But for strict CI, we should probably fail.
               exit 1
             fi
           done
