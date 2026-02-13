@@ -32,13 +32,13 @@ function Banner() {
   }, []);
 
   return (
-    <div 
+    <div
       className="w-full rounded-lg overflow-hidden shadow-sm border border-border"
       style={{ aspectRatio: '2.35 / 1' }}
       data-testid="banner-container"
     >
       {imageError ? (
-        <div 
+        <div
           className="w-full h-full bg-[#0e4194] flex items-center justify-center"
           data-testid="banner-placeholder"
         >
@@ -74,9 +74,9 @@ const TIME_OPTIONS = (() => {
 export default function Home() {
   const [, params] = useRoute('/d/:dayKey');
   const [, setLocation] = useLocation();
-  
-  const { 
-    timeState, 
+
+  const {
+    timeState,
     setAvailableTimestamps,
     selectedTime5Min,
     setSelectedTime5Min,
@@ -156,7 +156,7 @@ export default function Home() {
     const targetTime = timeState.displayTime.getTime();
     let closestIdx = 0;
     let minDiff = Math.abs(new Date(timestampsData.timestamps[0]).getTime() - targetTime);
-    
+
     for (let i = 1; i < timestampsData.timestamps.length; i++) {
       const diff = Math.abs(new Date(timestampsData.timestamps[i]).getTime() - targetTime);
       if (diff < minDiff) {
@@ -172,7 +172,7 @@ export default function Home() {
   const { data: waitingData, isLoading: isWaitingLoading } = useQuery<WaitingData[]>({
     queryKey: useLiveEndpoint
       ? ['/api/waiting/latest', selectedDate]
-      : isToday 
+      : isToday
         ? ['/api/waiting', selectedDate, currentTimestamp]
         : ['/api/waiting', selectedDate, selectedTime5Min, '5min'],
     queryFn: async () => {
@@ -197,17 +197,76 @@ export default function Home() {
     refetchIntervalInBackground: false,
   });
 
+  // Fix for Main/Detail Discrepancy:
+  // When a specific time is selected (e.g. 12:00), we get a range of data (12:00~12:04).
+  // Previously, we just used the raw array which might be processed differently by children.
+  // Now, we pre-process it to find the *closest* data point to the selected time for each corner.
+  const processedWaitingData = useMemo(() => {
+    if (!waitingData || waitingData.length === 0) return [];
+
+    // If it's today/live, we just use the latest data as is
+    if (isToday) return waitingData;
+
+    // For past/future dates with time selection
+    if (selectedTime5Min) {
+      const targetTimeStr = selectedTime5Min; // HH:MM
+
+      // Group by corner
+      const byCorner = new Map<string, WaitingData[]>();
+      waitingData.forEach(d => {
+        const key = `${d.restaurantId}#${d.cornerId}`;
+        if (!byCorner.has(key)) byCorner.set(key, []);
+        byCorner.get(key)!.push(d);
+      });
+
+      const result: WaitingData[] = [];
+
+      byCorner.forEach((items) => {
+        // Find item with timestamp closest to targetTimeStr
+        // Since API returns ISO timestamps, we need to extract HH:MM
+        // But for simplicity in the 5-min bucket, we can just sort by timestamp
+        // and pick the first one (Start of Bucket) which is usually the target time (e.g. 12:00)
+        // OR we can explicitly compare minutes.
+
+        // Let's pick the one with the smallest minute difference to the target minutes.
+        const [targetH, targetM] = targetTimeStr.split(':').map(Number);
+        const targetMinutes = targetH * 60 + targetM;
+
+        let bestItem = items[0];
+        let minDiff = Infinity;
+
+        for (const item of items) {
+          const date = new Date(item.timestamp);
+          const h = date.getHours();
+          const m = date.getMinutes();
+          const itemMinutes = h * 60 + m;
+          const diff = Math.abs(itemMinutes - targetMinutes);
+
+          if (diff < minDiff) {
+            minDiff = diff;
+            bestItem = item;
+          }
+        }
+        result.push(bestItem);
+      });
+
+      return result;
+    }
+
+    return waitingData;
+  }, [waitingData, isToday, selectedTime5Min]);
+
   const displayDate = formatDayKeyForDisplay(selectedDate, todayKey);
   const hasActiveTicket = ticket && (ticket.status === 'stored' || ticket.status === 'active');
 
   // Display timestamp: only show when data is loaded
   // For non-today with no selection (null), don't show timestamp
-  const loadedTimestamp = isToday && waitingData?.[0]?.timestamp 
-    ? formatTime(new Date(waitingData[0].timestamp))
+  const loadedTimestamp = isToday && processedWaitingData?.[0]?.timestamp
+    ? formatTime(new Date(processedWaitingData[0].timestamp))
     : (!isToday && selectedTime5Min) ? selectedTime5Min : null;
 
   const [scheduleRefreshKey, setScheduleRefreshKey] = useState(0);
-  
+
   // Format current time as HH:MM in Korea timezone (KST, UTC+9)
   const getCurrentTimeKST = useCallback(() => {
     // Use Intl.DateTimeFormat to get time in Korea timezone
@@ -246,7 +305,7 @@ export default function Home() {
       setScheduleRefreshKey(0);
       return;
     }
-    
+
     const interval = setInterval(() => {
       setScheduleRefreshKey(prev => prev + 1);
     }, 10 * 60 * 1000); // 10 minutes
@@ -258,10 +317,10 @@ export default function Home() {
     <div className="min-h-screen bg-background pb-24">
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border px-4 py-3">
         <div className="flex items-center justify-between max-w-lg mx-auto">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="text-muted-foreground" 
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground"
             onClick={goPrevDate}
             data-testid="button-prev-date"
           >
@@ -271,9 +330,9 @@ export default function Home() {
             {displayDate}
           </h1>
           <div className="flex items-center gap-1">
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="ghost"
+              size="icon"
               className="text-muted-foreground"
               onClick={goNextDate}
               data-testid="button-next-date"
@@ -281,9 +340,9 @@ export default function Home() {
               <ChevronRight className="w-5 h-5" />
             </Button>
             {hasActiveTicket && (
-              <Button 
-                variant="default" 
-                size="icon" 
+              <Button
+                variant="default"
+                size="icon"
                 onClick={() => setLocation('/ticket')}
                 className="relative"
                 data-testid="button-ticket"
@@ -310,7 +369,7 @@ export default function Home() {
                 {isTimeSelectorOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               </div>
             </button>
-            
+
             {isTimeSelectorOpen && (
               <div className="mt-2 p-3 bg-muted/30 rounded-lg">
                 <label className="block text-sm text-muted-foreground mb-2">
@@ -368,7 +427,7 @@ export default function Home() {
                 key={restaurant.id}
                 restaurant={restaurant}
                 menus={menuData?.[restaurant.id] || {}}
-                waitingData={(isToday || selectedTime5Min) ? (waitingData || []) : []}
+                waitingData={(isToday || selectedTime5Min) ? (processedWaitingData || []) : []}
                 dayKey={selectedDate}
                 referenceTime={referenceTime}
               />
