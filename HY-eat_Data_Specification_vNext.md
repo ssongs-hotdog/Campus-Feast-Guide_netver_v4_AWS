@@ -1,7 +1,7 @@
 # HY-eat 데이터 명세서 및 계약 (Data Specification & Contract)
 
-**Version:** 2.0.0 (vNext)  
-**Last Updated:** 2026-02-07  
+**Version:** 2.1.0  
+**Last Updated:** 2026-02-13  
 **Status:** **DRAFT (승인 대기 중)**  
 **Language:** Korean (한국어)
 
@@ -12,6 +12,7 @@
 본 문서는 HY-eat 프로젝트의 데이터 파이프라인(S3 메뉴 데이터, DynamoDB 대기열 데이터)에 대한 **단일 진실 공급원(Single Source of Truth)**입니다. 모든 데이터 생성, 수집, 처리는 본 명세서를 엄격히 준수해야 합니다.
 
 ### 변경 이력 (Changelog)
+- **v2.1.0**: 엣지 디바이스(Jetson Nano) 데이터 계약 추가 및 DynamoDB 저장 스키마 최신화.
 - **v2.0.0**: 및 AWS 마이그레이션 반영. `breakfast_1000` (천원의 아침밥) 코너 예시 추가. 운영 시간(Operating Hours) 최신화 반영 (Codebase 기준).
 - **v1.0.0**: 초기 버전 (Legacy).
 
@@ -150,16 +151,59 @@
 
 ---
 
-## 6. DynamoDB 대기열 데이터 명세 (Waiting Data Specification)
+## 6. 대기열 데이터 파이프라인 명세 (Waiting Data Pipeline Specification)
 
-실시간 및 과거 대기열 데이터는 AWS DynamoDB에 저장됩니다.
+실시간 및 과거 대기열 데이터는 **엣지 디바이스(Jetson Nano)**에서 수집되어 **AWS Lambda**를 거쳐 **DynamoDB**에 저장됩니다.
 
-### 6.1 테이블 정보
+### 6.1 엣지 디바이스 데이터 계약 (Edge Device Contract: Jetson Nano -> AWS Lambda)
+젯슨 나노(Jetson Nano)에서 YOLO 모델 분석 후 AWS Lambda로 전송하는 원시 데이터(Raw Data) 형식입니다.
+
+**데이터 예시 (JSON Payload):**
+```json
+{
+  "restaurant_id": "hanyang_plaza",
+  "corner_id": "korean",
+  "queue_count": 15,
+  "est_wait_time_min": 8,
+  "timestamp": 1770349800000
+}
+```
+
+**데이터 스키마 (JSON Schema):**
+
+| 필드명 (Field) | 타입 | 필수 | 설명 | 주의사항 |
+|---|---|---|---|---|
+| `restaurant_id` | string | **Y** | 식당 ID | snake_case |
+| `corner_id` | string | **Y** | 코너 ID | snake_case |
+| `queue_count` | number | **Y** | 대기 인원 수 | |
+| `est_wait_time_min` | number | **Y** | 예상 대기 시간 (분) | |
+| `timestamp` | number | **Y** | 생성 시간 (Epoch ms) | |
+
+### 6.2 DynamoDB 저장 데이터 명세 (Storage Specification: AWS Lambda -> DynamoDB)
+AWS Lambda에서 데이터를 변환하여 최종적으로 DynamoDB에 저장하는 형식입니다.
+
 - **Table Name**: `hyeat_YOLO_data` (환경변수 `DDB_TABLE_WAITING` 참조)
 - **Primary Key (PK)**: `CORNER#{restaurantId}#{cornerId}` (String)
-- **Sort Key (SK)**: `Epoch Millisecond` (Number, 예: `1770346800000`)
+- **Sort Key (SK)**: `Epoch Millisecond` (Stringified Number)
 
-### 6.2 아이템 스키마 (Item Schema)
+**데이터 예시 (Stored Item):**
+```json
+{
+  "pk": "CORNER#hanyang_plaza#korean",
+  "sk": "1770349800000",
+  "restaurantId": "hanyang_plaza",
+  "cornerId": "korean",
+  "queueLen": 15,
+  "estWaitTimeMin": 8,
+  "dataType": "observed",
+  "source": "jetson_nano",
+  "timestampIso": "2026-02-13T12:50:00+09:00",
+  "createdAtIso": "2026-02-13T12:50:01+09:00",
+  "ttl": 1778125800
+}
+```
+
+**아이템 스키마 (Item Schema):**
 
 | 필드명 (Field) | 타입 | 필수 | 설명 | 주의사항 |
 |---|---|---|---|---|
@@ -172,6 +216,8 @@
 | `timestampIso` | string | **Y** | KST ISO Date Time | `2026-02-07T12:00:00+09:00` 형식 |
 | `dataType` | string | N | 데이터 유형 | `observed` (실측), `prediction` (예석), `dummy` |
 | `ttl` | number | **Y** | Time To Live (Epoch Sec) | 데이터 자동 삭제 시간 (보통 90일 후) |
+| `source` | string | N | 데이터 원천 | 예: `jetson_nano` |
+| `createdAtIso` | string | N | 생성 시간 (ISO) | Lambda 처리 시간 |
 
 ### 6.3 쿼리 패턴 (Query Patterns)
 1. **특정 날짜 조회**: `pk = CORNER#...` AND `sk BETWEEN {startMs} AND {endMs}`
