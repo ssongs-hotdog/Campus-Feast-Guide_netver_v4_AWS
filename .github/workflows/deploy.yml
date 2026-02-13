@@ -69,7 +69,8 @@ jobs:
           echo "Updating configuration for: $LAMBDA_NAME"
           
           # Variables JSON 문자열을 한 줄로 구성 (공백 문제 방지)
-          VARIABLES="Variables={AWS_REGION=${{ vars.AWS_REGION }},DDB_TABLE_WAITING=$DDB_TABLE,S3_BUCKET=$S3_BUCKET,WAITING_SOURCE=ddb,MENU_SOURCE=s3,MENU_CACHE_ENABLED=$MENU_CACHE_ENABLED,NODE_ENV=$ENV_NAME}"
+          # AWS_REGION은 예약어이므로 제거 (Lambda 자동 주입)
+          VARIABLES="Variables={DDB_TABLE_WAITING=$DDB_TABLE,S3_BUCKET=$S3_BUCKET,WAITING_SOURCE=ddb,MENU_SOURCE=s3,MENU_CACHE_ENABLED=$MENU_CACHE_ENABLED,NODE_ENV=$ENV_NAME}"
           
           aws lambda update-function-configuration \
             --function-name "$LAMBDA_NAME" \
