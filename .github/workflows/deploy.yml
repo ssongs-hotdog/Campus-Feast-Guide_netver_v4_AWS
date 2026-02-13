@@ -21,7 +21,6 @@ jobs:
       S3_BUCKET: "${{ github.ref == 'refs/heads/main' && secrets.PROD_S3_BUCKET || secrets.DEV_S3_BUCKET }}"
       API_ID: "${{ github.ref == 'refs/heads/main' && vars.AWS_API_ID || vars.DEV_AWS_API_ID }}"
       ENV_NAME: "${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}"
-      STAGE_NAME: "${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}"
       MENU_CACHE_ENABLED: "true"
 
     steps:
@@ -79,18 +78,21 @@ jobs:
       - name: Verify Deployment (Health Check)
         shell: bash
         run: |
-          # API Gateway URL 동적 구성
-          API_URL="https://${API_ID}.execute-api.${{ vars.AWS_REGION }}.amazonaws.com/${STAGE_NAME}"
+          # API Gateway URL 구성 ($default 스테이지 사용으로 경로 불필요)
+          API_URL="https://${API_ID}.execute-api.${{ vars.AWS_REGION }}.amazonaws.com"
           
           echo "Target API: $API_URL"
           MAX_RETRIES=5
           
+          # Check paths in loop
+          # /health (Lambda URL/API GW root) and /api/health (App router)
           for PATH_TO_CHECK in "/health" "/api/health"; do
             echo "----------------------------------------"
             echo "Checking $PATH_TO_CHECK ..."
             SUCCESS=false
             
             for ((i=1; i<=MAX_RETRIES; i++)); do
+              # -L to follow redirects if any
               HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -L "$API_URL$PATH_TO_CHECK")
               RESPONSE=$(curl -s -L "$API_URL$PATH_TO_CHECK")
               
