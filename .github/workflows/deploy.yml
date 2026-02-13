@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - develop
 
 permissions:
   id-token: write
@@ -12,6 +13,16 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    
+    # 환경변수 결정 로직 (따옴표로 감싸서 YAML 경고 방지)
+    env:
+      LAMBDA_NAME: "${{ github.ref == 'refs/heads/main' && secrets.PROD_LAMBDA_NAME || secrets.DEV_LAMBDA_NAME }}"
+      DDB_TABLE: "${{ github.ref == 'refs/heads/main' && secrets.PROD_DDB_TABLE || secrets.DEV_DDB_TABLE }}"
+      S3_BUCKET: "${{ github.ref == 'refs/heads/main' && secrets.PROD_S3_BUCKET || secrets.DEV_S3_BUCKET }}"
+      API_ID: "${{ github.ref == 'refs/heads/main' && vars.AWS_API_ID || vars.DEV_AWS_API_ID }}"
+      ENV_NAME: "${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}"
+      STAGE_NAME: "${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}"
+      MENU_CACHE_ENABLED: "true"
 
     steps:
       - name: Checkout Code
@@ -44,27 +55,43 @@ jobs:
 
       - name: Deploy to Lambda
         run: |
+          echo "Deploying to function: $LAMBDA_NAME"
+          
+          # 1. 코드 업데이트
           aws lambda update-function-code \
-            --function-name ${{ vars.LAMBDA_FUNCTION_NAME }} \
+            --function-name "$LAMBDA_NAME" \
             --zip-file fileb://function.zip
+
+          # 2. 환경변수 업데이트
+          # 업데이트 충돌 방지를 위한 대기
+          sleep 5
+
+          echo "Updating configuration for: $LAMBDA_NAME"
+          
+          # Variables JSON 문자열을 한 줄로 구성 (공백 문제 방지)
+          VARIABLES="Variables={AWS_REGION=${{ vars.AWS_REGION }},DDB_TABLE_WAITING=$DDB_TABLE,S3_BUCKET=$S3_BUCKET,WAITING_SOURCE=ddb,MENU_SOURCE=s3,MENU_CACHE_ENABLED=$MENU_CACHE_ENABLED,NODE_ENV=$ENV_NAME}"
+          
+          aws lambda update-function-configuration \
+            --function-name "$LAMBDA_NAME" \
+            --environment "$VARIABLES"
 
       - name: Verify Deployment (Health Check)
         shell: bash
-        env:
-          API_URL: "https://${{ vars.AWS_API_ID }}.execute-api.${{ vars.AWS_REGION }}.amazonaws.com"
         run: |
+          # API Gateway URL 동적 구성
+          API_URL="https://${API_ID}.execute-api.${{ vars.AWS_REGION }}.amazonaws.com/${STAGE_NAME}"
+          
           echo "Target API: $API_URL"
           MAX_RETRIES=5
           
-          # Check paths in loop
           for PATH_TO_CHECK in "/health" "/api/health"; do
             echo "----------------------------------------"
             echo "Checking $PATH_TO_CHECK ..."
             SUCCESS=false
             
             for ((i=1; i<=MAX_RETRIES; i++)); do
-              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL$PATH_TO_CHECK")
-              RESPONSE=$(curl -s "$API_URL$PATH_TO_CHECK")
+              HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -L "$API_URL$PATH_TO_CHECK")
+              RESPONSE=$(curl -s -L "$API_URL$PATH_TO_CHECK")
               
               if [ "$HTTP_CODE" -eq 200 ]; then
                 if echo "$RESPONSE" | grep -q '"status".*"ok"'; then
@@ -80,7 +107,7 @@ jobs:
               fi
               
               if [ $i -lt $MAX_RETRIES ]; then
-                sleep 3
+                sleep 5
               fi
             done
             
