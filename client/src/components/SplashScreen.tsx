@@ -15,16 +15,18 @@ export function SplashScreen() {
             className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#0E4A84]"
         >
             <div className="flex flex-col items-center">
-                {/* Text Logo Implementation */}
-                <div className="flex flex-col items-center justify-center space-y-2">
-                    {/* Main Brand Name */}
-                    <h1 className="text-6xl font-black text-white tracking-tighter italic" style={{ fontFamily: "sans-serif" }}>
-                        HY-eat
-                    </h1>
-                    {/* Slogan */}
-                    <p className="text-white/80 text-sm font-bold tracking-widest uppercase mt-2">
-                        WAIT LESS. PAY FASTER.
-                    </p>
+                {/* Render Transparency-Optimized Logo */}
+                <div className="w-64 h-auto relative mb-4">
+                    <img
+                        src="/splash_logo.png"
+                        alt="HY-eat"
+                        className="w-full h-full object-contain"
+                        onError={(e) => {
+                            // Fallback to text if image is missing
+                            e.currentTarget.style.display = 'none';
+                            e.currentTarget.parentElement!.innerHTML = `<h1 class="text-6xl font-black text-white tracking-tighter italic" style="font-family: sans-serif">HY-eat</h1>`;
+                        }}
+                    />
                 </div>
             </div>
         </motion.div>
