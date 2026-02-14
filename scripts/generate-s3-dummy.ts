@@ -108,6 +108,9 @@ async function main() {
             const timeStr = `${String(hour).padStart(2, '0')}:${String(min).padStart(2, '0')}:00`;
             const timestampIso = `${dateKey}T${timeStr}+09:00`;
 
+            // [Config] 인기 코너 목록 (가중치 상향)
+            const POPULAR_CORNERS = ['instant', 'ramen', 'pangeos_lunch'];
+
             // 모든 식당 & 코너에 대해 데이터 생성
             for (const restaurant of RESTAURANTS) {
                 for (const cornerId of restaurant.cornerOrder) {
@@ -117,29 +120,58 @@ async function main() {
                         continue;
                     }
 
-                    // 피크타임 로직 (데이터가 생성되는 시간대 안에서만 적용)
+                    // [Config] 하드코딩된 피크타임 및 가중치 조정
+                    // 목표: 인기 코너 최대 대기시간 20분 미만, 저녁은 '혼잡(10~12분)' 수준까지만, 점심때 인기/비인기 격차 명확히
+
+                    const isPopular = POPULAR_CORNERS.includes(cornerId);
                     let queueLen = 0;
                     let waitTime = 0;
 
                     // 점심 피크 (11:30 ~ 13:00)
                     if (minutes >= 690 && minutes <= 780) {
-                        queueLen = getRandomInt(15, 60);
-                        waitTime = Math.round(queueLen * 0.7);
+                        if (isPopular) {
+                            // 인기 코너: 9~18분 대기 (혼잡 ~ 매우혼잡 직전)
+                            // 큐 길이: 15 ~ 30명
+                            // 회전율: 0.6 (1명당 36초)
+                            queueLen = getRandomInt(15, 30);
+                            waitTime = Math.round(queueLen * 0.6);
+                        } else {
+                            // 일반 코너: 1~6분 대기 (여유 ~ 보통)
+                            // 큐 길이: 2 ~ 12명
+                            // 회전율: 0.5 (1명당 30초)
+                            queueLen = getRandomInt(2, 12);
+                            waitTime = Math.round(queueLen * 0.5);
+                        }
                     }
                     // 저녁 피크 (17:30 ~ 18:30)
                     else if (minutes >= 1050 && minutes <= 1110) {
-                        queueLen = getRandomInt(10, 40);
-                        waitTime = Math.round(queueLen * 0.7);
+                        if (isPopular) {
+                            // 인기 코너: 4~12분 대기 (보통 ~ 혼잡) - 절대 '매우혼잡(13분+)' 안 가게
+                            // 큐 길이: 8 ~ 20명
+                            queueLen = getRandomInt(8, 20);
+                            waitTime = Math.round(queueLen * 0.6);
+                        } else {
+                            // 일반 코너: 1~4분 대기 (매우여유 ~ 여유)
+                            queueLen = getRandomInt(2, 8);
+                            waitTime = Math.round(queueLen * 0.5);
+                        }
                     }
                     // 아침 피크 (08:30 ~ 09:30) - 천원의 아침밥 등
                     else if (minutes >= 510 && minutes <= 570) {
-                        queueLen = getRandomInt(20, 80); // 아침밥은 줄이 길 수 있음
-                        waitTime = Math.round(queueLen * 0.5); // 회전율 빠름
+                        // 아침밥 코너는 회전율이 매우 빠름
+                        if (cornerId === 'breakfast_1000') {
+                            // 6~14분 대기
+                            queueLen = getRandomInt(15, 35);
+                            waitTime = Math.round(queueLen * 0.4);
+                        } else {
+                            queueLen = getRandomInt(0, 5);
+                            waitTime = getRandomInt(0, 2);
+                        }
                     }
                     // 그 외 (한산함)
                     else {
-                        queueLen = getRandomInt(0, 8);
-                        waitTime = getRandomInt(0, 4);
+                        queueLen = getRandomInt(0, 4);
+                        waitTime = getRandomInt(0, 2);
                     }
 
                     dailyData.push({
