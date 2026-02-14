@@ -12,7 +12,7 @@ export function SplashScreen() {
             exit={{ opacity: 0 }}
             animate={{ opacity: isVisible ? 1 : 0 }}
             transition={{ duration: 0.5, ease: "easeInOut" }}
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#0E4A84]"
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-white"
         >
             <div className="flex flex-col items-center justify-center w-full h-full p-8">
                 {/* Render Transparency-Optimized Logo (Image Only) */}
@@ -24,7 +24,7 @@ export function SplashScreen() {
                         className="w-full h-full object-contain"
                         onError={(e) => {
                             e.currentTarget.style.display = 'none';
-                            e.currentTarget.parentElement!.innerHTML = `<h1 class="text-5xl font-black text-white italic text-center" style="font-family: sans-serif">HY-eat</h1>`;
+                            e.currentTarget.parentElement!.innerHTML = `<h1 class="text-5xl font-black text-[#0E4A84] italic text-center" style="font-family: sans-serif">HY-eat</h1>`;
                         }}
                     />
                 </div>
