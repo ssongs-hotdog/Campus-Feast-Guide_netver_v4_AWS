@@ -1,0 +1,5 @@
+
+> rest-express@1.0.0 check
+> tsc
+
+server/deprecated/waitModel_legacy.ts(44,8): error TS2307: Cannot find module '../shared/domain/waitTime' or its corresponding type declarations.
