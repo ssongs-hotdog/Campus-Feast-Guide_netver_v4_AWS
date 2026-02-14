@@ -12,25 +12,15 @@
  */
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useLocation } from 'wouter';
+import { useRoute, useLocation } from 'wouter';
+import { ChevronLeft, ChevronRight, Ticket, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerClose,
-} from "@/components/ui/drawer";
 import { RestaurantSection } from '@/components/RestaurantSection';
 import { useTimeContext } from '@/lib/timeContext';
 import { useTicketContext } from '@/lib/ticketContext';
 import { RESTAURANTS, formatTime, type WaitingData, type MenuData } from '@shared/types';
 import { addDays, formatDayKeyForDisplay, isValidDayKey, type DayKey } from '@/lib/dateUtils';
 import { getMenus, getWaitTimes, getAvailableTimestamps, getLatestWaitTimes, getConfig } from '@/lib/data/dataProvider';
-import { Clock } from 'lucide-react';
 
 function Banner() {
   const [imageError, setImageError] = useState(false);
@@ -79,12 +69,8 @@ const TIME_OPTIONS = (() => {
   return options;
 })();
 
-// Helper to add minutes to a date
-const addMinutes = (date: Date, minutes: number) => {
-  return new Date(date.getTime() + minutes * 60000);
-};
-
 export default function Home() {
+  const [, params] = useRoute('/d/:dayKey');
   const [, setLocation] = useLocation();
 
   const {
@@ -93,23 +79,32 @@ export default function Home() {
     selectedTime5Min,
     setSelectedTime5Min,
     todayKey,
-    setDisplayTime,
-    goToRealtime,
   } = useTimeContext();
   const { ticket } = useTicketContext();
+  const [isTimeSelectorOpen, setIsTimeSelectorOpen] = useState(false);
 
-  // State for Restaurant Selector
-  // null = '전체' (All)
-  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null);
+  // Validate dayKey from URL - redirect to today if missing or invalid
+  const rawDayKey = params?.dayKey || '';
+  const selectedDate: DayKey = isValidDayKey(rawDayKey) ? rawDayKey : todayKey;
 
-  // Prediction Drawer State
-  const [isPredictionOpen, setIsPredictionOpen] = useState(false);
+  // Redirect to today if dayKey is missing or invalid
+  useEffect(() => {
+    if (!rawDayKey || !isValidDayKey(rawDayKey)) {
+      setLocation(`/d/${todayKey}`, { replace: true });
+    }
+  }, [rawDayKey, todayKey, setLocation]);
 
-  // Always show "Today"
-  const selectedDate: DayKey = todayKey;
-  const isToday = true;
+  const isToday = selectedDate === todayKey;
 
-  // Cleanup: removed goPrevDate, goNextDate
+  const goPrevDate = useCallback(() => {
+    const prevDate = addDays(selectedDate, -1);
+    setLocation(`/d/${prevDate}`);
+  }, [selectedDate, setLocation]);
+
+  const goNextDate = useCallback(() => {
+    const nextDate = addDays(selectedDate, 1);
+    setLocation(`/d/${nextDate}`);
+  }, [selectedDate, setLocation]);
 
   const { data: menuData } = useQuery<MenuData | null>({
     queryKey: ['/api/menu', selectedDate],
@@ -132,13 +127,10 @@ export default function Home() {
   });
 
   const useDbWaiting = configData?.useDbWaiting ?? false;
-
-  // Removed Past/Future logic variables (tomorrowKey, isBetween, etc)
-
-  // Prediction Logic
-  // If selectedTime5Min is set, we are in prediction mode
-  // Otherwise we are in Live mode (if useDbWaiting is true)
-  const isPredictionMode = !!selectedTime5Min;
+  const tomorrowKey = configData?.tomorrow || addDays(todayKey, 1);
+  const isTomorrow = selectedDate === tomorrowKey;
+  const isPast = selectedDate < todayKey;
+  const showTimeSelector = !isToday && (isPast || isTomorrow);
 
   const { data: timestampsData } = useQuery<{ timestamps: string[] }>({
     queryKey: ['/api/waiting/timestamps', selectedDate],
@@ -147,7 +139,7 @@ export default function Home() {
       if (result.error) throw new Error(result.error);
       return { timestamps: result.data || [] };
     },
-    enabled: !!selectedDate && !useDbWaiting && !isPredictionMode, // Only fetch if manual fallback needed
+    enabled: !!selectedDate && !(isToday && useDbWaiting),
   });
 
   useEffect(() => {
@@ -172,29 +164,30 @@ export default function Home() {
     return timestampsData.timestamps[closestIdx];
   }, [timestampsData?.timestamps, timeState.displayTime]);
 
-  const useLiveEndpoint = isToday && useDbWaiting && !isPredictionMode;
+  const useLiveEndpoint = isToday && useDbWaiting;
 
   const { data: waitingData, isLoading: isWaitingLoading } = useQuery<WaitingData[]>({
     queryKey: useLiveEndpoint
       ? ['/api/waiting/latest', selectedDate]
-      : ['/api/waiting', selectedDate, selectedTime5Min || currentTimestamp, '5min'], // Fallback to currentTimestamp if not prediction
+      : isToday
+        ? ['/api/waiting', selectedDate, currentTimestamp]
+        : ['/api/waiting', selectedDate, selectedTime5Min, '5min'],
     queryFn: async () => {
       if (useLiveEndpoint) {
         const result = await getLatestWaitTimes(selectedDate);
         if (result.error) throw new Error(result.error);
         return result.data || [];
+      } else if (isToday) {
+        const result = await getWaitTimes(selectedDate, currentTimestamp!);
+        if (result.error) throw new Error(result.error);
+        return result.data || [];
       } else {
-        // For prediction or fallback
-        const targetTime = selectedTime5Min || currentTimestamp;
-        // If we don't have a time, just return empty? or try fetching?
-        if (!targetTime) return [];
-
-        const result = await getWaitTimes(selectedDate, targetTime, '5min');
+        const result = await getWaitTimes(selectedDate, selectedTime5Min!, '5min');
         if (result.error) throw new Error(result.error);
         return result.data || [];
       }
     },
-    enabled: !!selectedDate && (useLiveEndpoint || !!selectedTime5Min || !!currentTimestamp),
+    enabled: !!selectedDate && (useLiveEndpoint || (isToday ? !!currentTimestamp : !!selectedTime5Min)),
     staleTime: useLiveEndpoint ? 0 : 60000,
     placeholderData: (previousData) => previousData,
     refetchInterval: useLiveEndpoint ? 30000 : false,
@@ -208,11 +201,10 @@ export default function Home() {
   const processedWaitingData = useMemo(() => {
     if (!waitingData || waitingData.length === 0) return [];
 
-    // If it's live/today (and not prediction with manual time override needed), use as is
-    if (useLiveEndpoint) return waitingData;
+    // If it's today/live, we just use the latest data as is
+    if (isToday) return waitingData;
 
-    // For PREDICTION (selectedTime5Min), we want to show the specific predicted data
-    // The query returns arrays. If the API returns a range, we filter for closest.
+    // For past/future dates with time selection
     if (selectedTime5Min) {
       const targetTimeStr = selectedTime5Min; // HH:MM
 
@@ -227,6 +219,13 @@ export default function Home() {
       const result: WaitingData[] = [];
 
       byCorner.forEach((items) => {
+        // Find item with timestamp closest to targetTimeStr
+        // Since API returns ISO timestamps, we need to extract HH:MM
+        // But for simplicity in the 5-min bucket, we can just sort by timestamp
+        // and pick the first one (Start of Bucket) which is usually the target time (e.g. 12:00)
+        // OR we can explicitly compare minutes.
+
+        // Let's pick the one with the smallest minute difference to the target minutes.
         const [targetH, targetM] = targetTimeStr.split(':').map(Number);
         const targetMinutes = targetH * 60 + targetM;
 
@@ -252,7 +251,7 @@ export default function Home() {
     }
 
     return waitingData;
-  }, [waitingData, useLiveEndpoint, selectedTime5Min]);
+  }, [waitingData, isToday, selectedTime5Min]);
 
   const displayDate = formatDayKeyForDisplay(selectedDate, todayKey);
   const hasActiveTicket = ticket && (ticket.status === 'stored' || ticket.status === 'active');
@@ -311,131 +310,93 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [isToday]);
 
-  // Handle prediction selection
-  const handlePredictionSelect = (minutes: number) => {
-    if (minutes === 0) {
-      // "Now"
-      setSelectedTime5Min(null);
-      goToRealtime();
-    } else {
-      // Future
-      const now = new Date();
-      const future = addMinutes(now, minutes);
-      const timeStr = formatTime(future); // HH:MM
-      setSelectedTime5Min(timeStr);
-      setDisplayTime(future);
-    }
-    setIsPredictionOpen(false);
-  };
-
-  const filteredRestaurants = useMemo(() => {
-    if (!selectedRestaurantId) return RESTAURANTS;
-    return RESTAURANTS.filter(r => r.id === selectedRestaurantId);
-  }, [selectedRestaurantId]);
-
   return (
     <div className="min-h-screen bg-background pb-24">
-      {/* Header removed from here - relying on TopAppBar in App.tsx */}
-
-      <main className="max-w-lg mx-auto px-4 py-4">
-        {/* Banner */}
-        <div className="mb-4">
-          <Banner />
-        </div>
-
-        {/* Status Line */}
-        <div className="flex items-center justify-between text-sm text-muted-foreground mb-4 px-1" data-testid="status-line">
-          <div className="flex items-center gap-1.5">
-            <span className={`w-2 h-2 rounded-full ${isPredictionMode ? 'bg-purple-500' : 'bg-green-500'}`} />
-            {isPredictionMode ? (
-              <span>{selectedTime5Min} 기준 (예측)</span>
-            ) : (
-              <span>오늘 {displayDate} · {getCurrentTimeKST()} 기준</span>
+      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border px-4 py-3">
+        <div className="flex items-center justify-between max-w-lg mx-auto">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground"
+            onClick={goPrevDate}
+            data-testid="button-prev-date"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </Button>
+          <h1 className="text-base font-semibold text-foreground" data-testid="text-date">
+            {displayDate}
+          </h1>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground"
+              onClick={goNextDate}
+              data-testid="button-next-date"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </Button>
+            {hasActiveTicket && (
+              <Button
+                variant="default"
+                size="icon"
+                onClick={() => setLocation('/ticket')}
+                className="relative"
+                data-testid="button-ticket"
+              >
+                <Ticket className="w-4 h-4" />
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" />
+              </Button>
             )}
           </div>
         </div>
 
-        {/* Restaurant Selector */}
-        <div className="mb-6 overflow-x-auto whitespace-nowrap pb-1 -mx-4 px-4 scrollbar-hide">
-          <div className="flex gap-2">
-            <Badge
-              variant={selectedRestaurantId === null ? "default" : "outline"}
-              className="cursor-pointer text-sm px-4 py-1.5 h-8 rounded-full transition-colors"
-              onClick={() => setSelectedRestaurantId(null)}
+        {showTimeSelector && (
+          <div className="max-w-lg mx-auto mt-2">
+            <button
+              onClick={() => setIsTimeSelectorOpen(!isTimeSelectorOpen)}
+              className="flex items-center justify-between w-full p-2 bg-muted/50 rounded-lg text-sm"
+              data-testid="button-time-selector-toggle"
             >
-              전체
-            </Badge>
-            {RESTAURANTS.map(restaurant => (
-              <Badge
-                key={restaurant.id}
-                variant={selectedRestaurantId === restaurant.id ? "default" : "outline"}
-                className="cursor-pointer text-sm px-4 py-1.5 h-8 rounded-full transition-colors"
-                onClick={() => setSelectedRestaurantId(selectedRestaurantId === restaurant.id ? null : restaurant.id)}
-              >
-                {restaurant.name}
-              </Badge>
-            ))}
-          </div>
-        </div>
-
-        {/* Prediction CTA */}
-        <div className="mb-6">
-          <Button
-            className="w-full bg-white text-foreground border border-border hover:bg-muted/50 shadow-sm flex items-center justify-center gap-2 h-12 text-base font-medium transition-all"
-            onClick={() => setIsPredictionOpen(true)}
-          >
-            <Clock className="w-4 h-4 text-primary" />
-            {isPredictionMode ? '나중에 먹기 (시간 변경됨)' : '골든타임 찾기 (대기시간 예측)'}
-          </Button>
-
-          <Drawer open={isPredictionOpen} onOpenChange={setIsPredictionOpen}>
-            <DrawerContent>
-              <DrawerHeader>
-                <DrawerTitle>언제 식사하시나요?</DrawerTitle>
-                <DrawerDescription>
-                  시간을 선택하면 예상 대기시간을 알려드려요.
-                </DrawerDescription>
-              </DrawerHeader>
-              <div className="p-4 space-y-4">
-                <div className="grid grid-cols-4 gap-2">
-                  <Button
-                    variant={!isPredictionMode ? "default" : "outline"}
-                    className="h-14 flex flex-col gap-1"
-                    onClick={() => handlePredictionSelect(0)}
-                  >
-                    <span className="text-sm font-medium">지금</span>
-                    <span className="text-xs opacity-70">실시간</span>
-                  </Button>
-                  <Button
-                    variant={selectedTime5Min === formatTime(addMinutes(new Date(), 10)) ? "default" : "outline"}
-                    className="h-14 flex flex-col gap-1"
-                    onClick={() => handlePredictionSelect(10)}
-                  >
-                    <span className="text-sm font-medium">+10분</span>
-                  </Button>
-                  <Button
-                    variant={selectedTime5Min === formatTime(addMinutes(new Date(), 20)) ? "default" : "outline"}
-                    className="h-14 flex flex-col gap-1"
-                    onClick={() => handlePredictionSelect(20)}
-                  >
-                    <span className="text-sm font-medium">+20분</span>
-                  </Button>
-                  <Button
-                    variant={selectedTime5Min === formatTime(addMinutes(new Date(), 30)) ? "default" : "outline"}
-                    className="h-14 flex flex-col gap-1"
-                    onClick={() => handlePredictionSelect(30)}
-                  >
-                    <span className="text-sm font-medium">+30분</span>
-                  </Button>
-                </div>
+              <span className="text-muted-foreground">
+                {isPast ? '시간 선택 (통계 데이터 제공)' : '시간 선택 (예측 데이터 제공)'}
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="font-medium" data-testid="text-selected-time">{selectedTime5Min ?? '-'}</span>
+                {isTimeSelectorOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               </div>
-              <DrawerFooter>
-                <DrawerClose asChild>
-                  <Button variant="outline">닫기</Button>
-                </DrawerClose>
-              </DrawerFooter>
-            </DrawerContent>
-          </Drawer>
+            </button>
+
+            {isTimeSelectorOpen && (
+              <div className="mt-2 p-3 bg-muted/30 rounded-lg">
+                <label className="block text-sm text-muted-foreground mb-2">
+                  {isPast ? '시간 선택 (통계 데이터 제공)' : '시간 선택 (예측 데이터 제공)'}
+                </label>
+                <select
+                  value={selectedTime5Min ?? ''}
+                  onChange={(e) => {
+                    setSelectedTime5Min(e.target.value || null);
+                    setIsTimeSelectorOpen(false);
+                  }}
+                  className="w-full p-3 bg-background border border-border rounded-lg text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary"
+                  data-testid="select-time-5min"
+                >
+                  <option value="">-</option>
+                  {TIME_OPTIONS.map((time) => (
+                    <option key={time} value={time}>
+                      {time}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        )}
+      </header>
+
+      <main className="max-w-lg mx-auto px-4 py-4">
+        <div className="mb-4">
+          <Banner />
         </div>
 
         {isWaitingLoading && !waitingData && !menuData ? (
@@ -458,7 +419,7 @@ export default function Home() {
                 데이터 시각: {loadedTimestamp}
               </div>
             )}
-            {filteredRestaurants.map((restaurant) => (
+            {RESTAURANTS.map((restaurant) => (
               <RestaurantSection
                 key={restaurant.id}
                 restaurant={restaurant}
