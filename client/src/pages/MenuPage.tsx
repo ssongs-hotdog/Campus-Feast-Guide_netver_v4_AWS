@@ -71,6 +71,7 @@ const TIME_OPTIONS = (() => {
     return options;
 })();
 
+// HMR Trigger v2
 export default function MenuPage() {
     const [, setLocation] = useLocation();
     const searchString = useSearch();

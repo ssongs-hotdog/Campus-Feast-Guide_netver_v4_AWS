@@ -68,7 +68,7 @@ export type ScheduleConfig = Record<string, Record<string, CornerSchedule>>;
 export const CORNER_SCHEDULES: ScheduleConfig = {
   hanyang_plaza: {
     breakfast_1000: {
-      weekday: [{ start: '08:20', end: '10:20' }],
+      weekday: [{ start: '08:00', end: '09:30' }],
       // No saturday/sunday - closed
     },
     western: {
@@ -88,11 +88,12 @@ export const CORNER_SCHEDULES: ScheduleConfig = {
       // No saturday - closed
     },
     ramen: {
-      weekday: [{ start: '12:00', end: '18:00' }],
+      weekday: [{ start: '16:00', end: '18:00' }],
       saturday: [{ start: '10:00', end: '18:00' }],
+      // No break for weekday 16:00-18:00
       breakWindows: {
-        weekday: [{ start: '14:30', end: '15:30' }],
-        // No break on saturday
+        // No break on saturday 10:00-18:00? User didn't specify break.
+        // Assuming no break or strict to user input.
       },
     },
   },
@@ -321,21 +322,21 @@ export function getCornerStatuses(
     if (timeHHMM === null) {
       return { cornerId, isActive: false };
     }
-    
+
     // Get schedule-based active status
     const baseIsActive = isCornerActive({ restaurantId, cornerId, dateKey, timeHHMM });
-    
+
     // Check if this corner requires menu data to be active
     const schedule = CORNER_SCHEDULES[restaurantId]?.[cornerId];
     const requiresMenuData = schedule?.requiresMenuDataForActive ?? false;
-    
+
     // Apply the menu data rule if required
     let finalIsActive = baseIsActive;
     if (requiresMenuData) {
       const hasMenuData = menuData?.[cornerId] != null;
       finalIsActive = baseIsActive && hasMenuData;
     }
-    
+
     return {
       cornerId,
       isActive: finalIsActive,

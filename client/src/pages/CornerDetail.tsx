@@ -44,7 +44,9 @@ import {
 } from '@shared/types';
 import { isValidDayKey, type DayKey } from '@/lib/dateUtils';
 import { CORNER_DISPLAY_NAMES } from '@shared/cornerDisplayNames';
-import { getMenus, getAvailableTimestamps, getWaitTimes, getLatestWaitTimes, getConfig } from '@/lib/data/dataProvider';
+// Import schedule logic directly from shared domain
+import { CORNER_SCHEDULES, getServiceDayType, type TimeWindow } from '@shared/domain/schedule';
+import { getMenus, getAvailableTimestamps, getWaitTimes, getLatestWaitTimes, getConfig, getAllWaitTimes } from '@/lib/data/dataProvider';
 
 export default function CornerDetail() {
   const [matchNew, paramsNew] = useRoute('/d/:dayKey/restaurant/:restaurantId/corner/:cornerId');
@@ -231,39 +233,68 @@ export default function CornerDetail() {
   const price = hasMenuData ? menu.priceWon : null;
   const menuItems = hasMenuData ? menu.items : [];
 
+  const { data: allWaitingData } = useQuery<WaitingData[]>({
+    queryKey: ['/api/waiting/all', effectiveDate],
+    queryFn: async () => {
+      const result = await getAllWaitTimes(effectiveDate);
+      return result as WaitingData[];
+    },
+    // Cache for 5 minutes
+    staleTime: 5 * 60 * 1000,
+  });
+
   // Get variants for breakfast_1000 corner (only use when real variants exist in data)
   const isBreakfast = isBreakfastCorner(cornerId);
   const hasVariants = isBreakfast && hasMenuData && hasRealVariants(menu);
   const variants = hasVariants ? getMenuVariants(menu) : [];
 
-  // Sample forecast data for histogram (TODO: Replace with actual API data)
-  const forecastData = [
-    { time: '09:00', waitMinutes: 0 },
-    { time: '09:30', waitMinutes: 0 },
-    { time: '10:00', waitMinutes: 2 },
-    { time: '10:30', waitMinutes: 5 },
-    { time: '11:00', waitMinutes: 10 },
-    { time: '11:30', waitMinutes: 15 },
-    { time: '12:00', waitMinutes: 20 },
-    { time: '12:30', waitMinutes: 18 },
-    { time: '13:00', waitMinutes: 12 },
-    { time: '13:30', waitMinutes: 8 },
-    { time: '14:00', waitMinutes: 5 },
-    { time: '14:30', waitMinutes: 2 },
-    { time: '15:00', waitMinutes: 0 },
-    { time: '15:30', waitMinutes: 0 },
-    { time: '16:00', waitMinutes: 3 },
-    { time: '16:30', waitMinutes: 8 },
-    { time: '17:00', waitMinutes: 12 },
-    { time: '17:30', waitMinutes: 16 },
-    { time: '18:00', waitMinutes: 14 },
-    { time: '18:30', waitMinutes: 10 },
-    { time: '19:00', waitMinutes: 5 },
-  ];
+  // Transform fetched data for histogram
+  const forecastData = useMemo(() => {
+    if (!allWaitingData) return [];
 
-  // Get operating hours from corner schedule (sample data for now)
-  // TODO: Get actual operating hours from corner data
-  const operatingHours = { openTime: '11:00', closeTime: '14:30' };
+    return allWaitingData
+      .filter((item) => item.restaurantId === restaurantId && item.cornerId === cornerId)
+      .map((item) => ({
+        time: formatTime(new Date(item.timestamp)), // HH:MM
+        waitMinutes: item.estWaitTimeMin,
+      }))
+      .sort((a, b) => a.time.localeCompare(b.time));
+  }, [allWaitingData, restaurantId, cornerId]);
+
+  // Dynamically calculate operating hours based on schedule
+  const operatingHours = useMemo(() => {
+    // Default fallback
+    const defaultHours = { openTime: '11:00', closeTime: '14:30' };
+
+    const schedule = CORNER_SCHEDULES[restaurantId]?.[cornerId];
+    if (!schedule) return defaultHours;
+
+    const dayType = getServiceDayType(effectiveDate);
+    let windows: TimeWindow[] = [];
+
+    if (dayType === 'WEEKDAY') {
+      windows = schedule.weekday || [];
+    } else if (dayType === 'SATURDAY') {
+      windows = schedule.saturday || [];
+    } else if (dayType === 'SUNDAY') {
+      windows = schedule.sunday || [];
+    }
+    // Holiday check logic can be added here if needed
+
+    if (windows.length === 0) return defaultHours;
+
+    // Find earliest start and latest end
+    // Format is "HH:MM", lexicographical comparison works for 24h format
+    let minStart = windows[0].start;
+    let maxEnd = windows[0].end;
+
+    for (const w of windows) {
+      if (w.start < minStart) minStart = w.start;
+      if (w.end > maxEnd) maxEnd = w.end;
+    }
+
+    return { openTime: minStart, closeTime: maxEnd };
+  }, [restaurantId, cornerId, effectiveDate]);
 
   return (
     <div className="min-h-screen bg-background">
