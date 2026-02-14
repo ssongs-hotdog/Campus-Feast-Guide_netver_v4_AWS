@@ -28,6 +28,9 @@ import RecommendPage from "@/pages/RecommendPage";
 import TabTicket from "@/pages/TabTicket";
 import MyPage from "@/pages/MyPage";
 
+import TopAppBar from "@/components/TopAppBar";
+import NotificationCenter from "@/pages/NotificationCenter";
+
 function RedirectToToday() {
   const todayKey = getTodayKey();
   return <Redirect to={`/d/${todayKey}`} />;
@@ -48,6 +51,9 @@ function Router() {
       <Route path="/ticket" component={TabTicket} />
       <Route path="/my" component={MyPage} />
 
+      {/* Feature Routes */}
+      <Route path="/notifications" component={NotificationCenter} />
+
       <Route component={NotFound} />
     </Switch>
   );
@@ -65,7 +71,8 @@ function App() {
           <TimeProvider>
             <TicketProvider>
               <Toaster />
-              <div className="pb-[60px] min-h-screen bg-background">
+              <TopAppBar />
+              <div className="pt-[56px] pb-[60px] min-h-screen bg-background">
                 <Router />
               </div>
               <BottomNav />
