@@ -19,13 +19,17 @@ export function SplashProvider({ children }: { children: React.ReactNode }) {
         let dataLoaded = false;
         let isMounted = true;
 
-        // Background prefetch function
+        // Background prefetch function (Phase 2: Remaining days in +/- 7 range)
         const startBackgroundPrefetch = () => {
             const datesToPrefetch: string[] = [];
-            for (let i = -7; i <= 7; i++) {
+            const MAX_RANGE = 7;
+            const ALREADY_LOADED_RANGE = 5;
+
+            for (let i = -MAX_RANGE; i <= MAX_RANGE; i++) {
+                // Skip days that were already loaded in the splash phase
+                if (Math.abs(i) <= ALREADY_LOADED_RANGE) continue;
+
                 const date = addDays(todayKey, i);
-                // Skip -2 to +2 range as it is handled by initial load
-                if (Math.abs(i) <= 2) continue;
                 datesToPrefetch.push(date);
             }
 
@@ -42,27 +46,26 @@ export function SplashProvider({ children }: { children: React.ReactNode }) {
             });
         };
 
-        // 1. Minimum display time (300ms)
+        // 1. Minimum display time (1000ms = 1s)
         const minTimer = setTimeout(() => {
             minTimePassed = true;
             if (dataLoaded && isMounted) setIsVisible(false);
-        }, 300);
+        }, 1000);
 
-        // 2. Maximum safe timeout (1.5s)
+        // 2. Maximum safe timeout (2.5s) - Increased slightly to accommodate larger fetch
         const maxTimer = setTimeout(() => {
             if (isMounted) setIsVisible(false);
-        }, 1500);
+        }, 2500);
 
-        // 3. Fetch initial data (Today +/- 2 days)
+        // 3. Fetch initial data (Today +/- 5 days) -> Total 11 days
         const fetchInitialData = async () => {
             try {
-                const datesToLoad = [
-                    todayKey,
-                    addDays(todayKey, 1),
-                    addDays(todayKey, -1),
-                    addDays(todayKey, 2),
-                    addDays(todayKey, -2),
-                ];
+                const datesToLoad: string[] = [];
+                const SPLASH_LOAD_RANGE = 5;
+
+                for (let i = -SPLASH_LOAD_RANGE; i <= SPLASH_LOAD_RANGE; i++) {
+                    datesToLoad.push(addDays(todayKey, i));
+                }
 
                 await Promise.all(
                     datesToLoad.map((date) =>
