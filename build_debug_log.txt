@@ -1,0 +1,905 @@
+2026-02-14T14:24:24.500Z vite:config config file loaded in 102.21ms
+2026-02-14T14:24:24.506Z vite:env loading env files: [
+  'C:/Users/源?숈씠/Desktop/Antigravity_HYeat/Campus-Feast-Guide_netver_v4_AWS/client/.env',
+  'C:/Users/源?숈씠/Desktop/Antigravity_HYeat/Campus-Feast-Guide_netver_v4_AWS/client/.env.local',
+  'C:/Users/源?숈씠/Desktop/Antigravity_HYeat/Campus-Feast-Guide_netver_v4_AWS/client/.env.production',
+  'C:/Users/源?숈씠/Desktop/Antigravity_HYeat/Campus-Feast-Guide_netver_v4_AWS/client/.env.production.local'
+]
+2026-02-14T14:24:24.507Z vite:env env files loaded in 1.08ms
+2026-02-14T14:24:24.508Z vite:env using resolved env: {}
+2026-02-14T14:24:24.553Z vite:config using resolved config: {
+  plugins: [
+    'vite:build-metadata',
+    'vite:watch-package-data',
+    'alias',
+    'vite:react-babel',
+    'vite:react-refresh',
+    'vite:modulepreload-polyfill',
+    'vite:resolve',
+    'vite:html-inline-proxy',
+    'vite:css',
+    'vite:esbuild',
+    'vite:json',
+    'vite:wasm-helper',
+    'vite:worker',
+    'vite:asset',
+    'vite:wasm-fallback',
+    'vite:define',
+    'vite:css-post',
+    'vite:build-html',
+    'vite:worker-import-meta-url',
+    'vite:asset-import-meta-url',
+    'vite:force-amd-wrap-require',
+    'vite:force-systemjs-wrap-complete',
+    'vite:prepare-out-dir',
+    'commonjs',
+    'vite:data-uri',
+    'vite:rollup-options-plugins',
+    'vite:dynamic-import-vars',
+    'vite:import-glob',
+    'vite:build-import-analysis',
+    'vite:esbuild-transpile',
+    'vite:terser',
+    'vite:license',
+    'vite:manifest',
+    'vite:ssr-manifest',
+    'vite:reporter',
+    'vite:load-fallback'
+  ],
+  resolve: {
+    externalConditions: [ 'node', 'module-sync' ],
+    extensions: [
+      '.mjs',  '.js',
+      '.mts',  '.ts',
+      '.jsx',  '.tsx',
+      '.json'
+    ],
+    dedupe: [ 'react', 'react-dom' ],
+    noExternal: [],
+    external: [],
+    preserveSymlinks: false,
+    alias: [
+      {
+        find: '@',
+        replacement: 'C:\\Users\\源?숈씠\\Desktop\\Antigravity_HYeat\\Campus-Feast-Guide_netver_v4_AWS\\client\\src'
+      },
+      {
+        find: '@shared',
+        replacement: 'C:\\Users\\源?숈씠\\Desktop\\Antigravity_HYeat\\Campus-Feast-Guide_netver_v4_AWS\\shared'
+      },
+      {
+        find: '@assets',
+        replacement: 'C:\\Users\\源?숈씠\\Desktop\\Antigravity_HYeat\\Campus-Feast-Guide_netver_v4_AWS\\attached_assets'
+      },
+      {
+        find: /^\/?@vite\/env/,
+        replacement: '/@fs/C:/Users/源?숈씠/Desktop/Antigravity_HYeat/Campus-Feast-Guide_netver_v4_AWS/node_modules/vite/dist/client/env.mjs'
+      },
+      {
+        find: /^\/?@vite\/client/,
+        replacement: '/@fs/C:/Users/源?숈씠/Desktop/Antigravity_HYeat/Campus-Feast-Guide_netver_v4_AWS/node_modules/vite/dist/client/client.mjs'
+      }
+    ],
+    mainFields: [ 'browser', 'module', 'jsnext:main', 'jsnext' ],
+    conditions: [ 'module', 'browser', 'development|production' ],
+    builtins: []
+  },
+  root: 'C:/Users/源?숈씠/Desktop/Antigravity_HYeat/Campus-Feast-Guide_netver_v4_AWS/client',
+  build: {
+    target: [ 'chrome107', 'edge107', 'firefox104', 'safari16' ],
+    polyfillModulePreload: true,
+    modulePreload: { polyfill: true },
+    outDir: 'C:\\Users\\源?숈씠\\Desktop\\Antigravity_HYeat\\Campus-Feast-Guide_netver_v4_AWS\\dist\\public',
+    assetsDir: 'assets',
+    assetsInlineLimit: 4096,
+    sourcemap: false,
+    terserOptions: {},
+    rollupOptions: { onwarn: [Function: onwarn] },
+    commonjsOptions: { include: [ /node_modules/ ], extensions: [ '.js', '.cjs' ] },
+    dynamicImportVarsOptions: { warnOnError: true, exclude: [ /node_modules/ ] },
+    write: true,
+    emptyOutDir: true,
+    copyPublicDir: true,
+    license: false,
+    manifest: false,
+    lib: false,
+    ssrManifest: false,
+    ssrEmitAssets: false,
+    reportCompressedSize: true,
+    chunkSizeWarningLimit: 500,
+    watch: null,
+    cssCodeSplit: true,
+    minify: 'esbuild',
+    ssr: false,
+    emitAssets: true,
+    createEnvironment: [Function: createEnvironment],
+    cssTarget: [ 'chrome107', 'edge107', 'firefox104', 'safari16' ],
+    cssMinify: true
+  },
+  server: {
+    port: 5173,
+    strictPort: false,
+    host: undefined,
+    allowedHosts: [],
+    https: undefined,
+    open: false,
+    proxy: undefined,
+    cors: {
+      origin: /^https?:\/\/(?:(?:[^:]+\.)?localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/
+    },
+    headers: {},
+    warmup: { clientFiles: [], ssrFiles: [] },
+    middlewareMode: false,
+    fs: {
+      strict: true,
+      deny: [ '**/.*' ],
+      allow: [
+        'C:/Users/源?숈씠/Desktop/Antigravity_HYeat/Campus-Feast-Guide_netver_v4_AWS'
+      ]
+    },
+    preTransformRequests: true,
+    perEnvironmentStartEndDuringDev: false,
+    perEnvironmentWatchChangeDuringDev: false,
+    sourcemapIgnoreList: [Function: isInNodeModules]
+  },
+  esbuild: {
+    jsxDev: false,
+    charset: 'utf8',
+    legalComments: 'none',
+    jsx: 'automatic',
+    jsxImportSource: undefined
+  },
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react/jsx-dev-runtime',
+      'react/jsx-runtime'
+    ],
+    exclude: [],
+    needsInterop: [],
+    extensions: [],
+    disabled: undefined,
+    holdUntilCrawlEnd: true,
+    force: false,
+    noDiscovery: false,
+    esbuildOptions: { preserveSymlinks: false, jsx: 'automatic' }
+  },
+  environments: {
+    client: {
+      define: undefined,
+      resolve: {
+        externalConditions: [ 'node', 'module-sync' ],
+        extensions: [
+          '.mjs',  '.js',
+          '.mts',  '.ts',
+          '.jsx',  '.tsx',
+          '.json'
+        ],
+        dedupe: [ 'react', 'react-dom' ],
+        noExternal: [],
+        external: [],
+        preserveSymlinks: false,
+        alias: [
+          {
+            find: '@',
+            replacement: 'C:\\Users\\源?숈씠\\Desktop\\Antigravity_HYeat\\Campus-Feast-Guide_netver_v4_AWS\\client\\src'
+          },
+          {
+            find: '@shared',
+            replacement: 'C:\\Users\\源?숈씠\\Desktop\\Antigravity_HYeat\\Campus-Feast-Guide_netver_v4_AWS\\shared'
+          },
+          {
+            find: '@assets',
+            replacement: 'C:\\Users\\源?숈씠\\Desktop\\Antigravity_HYeat\\Campus-Feast-Guide_netver_v4_AWS\\attached_assets'
+          },
+          {
+            find: /^\/?@vite\/env/,
+            replacement: '/@fs/C:/Users/源?숈씠/Desktop/Antigravity_HYeat/Campus-Feast-Guide_netver_v4_AWS/node_modules/vite/dist/client/env.mjs'
+          },
+          {
+            find: /^\/?@vite\/client/,
+            replacement: '/@fs/C:/Users/源?숈씠/Desktop/Antigravity_HYeat/Campus-Feast-Guide_netver_v4_AWS/node_modules/vite/dist/client/client.mjs'
+          }
+        ],
+        mainFields: [ 'browser', 'module', 'jsnext:main', 'jsnext' ],
+        conditions: [ 'module', 'browser', 'development|production' ],
+        builtins: []
+      },
+      keepProcessEnv: false,
+      consumer: 'client',
+      optimizeDeps: {
+        include: [
+          'react',
+          'react-dom',
+          'react/jsx-dev-runtime',
+          'react/jsx-runtime'
+        ],
+        exclude: [],
+        needsInterop: [],
+        extensions: [],
+        disabled: undefined,
+        holdUntilCrawlEnd: true,
+        force: false,
+        noDiscovery: false,
+        esbuildOptions: { preserveSymlinks: false, jsx: 'automatic' }
+      },
+      dev: {
+        warmup: [],
+        sourcemap: { js: true },
+        sourcemapIgnoreList: [Function: isInNodeModules],
+        preTransformRequests: true,
+        createEnvironment: [Function: defaultCreateClientDevEnvironment],
+        recoverable: true,
+        moduleRunnerTransform: false
+      },
+      build: {
+        target: [ 'chrome107', 'edge107', 'firefox104', 'safari16' ],
+        polyfillModulePreload: true,
+        modulePreload: { polyfill: true },
+        outDir: 'C:\\Users\\源?숈씠\\Desktop\\Antigravity_HYeat\\Campus-Feast-Guide_netver_v4_AWS\\dist\\public',
+        assetsDir: 'assets',
+        assetsInlineLimit: 4096,
+        sourcemap: false,
+        terserOptions: {},
+        rollupOptions: { onwarn: [Function: onwarn] },
+        commonjsOptions: { include: [ /node_modules/ ], extensions: [ '.js', '.cjs' ] },
+        dynamicImportVarsOptions: { warnOnError: true, exclude: [ /node_modules/ ] },
+        write: true,
+        emptyOutDir: true,
+        copyPublicDir: true,
+        license: false,
+        manifest: false,
+        lib: false,
+        ssrManifest: false,
+        ssrEmitAssets: false,
+        reportCompressedSize: true,
+        chunkSizeWarningLimit: 500,
+        watch: null,
+        cssCodeSplit: true,
+        minify: 'esbuild',
+        ssr: false,
+        emitAssets: true,
+        createEnvironment: [Function: createEnvironment],
+        cssTarget: [ 'chrome107', 'edge107', 'firefox104', 'safari16' ],
+        cssMinify: true
+      },
+      plugins: [
+        {
+          name: 'vite:build-metadata',
+          renderChunk: [AsyncFunction: renderChunk]
+        },
+        {
+          name: 'vite:watch-package-data',
+          buildStart: [Function: buildStart],
+          buildEnd: [Function: buildEnd],
+          watchChange: [Function: watchChange]
+        },
+        {
+          name: 'alias',
+          buildStart: [AsyncFunction: buildStart],
+          resolveId: [Function: resolveId]
+        },
+        {
+          name: 'vite:react-babel',
+          enforce: 'pre',
+          config: [Function: config],
+          configResolved: [Function: configResolved],
+          options: [Function: options]
+        },
+        {
+          name: 'vite:react-refresh',
+          enforce: 'pre',
+          config: [Function: config],
+          resolveId: {
+            filter: { id: /^\/@react\-refresh$/ },
+            handler: [Function: handler]
+          },
+          load: {
+            filter: { id: /^\/@react\-refresh$/ },
+            handler: [Function: handler]
+          },
+          transformIndexHtml: [Function: transformIndexHtml]
+        },
+        {
+          name: 'vite:modulepreload-polyfill',
+          resolveId: {
+            filter: { id: /^vite\/modulepreload\-polyfill$/ },
+            handler: [Function: handler]
+          },
+          load: {
+            filter: { id: /^ vite\/modulepreload\-polyfill\.js$/ },
+            handler: [Function: handler]
+          }
+        },
+        {
+          name: 'vite:resolve',
+          resolveId: {
+            filter: { id: { exclude: /^(?:\0|\/?virtual:)/ } },
+            handler: [AsyncFunction: handler]
+          },
+          load: {
+            filter: {
+              id: [
+                /^__vite\-browser\-external/,
+                /^__vite\-optional\-peer\-dep/
+              ]
+            },
+            handler: [Function: handler]
+          }
+        },
+        {
+          name: 'vite:html-inline-proxy',
+          resolveId: {
+            filter: { id: /[?&]html-proxy\b/ },
+            handler: [Function: handler]
+          },
+          load: {
+            filter: { id: /[?&]html-proxy\b/ },
+            handler: [Function: handler]
+          }
+        },
+        {
+          name: 'vite:css',
+          buildStart: [Function: buildStart],
+          buildEnd: [Function: buildEnd],
+          load: {
+            filter: {
+              id: /\.(css|less|sass|scss|styl|stylus|pcss|postcss|sss)(?:$|\?)/
+            },
+            handler: [AsyncFunction: handler]
+          },
+          transform: {
+            filter: {
+              id: {
+                include: /\.(css|less|sass|scss|styl|stylus|pcss|postcss|sss)(?:$|\?)/,
+                exclude: [
+                  /[?&]commonjs-proxy/,
+                  /[?&](?:worker|sharedworker|raw|url)\b/
+                ]
+              }
+            },
+            handler: [AsyncFunction: handler]
+          }
+        },
+        {
+          name: 'vite:esbuild',
+          configureServer: [Function: configureServer],
+          transform: [AsyncFunction: transform]
+        },
+        {
+          name: 'vite:json',
+          transform: {
+            filter: {
+              id: {
+                include: /\.json(?:$|\?)(?!commonjs-(?:proxy|external))/,
+                exclude: /[?&](?:worker|sharedworker|raw|url)\b/
+              }
+            },
+            handler: [Function: handler]
+          }
+        },
+        {
+          name: 'vite:wasm-helper',
+          resolveId: {
+            filter: { id: /^ vite\/wasm\-helper\.js$/ },
+            handler: [Function: handler]
+          },
+          load: {
+            filter: {
+              id: [
+                /^ vite\/wasm\-helper\.js$/,
+                /(?<![?#].*)\.wasm\?init/
+              ]
+            },
+            handler: [AsyncFunction: handler]
+          }
+        },
+        {
+          name: 'vite:worker',
+          buildStart: [Function: buildStart],
+          load: {
+            filter: { id: /(?:\?|&)(worker|sharedworker)(?:&|$)/ },
+            handler: [AsyncFunction: handler]
+          },
+          transform: {
+            filter: { id: /(?:\?|&)worker_file&type=(\w+)(?:&|$)/ },
+            handler: [AsyncFunction: handler]
+          },
+          renderChunk: [Function: renderChunk],
+          generateBundle: [Function: generateBundle],
+          watchChange: [Function: watchChange]
+        },
+        {
+          name: 'vite:asset',
+          perEnvironmentStartEndDuringDev: true,
+          buildStart: [Function: buildStart],
+          resolveId: { handler: [Function: handler] },
+          load: {
+            filter: { id: { exclude: /^\0/ } },
+            handler: [AsyncFunction: handler]
+          },
+          renderChunk: [Function: renderChunk],
+          generateBundle: [Function: generateBundle]
+        },
+        {
+          name: 'vite:wasm-fallback',
+          load: { filter: { id: /\.wasm$/ }, handler: [Function: handler] }
+        },
+        {
+          name: 'vite:define',
+          transform: { handler: [AsyncFunction: handler] }
+        },
+        {
+          name: 'vite:css-post',
+          renderStart: [Function: renderStart],
+          transform: {
+            filter: {
+              id: {
+                include: /\.(css|less|sass|scss|styl|stylus|pcss|postcss|sss)(?:$|\?)/,
+                exclude: [
+                  /[?&]commonjs-proxy/,
+                  /[?&](?:worker|sharedworker|raw|url)\b/
+                ]
+              }
+            },
+            handler: [AsyncFunction: handler]
+          },
+          renderChunk: [AsyncFunction: renderChunk],
+          augmentChunkHash: [Function: augmentChunkHash],
+          generateBundle: [AsyncFunction: generateBundle]
+        },
+        {
+          name: 'vite:build-html',
+          transform: {
+            filter: { id: /\.html$/ },
+            handler: [AsyncFunction: handler]
+          },
+          generateBundle: [AsyncFunction: generateBundle]
+        },
+        {
+          name: 'vite:worker-import-meta-url',
+          applyToEnvironment: [Function: applyToEnvironment],
+          transform: {
+            filter: {
+              code: /new\s+(?:Worker|SharedWorker)\s*\(\s*new\s+URL.+?import\.meta\.url/s
+            },
+            handler: [AsyncFunction: handler]
+          }
+        },
+        {
+          name: 'vite:asset-import-meta-url',
+          applyToEnvironment: [Function: applyToEnvironment],
+          transform: {
+            filter: {
+              id: {
+                exclude: [
+                  /^ vite\/preload\-helper\.js$/,
+                  /^C:\\Users\\源?숈씠\\Desktop\\Antigravity_HYeat\\Campus\-Feast\-Guide_netver_v4_AWS\\node_modules\\vite\\dist\\client\\client\.mjs$/
+                ]
+              },
+              code: /new\s+URL.+import\.meta\.url/s
+            },
+            handler: [AsyncFunction: handler]
+          }
+        },
+        {
+          name: 'vite:force-amd-wrap-require',
+          renderChunk: [Function: renderChunk]
+        },
+        {
+          name: 'vite:force-systemjs-wrap-complete',
+          renderChunk: [Function: renderChunk]
+        },
+        {
+          name: 'vite:prepare-out-dir',
+          options: [Function: options],
+          renderStart: { order: 'pre', handler: [Function: handler] }
+        },
+        {
+          name: 'commonjs',
+          version: '29.0.0',
+          options: [Function: options],
+          buildStart: [Function: buildStart],
+          buildEnd: [Function: buildEnd],
+          load: [AsyncFunction: load],
+          shouldTransformCachedModule: [Function: shouldTransformCachedModule],
+          transform: [Function: transform]
+        },
+        {
+          name: 'vite:data-uri',
+          buildStart: [Function: buildStart],
+          resolveId: [Function: resolveId],
+          load: [Function: load]
+        },
+        {
+          name: 'vite:dynamic-import-vars',
+          resolveId: {
+            filter: { id: /^ vite\/dynamic\-import\-helper\.js$/ },
+            handler: [Function: handler]
+          },
+          load: {
+            filter: { id: /^ vite\/dynamic\-import\-helper\.js$/ },
+            handler: [Function: handler]
+          },
+          transform: {
+            filter: {
+              id: {
+                exclude: /^C:\\Users\\源?숈씠\\Desktop\\Antigravity_HYeat\\Campus\-Feast\-Guide_netver_v4_AWS\\node_modules\\vite\\dist\\client\\client\.mjs$/
+              },
+              code: /\bimport\s*[(/]/
+            },
+            handler: [AsyncFunction: handler]
+          }
+        },
+        {
+          name: 'vite:import-glob',
+          buildStart: [Function: buildStart],
+          transform: {
+            filter: { code: 'import.meta.glob' },
+            handler: [AsyncFunction: handler]
+          },
+          hotUpdate: [Function: hotUpdate]
+        },
+        {
+          name: 'vite:build-import-analysis',
+          resolveId: {
+            filter: { id: /^ vite\/preload\-helper\.js$/ },
+            handler: [Function: handler]
+          },
+          load: {
+            filter: { id: /^ vite\/preload\-helper\.js$/ },
+            handler: [Function: handler]
+          },
+          transform: {
+            filter: { code: /import\s*\(/ },
+            handler: [AsyncFunction: handler]
+          },
+          renderChunk: [Function: renderChunk],
+          generateBundle: [Function: generateBundle]
+        },
+        {
+          name: 'vite:esbuild-transpile',
+          applyToEnvironment: [Function: applyToEnvironment],
+          renderChunk: [AsyncFunction: renderChunk]
+        },
+        {
+          name: 'vite:terser',
+          applyToEnvironment: [Function: applyToEnvironment],
+          renderChunk: [AsyncFunction: renderChunk],
+          closeBundle: [Function: closeBundle]
+        },
+        {
+          name: 'vite:license',
+          generateBundle: [AsyncFunction: generateBundle]
+        },
+        {
+          name: 'vite:reporter',
+          sharedDuringBuild: true,
+          perEnvironmentStartEndDuringDev: true,
+          transform: [Function: transform],
+          buildStart: [Function: buildStart],
+          buildEnd: [Function: buildEnd],
+          renderStart: [Function: renderStart],
+          renderChunk: [Function: renderChunk],
+          generateBundle: [Function: generateBundle],
+          writeBundle: [AsyncFunction: writeBundle]
+        },
+        {
+          name: 'vite:load-fallback',
+          load: { handler: [AsyncFunction: handler] }
+        }
+      ]
+    }
+  },
+  configFile: 'C:/Users/源?숈씠/Desktop/Antigravity_HYeat/Campus-Feast-Guide_netver_v4_AWS/vite.config.ts',
+  configFileDependencies: [
+    'C:/Users/源?숈씠/Desktop/Antigravity_HYeat/Campus-Feast-Guide_netver_v4_AWS/vite.config.ts'
+  ],
+  inlineConfig: {
+    root: undefined,
+    base: undefined,
+    mode: undefined,
+    configFile: undefined,
+    configLoader: undefined,
+    logLevel: undefined,
+    clearScreen: undefined,
+    build: {}
+  },
+  base: '/',
+  decodedBase: '/',
+  rawBase: '/',
+  publicDir: 'C:/Users/源?숈씠/Desktop/Antigravity_HYeat/Campus-Feast-Guide_netver_v4_AWS/client/public',
+  cacheDir: 'C:/Users/源?숈씠/Desktop/Antigravity_HYeat/Campus-Feast-Guide_netver_v4_AWS/node_modules/.vite',
+  command: 'build',
+  mode: 'production',
+  isWorker: false,
+  mainConfig: null,
+  bundleChain: [],
+  isProduction: true,
+  css: {
+    transformer: 'postcss',
+    preprocessorMaxWorkers: true,
+    devSourcemap: false
+  },
+  json: { namedExports: true, stringify: 'auto' },
+  builder: undefined,
+  preview: {
+    port: 4173,
+    strictPort: false,
+    host: undefined,
+    allowedHosts: [],
+    https: undefined,
+    open: false,
+    proxy: undefined,
+    cors: {
+      origin: /^https?:\/\/(?:(?:[^:]+\.)?localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/
+    },
+    headers: {}
+  },
+  envDir: 'C:/Users/源?숈씠/Desktop/Antigravity_HYeat/Campus-Feast-Guide_netver_v4_AWS/client',
+  env: { BASE_URL: '/', MODE: 'production', DEV: false, PROD: true },
+  assetsInclude: [Function: assetsInclude],
+  logger: {
+    hasWarned: false,
+    info: [Function: info],
+    warn: [Function: warn],
+    warnOnce: [Function: warnOnce],
+    error: [Function: error],
+    clearScreen: [Function: clearScreen],
+    hasErrorLogged: [Function: hasErrorLogged]
+  },
+  packageCache: Map(2) {
+    'fnpd_C:/Users/源?숈씠/Desktop/Antigravity_HYeat/Campus-Feast-Guide_netver_v4_AWS' => {
+      dir: 'C:/Users/源?숈씠/Desktop/Antigravity_HYeat/Campus-Feast-Guide_netver_v4_AWS',
+      data: {
+        name: 'rest-express',
+        version: '1.0.0',
+        type: 'module',
+        license: 'MIT',
+        scripts: {
+          dev: 'cross-env NODE_ENV=development tsx server/index.ts',
+          build: 'tsx script/build.ts',
+          start: 'cross-env NODE_ENV=production node dist/index.cjs',
+          check: 'tsc',
+          'db:push': 'drizzle-kit push',
+          'build:client': 'vite build'
+        },
+        dependencies: {
+          '@aws-sdk/client-dynamodb': '^3.975.0',
+          '@aws-sdk/client-s3': '^3.975.0',
+          '@aws-sdk/lib-dynamodb': '^3.975.0',
+          '@hookform/resolvers': '^3.10.0',
+          '@jridgewell/trace-mapping': '^0.3.25',
+          '@radix-ui/react-accordion': '^1.2.4',
+          '@radix-ui/react-alert-dialog': '^1.1.7',
+          '@radix-ui/react-aspect-ratio': '^1.1.3',
+          '@radix-ui/react-avatar': '^1.1.4',
+          '@radix-ui/react-checkbox': '^1.1.5',
+          '@radix-ui/react-collapsible': '^1.1.4',
+          '@radix-ui/react-context-menu': '^2.2.7',
+          '@radix-ui/react-dialog': '^1.1.7',
+          '@radix-ui/react-dropdown-menu': '^2.1.7',
+          '@radix-ui/react-hover-card': '^1.1.7',
+          '@radix-ui/react-label': '^2.1.3',
+          '@radix-ui/react-menubar': '^1.1.7',
+          '@radix-ui/react-navigation-menu': '^1.2.6',
+          '@radix-ui/react-popover': '^1.1.7',
+          '@radix-ui/react-progress': '^1.1.3',
+          '@radix-ui/react-radio-group': '^1.2.4',
+          '@radix-ui/react-scroll-area': '^1.2.4',
+          '@radix-ui/react-select': '^2.1.7',
+          '@radix-ui/react-separator': '^1.1.3',
+          '@radix-ui/react-slider': '^1.2.4',
+          '@radix-ui/react-slot': '^1.2.0',
+          '@radix-ui/react-switch': '^1.1.4',
+          '@radix-ui/react-tabs': '^1.1.4',
+          '@radix-ui/react-toast': '^1.2.7',
+          '@radix-ui/react-toggle': '^1.1.3',
+          '@radix-ui/react-toggle-group': '^1.1.3',
+          '@radix-ui/react-tooltip': '^1.2.0',
+          '@tanstack/query-sync-storage-persister': '^5.90.22',
+          '@tanstack/react-query': '^5.60.5',
+          '@tanstack/react-query-persist-client': '^5.90.22',
+          '@types/qrcode': '^1.5.6',
+          'class-variance-authority': '^0.7.1',
+          clsx: '^2.1.1',
+          cmdk: '^1.1.1',
+          'cross-env': '^7.0.3',
+          'date-fns': '^3.6.0',
+          dotenv: '^17.2.4',
+          'embla-carousel-react': '^8.6.0',
+          express: '^4.21.2',
+          'framer-motion': '^11.13.1',
+          'input-otp': '^1.4.2',
+          'lucide-react': '^0.453.0',
+          'next-themes': '^0.4.6',
+          qrcode: '^1.5.4',
+          react: '^18.3.1',
+          'react-day-picker': '^8.10.1',
+          'react-dom': '^18.3.1',
+          'react-hook-form': '^7.55.0',
+          'react-icons': '^5.4.0',
+          'react-resizable-panels': '^2.1.7',
+          recharts: '^2.15.2',
+          'serverless-http': '^4.0.0',
+          'tailwind-merge': '^2.6.0',
+          'tailwindcss-animate': '^1.0.7',
+          'tw-animate-css': '^1.2.5',
+          vaul: '^1.1.2',
+          winston: '^3.19.0',
+          wouter: '^3.3.5',
+          ws: '^8.18.0',
+          zod: '^3.24.2',
+          'zod-validation-error': '^3.4.0'
+        },
+        devDependencies: {
+          '@tailwindcss/typography': '^0.5.15',
+          '@tailwindcss/vite': '^4.1.18',
+          '@types/express': '4.17.21',
+          '@types/node': '20.19.27',
+          '@types/react': '^18.3.11',
+          '@types/react-dom': '^18.3.1',
+          '@types/ws': '^8.5.13',
+          '@vitejs/plugin-react': '^4.7.0',
+          autoprefixer: '^10.4.20',
+          esbuild: '^0.25.0',
+          postcss: '^8.4.47',
+          tailwindcss: '^3.4.17',
+          tsx: '^4.20.5',
+          typescript: '5.6.3',
+          vite: '^7.3.0'
+        },
+        overrides: {
+          'drizzle-kit': { '@esbuild-kit/esm-loader': 'npm:tsx@^4.20.4' }
+        }
+      },
+      hasSideEffects: [Function: hasSideEffects],
+      setResolvedCache: [Function: setResolvedCache],
+      getResolvedCache: [Function: getResolvedCache]
+    },
+    'fnpd_C:/Users/源?숈씠/Desktop/Antigravity_HYeat/Campus-Feast-Guide_netver_v4_AWS/client' => {
+      dir: 'C:/Users/源?숈씠/Desktop/Antigravity_HYeat/Campus-Feast-Guide_netver_v4_AWS',
+      data: {
+        name: 'rest-express',
+        version: '1.0.0',
+        type: 'module',
+        license: 'MIT',
+        scripts: {
+          dev: 'cross-env NODE_ENV=development tsx server/index.ts',
+          build: 'tsx script/build.ts',
+          start: 'cross-env NODE_ENV=production node dist/index.cjs',
+          check: 'tsc',
+          'db:push': 'drizzle-kit push',
+          'build:client': 'vite build'
+        },
+        dependencies: {
+          '@aws-sdk/client-dynamodb': '^3.975.0',
+          '@aws-sdk/client-s3': '^3.975.0',
+          '@aws-sdk/lib-dynamodb': '^3.975.0',
+          '@hookform/resolvers': '^3.10.0',
+          '@jridgewell/trace-mapping': '^0.3.25',
+          '@radix-ui/react-accordion': '^1.2.4',
+          '@radix-ui/react-alert-dialog': '^1.1.7',
+          '@radix-ui/react-aspect-ratio': '^1.1.3',
+          '@radix-ui/react-avatar': '^1.1.4',
+          '@radix-ui/react-checkbox': '^1.1.5',
+          '@radix-ui/react-collapsible': '^1.1.4',
+          '@radix-ui/react-context-menu': '^2.2.7',
+          '@radix-ui/react-dialog': '^1.1.7',
+          '@radix-ui/react-dropdown-menu': '^2.1.7',
+          '@radix-ui/react-hover-card': '^1.1.7',
+          '@radix-ui/react-label': '^2.1.3',
+          '@radix-ui/react-menubar': '^1.1.7',
+          '@radix-ui/react-navigation-menu': '^1.2.6',
+          '@radix-ui/react-popover': '^1.1.7',
+          '@radix-ui/react-progress': '^1.1.3',
+          '@radix-ui/react-radio-group': '^1.2.4',
+          '@radix-ui/react-scroll-area': '^1.2.4',
+          '@radix-ui/react-select': '^2.1.7',
+          '@radix-ui/react-separator': '^1.1.3',
+          '@radix-ui/react-slider': '^1.2.4',
+          '@radix-ui/react-slot': '^1.2.0',
+          '@radix-ui/react-switch': '^1.1.4',
+          '@radix-ui/react-tabs': '^1.1.4',
+          '@radix-ui/react-toast': '^1.2.7',
+          '@radix-ui/react-toggle': '^1.1.3',
+          '@radix-ui/react-toggle-group': '^1.1.3',
+          '@radix-ui/react-tooltip': '^1.2.0',
+          '@tanstack/query-sync-storage-persister': '^5.90.22',
+          '@tanstack/react-query': '^5.60.5',
+          '@tanstack/react-query-persist-client': '^5.90.22',
+          '@types/qrcode': '^1.5.6',
+          'class-variance-authority': '^0.7.1',
+          clsx: '^2.1.1',
+          cmdk: '^1.1.1',
+          'cross-env': '^7.0.3',
+          'date-fns': '^3.6.0',
+          dotenv: '^17.2.4',
+          'embla-carousel-react': '^8.6.0',
+          express: '^4.21.2',
+          'framer-motion': '^11.13.1',
+          'input-otp': '^1.4.2',
+          'lucide-react': '^0.453.0',
+          'next-themes': '^0.4.6',
+          qrcode: '^1.5.4',
+          react: '^18.3.1',
+          'react-day-picker': '^8.10.1',
+          'react-dom': '^18.3.1',
+          'react-hook-form': '^7.55.0',
+          'react-icons': '^5.4.0',
+          'react-resizable-panels': '^2.1.7',
+          recharts: '^2.15.2',
+          'serverless-http': '^4.0.0',
+          'tailwind-merge': '^2.6.0',
+          'tailwindcss-animate': '^1.0.7',
+          'tw-animate-css': '^1.2.5',
+          vaul: '^1.1.2',
+          winston: '^3.19.0',
+          wouter: '^3.3.5',
+          ws: '^8.18.0',
+          zod: '^3.24.2',
+          'zod-validation-error': '^3.4.0'
+        },
+        devDependencies: {
+          '@tailwindcss/typography': '^0.5.15',
+          '@tailwindcss/vite': '^4.1.18',
+          '@types/express': '4.17.21',
+          '@types/node': '20.19.27',
+          '@types/react': '^18.3.11',
+          '@types/react-dom': '^18.3.1',
+          '@types/ws': '^8.5.13',
+          '@vitejs/plugin-react': '^4.7.0',
+          autoprefixer: '^10.4.20',
+          esbuild: '^0.25.0',
+          postcss: '^8.4.47',
+          tailwindcss: '^3.4.17',
+          tsx: '^4.20.5',
+          typescript: '5.6.3',
+          vite: '^7.3.0'
+        },
+        overrides: {
+          'drizzle-kit': { '@esbuild-kit/esm-loader': 'npm:tsx@^4.20.4' }
+        }
+      },
+      hasSideEffects: [Function: hasSideEffects],
+      setResolvedCache: [Function: setResolvedCache],
+      getResolvedCache: [Function: getResolvedCache]
+    },
+    set: [Function (anonymous)]
+  },
+  worker: { format: 'iife', plugins: '() => plugins', rollupOptions: {} },
+  appType: 'spa',
+  experimental: {
+    importGlobRestoreExtension: false,
+    renderBuiltUrl: undefined,
+    hmrPartialAccept: false
+  },
+  future: undefined,
+  ssr: {
+    target: 'node',
+    optimizeDeps: { esbuildOptions: { preserveSymlinks: false } },
+    resolve: { conditions: undefined, externalConditions: undefined }
+  },
+  dev: {
+    warmup: [],
+    sourcemap: { js: true },
+    sourcemapIgnoreList: [Function: isInNodeModules],
+    preTransformRequests: false,
+    createEnvironment: [Function: defaultCreateDevEnvironment],
+    recoverable: false,
+    moduleRunnerTransform: false
+  },
+  webSocketToken: 'S3FVkDfHkKo6',
+  getSortedPlugins: [Function: getSortedPlugins],
+  getSortedPluginHooks: [Function: getSortedPluginHooks],
+  createResolver: [Function: createResolver],
+  fsDenyGlob: [Function: arrayMatcher],
+  safeModulePaths: Set(0) {},
+  Symbol(vite:resolved-config): true
+}
+[36mvite v7.3.0 [32mbuilding client environment for production...[36m[39m
+transforming...
+
+A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+[32m??[39m 2071 modules transformed.
