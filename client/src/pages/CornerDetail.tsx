@@ -12,7 +12,7 @@
  * The date is now derived from the URL path, making the page fully URL-driven.
  * 
  * Placeholder behavior:
- * - When menu data is missing, shows "데이터 없음" for menu name
+ * - When menu data is missing, shows "휴무입니다🏖️" for menu name
  * - When waiting data is missing, shows "-" for wait time and "미제공" for congestion
  * - The page always renders the same structure even without data
  */
@@ -219,7 +219,7 @@ export default function CornerDetail() {
   // Get display names - use data if available, otherwise use placeholders
   const restaurantName = restaurant?.name || '식당';
   const cornerDisplayName = menu?.cornerDisplayName || CORNER_DISPLAY_NAMES[cornerId] || cornerId;
-  const menuName = hasMenuData ? menu.mainMenuName : '데이터 없음';
+  const menuName = hasMenuData ? menu.mainMenuName : '휴무입니다🏖️';
   const price = hasMenuData ? menu.priceWon : null;
   const menuItems = hasMenuData ? menu.items : [];
 

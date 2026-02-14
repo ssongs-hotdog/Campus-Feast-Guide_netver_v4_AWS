@@ -14,7 +14,7 @@
  * - isActive: Whether the corner is currently operating (green dot = active, gray = inactive)
  * 
  * Placeholder behavior:
- * - When menu is missing, shows "데이터 없음" for menu name
+ * - When menu is missing, shows "휴무입니다🏖️" for menu name
  * - When waiting data is missing, shows "-" for wait time and "미제공" for congestion
  * 
  * Status indicator:
@@ -68,7 +68,7 @@ export function CornerCard({
 
   // Get display name for menu - handle breakfast variants
   const getMenuDisplayName = (): string => {
-    if (!hasMenuData) return '데이터 없음';
+    if (!hasMenuData) return '휴무입니다🏖️';
     if (isBreakfastCorner(cornerId) && hasRealVariants(menu)) {
       const variants = getMenuVariants(menu);
       if (variants.length >= 2) {
