@@ -1,38 +1,45 @@
 /**
- * Home.tsx - Main Home Page (Today View)
+ * Home.tsx - Main Home Page
  * 
- * Purpose: Displays 'Today's' menu and waiting data.
- * Features:
- * - Strict Today View (KST)
- * - Restaurant Filtering (Chips)
- * - Future Forecast Mode (Bottom Sheet)
+ * Purpose: Displays the main view of all restaurants and their menu/waiting data
+ * for a specific date. The date is determined by the URL path (/d/YYYY-MM-DD).
+ * 
+ * Key features:
+ * - URL-driven date navigation (refresh-safe, shareable)
+ * - Shows menu data for each restaurant corner
+ * - Displays real-time or historical congestion data
+ * - Supports previous/next date navigation
  */
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useLocation } from 'wouter';
-import { Ticket, Info } from 'lucide-react';
+import { useRoute, useLocation } from 'wouter';
+import { ChevronLeft, ChevronRight, Ticket, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { RestaurantSection } from '@/components/RestaurantSection';
-import { ForecastSheet } from '@/components/ForecastSheet';
 import { useTimeContext } from '@/lib/timeContext';
 import { useTicketContext } from '@/lib/ticketContext';
 import { RESTAURANTS, formatTime, type WaitingData, type MenuData } from '@shared/types';
-import { getTodayKey, formatDayKeyForDisplay, type DayKey } from '@/lib/dateUtils';
-import { getMenus, getWaitTimes, getLatestWaitTimes, getConfig } from '@/lib/data/dataProvider';
-import { addMinutes, startOfDay, addDays, getMinutes, setMinutes } from 'date-fns';
+import { addDays, formatDayKeyForDisplay, isValidDayKey, type DayKey } from '@/lib/dateUtils';
+import { getMenus, getWaitTimes, getAvailableTimestamps, getLatestWaitTimes, getConfig } from '@/lib/data/dataProvider';
 
 function Banner() {
   const [imageError, setImageError] = useState(false);
-  const handleImageError = useCallback(() => setImageError(true), []);
+
+  const handleImageError = useCallback(() => {
+    setImageError(true);
+  }, []);
 
   return (
     <div
       className="w-full rounded-lg overflow-hidden shadow-sm border border-border"
       style={{ aspectRatio: '2.35 / 1' }}
+      data-testid="banner-container"
     >
       {imageError ? (
-        <div className="w-full h-full bg-[#0e4194] flex items-center justify-center">
+        <div
+          className="w-full h-full bg-[#0e4194] flex items-center justify-center"
+          data-testid="banner-placeholder"
+        >
           <span className="text-white/60 text-sm">HY-eat</span>
         </div>
       ) : (
@@ -42,52 +49,71 @@ function Banner() {
           className="w-full h-full"
           style={{ objectFit: 'contain', backgroundColor: '#0e4194' }}
           onError={handleImageError}
+          data-testid="banner-image"
         />
       )}
     </div>
   );
 }
 
-// Helper to normalize date to nearest 5 minutes (floor or round)
-// Policy: "Floor" to nearest 5 min to ensure we don't ask for future data that doesn't exist yet if we are slightly ahead?
-// Actually for prediction, we just want standard 5-min buckets.
-function normalizeTo5Min(date: Date): Date {
-  const minutes = getMinutes(date);
-  const roundedMinutes = Math.floor(minutes / 5) * 5;
-  return setMinutes(date, roundedMinutes);
-}
+// Time options for the time selector dropdown (single source of truth)
+// Range: 08:00 to 18:00 in 10-minute increments
+const TIME_OPTIONS = (() => {
+  const options: string[] = [];
+  for (let h = 8; h <= 18; h++) {
+    for (let m = 0; m < 60; m += 10) {
+      if (h === 18 && m > 30) break; // Stop at 18:30
+      options.push(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
+    }
+  }
+  return options;
+})();
 
 export default function Home() {
+  const [, params] = useRoute('/d/:dayKey');
   const [, setLocation] = useLocation();
-  const { todayKey } = useTimeContext(); // This comes from Context, initialized to KST
+
+  const {
+    timeState,
+    setAvailableTimestamps,
+    selectedTime5Min,
+    setSelectedTime5Min,
+    todayKey,
+  } = useTimeContext();
   const { ticket } = useTicketContext();
+  const [isTimeSelectorOpen, setIsTimeSelectorOpen] = useState(false);
 
-  // State
-  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null);
-  const [forecastOffset, setForecastOffset] = useState<number>(0); // 0 = Live/Now
-  const [isForecastSheetOpen, setIsForecastSheetOpen] = useState(false);
+  // Validate dayKey from URL - redirect to today if missing or invalid
+  const rawDayKey = params?.dayKey || '';
+  const selectedDate: DayKey = isValidDayKey(rawDayKey) ? rawDayKey : todayKey;
 
-  // Computed Dates
-  const now = new Date();
-  const displayTime = useMemo(() => addMinutes(now, forecastOffset), [now, forecastOffset]);
-  const isForecastMode = forecastOffset > 0;
+  // Redirect to today if dayKey is missing or invalid
+  useEffect(() => {
+    if (!rawDayKey || !isValidDayKey(rawDayKey)) {
+      setLocation(`/d/${todayKey}`, { replace: true });
+    }
+  }, [rawDayKey, todayKey, setLocation]);
 
-  // Strict Today Key (from context or recalc)
-  const activeDayKey: DayKey = todayKey;
+  const isToday = selectedDate === todayKey;
 
-  const displayDateStr = formatDayKeyForDisplay(activeDayKey, todayKey);
-  const displayTimeStr = isForecastMode
-    ? formatTime(displayTime)
-    : formatTime(now);
+  const goPrevDate = useCallback(() => {
+    const prevDate = addDays(selectedDate, -1);
+    setLocation(`/d/${prevDate}`);
+  }, [selectedDate, setLocation]);
 
-  // Queries
+  const goNextDate = useCallback(() => {
+    const nextDate = addDays(selectedDate, 1);
+    setLocation(`/d/${nextDate}`);
+  }, [selectedDate, setLocation]);
+
   const { data: menuData } = useQuery<MenuData | null>({
-    queryKey: ['/api/menu', activeDayKey],
+    queryKey: ['/api/menu', selectedDate],
     queryFn: async () => {
-      const result = await getMenus(activeDayKey);
+      const result = await getMenus(selectedDate);
       if (result.error) throw new Error(result.error);
       return result.data as MenuData | null;
     },
+    enabled: !!selectedDate,
   });
 
   const { data: configData } = useQuery({
@@ -101,202 +127,317 @@ export default function Home() {
   });
 
   const useDbWaiting = configData?.useDbWaiting ?? false;
+  const tomorrowKey = configData?.tomorrow || addDays(todayKey, 1);
+  const isTomorrow = selectedDate === tomorrowKey;
+  const isPast = selectedDate < todayKey;
+  const showTimeSelector = !isToday && (isPast || isTomorrow);
 
-  // Waiting Data Query
-  // Live: getLatestWaitTimes
-  // Forecast: getWaitTimes with specific timestamp
-  const { data: waitingData, isLoading: isWaitingLoading } = useQuery<WaitingData[]>({
-    queryKey: isForecastMode
-      ? ['/api/waiting', activeDayKey, normalizeTo5Min(displayTime).toISOString()]
-      : ['/api/waiting/latest', activeDayKey], // Live
+  const { data: timestampsData } = useQuery<{ timestamps: string[] }>({
+    queryKey: ['/api/waiting/timestamps', selectedDate],
     queryFn: async () => {
-      if (isForecastMode) {
-        // Fetch for specific time
-        // Note: We need a full ISO string or whatever getWaitTimes expects. 
-        // dataProvider.ts getWaitTimes takes `time` string (HH:MM)? No, checking provider...
-        // Provider: getWaitTimes(dayKey, time: string). API expects HH:MM usually?
-        // Let's check dataProvider signature. It says `time: string`. 
-        // Typically strict ISO or HH:MM? The backend usually handles HH:MM for queries.
-        // Let's use HH:MM format for safety if API supports it, or full ISO if needed.
-        // The previous code `currentTimestamp` was ISO from `availableTimestamps`.
-        // Let's pass ISO string to be safe if that's what `getWaitTimes` expects for exact lookup.
-        // Actually, looking at `getWaitTimes` implementation: `waiting?date=${dayKey}&time=${time}`.
-        // If the backend parses `time`, HH:MM is standard for this app. 
-        // Let's try formatting to HH:MM first.
-        const timeStr = formatTime(normalizeTo5Min(displayTime));
-        const result = await getWaitTimes(activeDayKey, timeStr, '5min');
+      const result = await getAvailableTimestamps(selectedDate);
+      if (result.error) throw new Error(result.error);
+      return { timestamps: result.data || [] };
+    },
+    enabled: !!selectedDate && !(isToday && useDbWaiting),
+  });
+
+  useEffect(() => {
+    if (timestampsData?.timestamps && isToday) {
+      setAvailableTimestamps(timestampsData.timestamps);
+    }
+  }, [timestampsData, setAvailableTimestamps, isToday]);
+
+  const currentTimestamp = useMemo(() => {
+    if (!timestampsData?.timestamps?.length) return null;
+    const targetTime = timeState.displayTime.getTime();
+    let closestIdx = 0;
+    let minDiff = Math.abs(new Date(timestampsData.timestamps[0]).getTime() - targetTime);
+
+    for (let i = 1; i < timestampsData.timestamps.length; i++) {
+      const diff = Math.abs(new Date(timestampsData.timestamps[i]).getTime() - targetTime);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closestIdx = i;
+      }
+    }
+    return timestampsData.timestamps[closestIdx];
+  }, [timestampsData?.timestamps, timeState.displayTime]);
+
+  const useLiveEndpoint = isToday && useDbWaiting;
+
+  const { data: waitingData, isLoading: isWaitingLoading } = useQuery<WaitingData[]>({
+    queryKey: useLiveEndpoint
+      ? ['/api/waiting/latest', selectedDate]
+      : isToday
+        ? ['/api/waiting', selectedDate, currentTimestamp]
+        : ['/api/waiting', selectedDate, selectedTime5Min, '5min'],
+    queryFn: async () => {
+      if (useLiveEndpoint) {
+        const result = await getLatestWaitTimes(selectedDate);
+        if (result.error) throw new Error(result.error);
+        return result.data || [];
+      } else if (isToday) {
+        const result = await getWaitTimes(selectedDate, currentTimestamp!);
         if (result.error) throw new Error(result.error);
         return result.data || [];
       } else {
-        // Live
-        const result = await getLatestWaitTimes(activeDayKey);
+        const result = await getWaitTimes(selectedDate, selectedTime5Min!, '5min');
         if (result.error) throw new Error(result.error);
         return result.data || [];
       }
     },
-    // Refetch interval: Live = 30s, Forecast = Manual/Static (no auto refetch)
-    refetchInterval: isForecastMode ? false : 30000,
+    enabled: !!selectedDate && (useLiveEndpoint || (isToday ? !!currentTimestamp : !!selectedTime5Min)),
+    staleTime: useLiveEndpoint ? 0 : 60000,
+    placeholderData: (previousData) => previousData,
+    refetchInterval: useLiveEndpoint ? 30000 : false,
+    refetchIntervalInBackground: false,
   });
 
-  // Derived Data
-  const hasActiveTicket = ticket && (ticket.status === 'stored' || ticket.status === 'active');
-  const filteredRestaurants = useMemo(() => {
-    if (!selectedRestaurantId) return RESTAURANTS;
-    return RESTAURANTS.filter(r => r.id === selectedRestaurantId);
-  }, [selectedRestaurantId]);
+  // Fix for Main/Detail Discrepancy:
+  // When a specific time is selected (e.g. 12:00), we get a range of data (12:00~12:04).
+  // Previously, we just used the raw array which might be processed differently by children.
+  // Now, we pre-process it to find the *closest* data point to the selected time for each corner.
+  const processedWaitingData = useMemo(() => {
+    if (!waitingData || waitingData.length === 0) return [];
 
-  // Handlers
-  const handleApplyForecast = (offset: number, cornerId?: string) => {
-    setForecastOffset(offset);
-    if (cornerId) {
-      // Scroll to corner
-      // Simple implementation: standard anchor scrolling
-      // We might need a small timeout to allow DOM to update if filtering changes
-      setTimeout(() => {
-        const element = document.getElementById(`corner-${cornerId}`);
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // If it's today/live, we just use the latest data as is
+    if (isToday) return waitingData;
+
+    // For past/future dates with time selection
+    if (selectedTime5Min) {
+      const targetTimeStr = selectedTime5Min; // HH:MM
+
+      // Group by corner
+      const byCorner = new Map<string, WaitingData[]>();
+      waitingData.forEach(d => {
+        const key = `${d.restaurantId}#${d.cornerId}`;
+        if (!byCorner.has(key)) byCorner.set(key, []);
+        byCorner.get(key)!.push(d);
+      });
+
+      const result: WaitingData[] = [];
+
+      byCorner.forEach((items) => {
+        // Find item with timestamp closest to targetTimeStr
+        // Since API returns ISO timestamps, we need to extract HH:MM
+        // But for simplicity in the 5-min bucket, we can just sort by timestamp
+        // and pick the first one (Start of Bucket) which is usually the target time (e.g. 12:00)
+        // OR we can explicitly compare minutes.
+
+        // Let's pick the one with the smallest minute difference to the target minutes.
+        const [targetH, targetM] = targetTimeStr.split(':').map(Number);
+        const targetMinutes = targetH * 60 + targetM;
+
+        let bestItem = items[0];
+        let minDiff = Infinity;
+
+        for (const item of items) {
+          const date = new Date(item.timestamp);
+          const h = date.getHours();
+          const m = date.getMinutes();
+          const itemMinutes = h * 60 + m;
+          const diff = Math.abs(itemMinutes - targetMinutes);
+
+          if (diff < minDiff) {
+            minDiff = diff;
+            bestItem = item;
+          }
         }
-      }, 100);
+        result.push(bestItem);
+      });
 
-      // Also ensure the restaurant is visible if filtered? 
-      // Constraint: "Corner selection INSIDE the bottom sheet (not on each card)"
-      // "The user flow should be: Choose time offset... Choose a corner... Apply"
-      // If a corner is chosen, we should probably ensure its restaurant is active?
-      // Let's find the restaurant for this corner and select it.
-      if (!selectedRestaurantId) {
-        const rest = RESTAURANTS.find(r => r.cornerOrder.includes(cornerId));
-        if (rest) setSelectedRestaurantId(rest.id);
-      }
+      return result;
     }
-  };
+
+    return waitingData;
+  }, [waitingData, isToday, selectedTime5Min]);
+
+  const displayDate = formatDayKeyForDisplay(selectedDate, todayKey);
+  const hasActiveTicket = ticket && (ticket.status === 'stored' || ticket.status === 'active');
+
+  // Display timestamp: only show when data is loaded
+  // For non-today with no selection (null), don't show timestamp
+  const loadedTimestamp = isToday && processedWaitingData?.[0]?.timestamp
+    ? formatTime(new Date(processedWaitingData[0].timestamp))
+    : (!isToday && selectedTime5Min) ? selectedTime5Min : null;
+
+  const [scheduleRefreshKey, setScheduleRefreshKey] = useState(0);
+
+  // Format current time as HH:MM in Korea timezone (KST, UTC+9)
+  const getCurrentTimeKST = useCallback(() => {
+    // Use Intl.DateTimeFormat to get time in Korea timezone
+    const formatter = new Intl.DateTimeFormat('ko-KR', {
+      timeZone: 'Asia/Seoul',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    const parts = formatter.formatToParts(new Date());
+    const hour = parts.find(p => p.type === 'hour')?.value || '12';
+    const minute = parts.find(p => p.type === 'minute')?.value || '00';
+    return `${hour}:${minute}`;
+  }, []);
+
+  // Reference time for schedule-based active/inactive status
+  // - Today: always use current Korea time (KST)
+  // - Non-today: use selected time, or null if no selection (all corners inactive)
+  const referenceTime = useMemo(() => {
+    if (isToday) {
+      // For today, use current Korea time (KST)
+      // scheduleRefreshKey triggers re-computation every 10 minutes
+      void scheduleRefreshKey; // Dependency marker
+      return getCurrentTimeKST();
+    } else {
+      // For non-today dates: null = no selection = all corners inactive
+      return selectedTime5Min;
+    }
+  }, [isToday, selectedTime5Min, scheduleRefreshKey, getCurrentTimeKST]);
+
+  // Refresh schedule every 10 minutes for today only
+  // Clear interval immediately when leaving today view
+  useEffect(() => {
+    if (!isToday) {
+      // Not today - no interval needed, reset key to ensure fresh state when returning
+      setScheduleRefreshKey(0);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setScheduleRefreshKey(prev => prev + 1);
+    }, 10 * 60 * 1000); // 10 minutes
+
+    return () => clearInterval(interval);
+  }, [isToday]);
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border pb-2 pt-3 px-4">
-        <div className="max-w-lg mx-auto flex flex-col gap-3">
-          {/* Top Row: Title/Date/Ticket */}
-          <div className="flex items-center justify-between">
-            {/* Replaced Date Nav with simple Logo or Home Text if needed, 
-                 but requirement is "Replace the date header area with a thin ... status line" 
-                 Actually, usually there's a Title. "Campus Feast Guide"? 
-                 "today-only" status line is "under the banner" per requirement 2.
-                 Wait, "Replace the date header area with a thin status line... placed directly under the banner"?
-                 Requirement 2 says: "Remove Home date navigation UI... Replace it with a thin status line... placed directly under the banner"
-                 
-                 Structure:
-                 Header (Sticky) -> App Title? Ticket?
-                 Body -> Banner -> Status Line -> Chips -> CTA -> List?
-                 
-                 Reviewing "Scope constraints": "Remove the Home date navigation UI... visual confusion...".
-                 So the header where "2024-02-14 < >" was should probably be simplified or gone.
-                 Existing header had ChevronLeft, Date, ChevronRight.
-                 
-                 Let's make the sticky header minimal: "HY-eat" logo/text + Ticket.
-             */}
-            <h1 className="text-xl font-bold text-primary">HY-eat</h1>
-
+      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border px-4 py-3">
+        <div className="flex items-center justify-between max-w-lg mx-auto">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground"
+            onClick={goPrevDate}
+            data-testid="button-prev-date"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </Button>
+          <h1 className="text-base font-semibold text-foreground" data-testid="text-date">
+            {displayDate}
+          </h1>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground"
+              onClick={goNextDate}
+              data-testid="button-next-date"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </Button>
             {hasActiveTicket && (
               <Button
                 variant="default"
                 size="icon"
                 onClick={() => setLocation('/ticket')}
-                className="relative w-8 h-8 rounded-full"
+                className="relative"
+                data-testid="button-ticket"
               >
                 <Ticket className="w-4 h-4" />
-                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-background" />
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" />
               </Button>
             )}
           </div>
         </div>
+
+        {showTimeSelector && (
+          <div className="max-w-lg mx-auto mt-2">
+            <button
+              onClick={() => setIsTimeSelectorOpen(!isTimeSelectorOpen)}
+              className="flex items-center justify-between w-full p-2 bg-muted/50 rounded-lg text-sm"
+              data-testid="button-time-selector-toggle"
+            >
+              <span className="text-muted-foreground">
+                {isPast ? '시간 선택 (통계 데이터 제공)' : '시간 선택 (예측 데이터 제공)'}
+              </span>
+              <div className="flex items-center gap-2">
+                <span className="font-medium" data-testid="text-selected-time">{selectedTime5Min ?? '-'}</span>
+                {isTimeSelectorOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </div>
+            </button>
+
+            {isTimeSelectorOpen && (
+              <div className="mt-2 p-3 bg-muted/30 rounded-lg">
+                <label className="block text-sm text-muted-foreground mb-2">
+                  {isPast ? '시간 선택 (통계 데이터 제공)' : '시간 선택 (예측 데이터 제공)'}
+                </label>
+                <select
+                  value={selectedTime5Min ?? ''}
+                  onChange={(e) => {
+                    setSelectedTime5Min(e.target.value || null);
+                    setIsTimeSelectorOpen(false);
+                  }}
+                  className="w-full p-3 bg-background border border-border rounded-lg text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary"
+                  data-testid="select-time-5min"
+                >
+                  <option value="">-</option>
+                  {TIME_OPTIONS.map((time) => (
+                    <option key={time} value={time}>
+                      {time}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        )}
       </header>
 
-      <main className="max-w-lg mx-auto px-4 py-4 space-y-4">
-        {/* 1. Banner */}
-        <Banner />
-
-        {/* 2. Status Line */}
-        <div className="flex items-center justify-center text-sm text-muted-foreground bg-muted/30 py-1.5 rounded-md">
-          <span>
-            오늘 {displayDateStr} · <span className="font-medium text-foreground">{displayTimeStr}</span> {isForecastMode ? '예측' : '기준'}
-          </span>
+      <main className="max-w-lg mx-auto px-4 py-4">
+        <div className="mb-4">
+          <Banner />
         </div>
 
-        {/* 3. Restaurant Chips */}
-        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-          <Button
-            variant={selectedRestaurantId === null ? 'default' : 'outline'}
-            size="sm"
-            className="rounded-full px-4 flex-shrink-0"
-            onClick={() => setSelectedRestaurantId(null)}
-          >
-            전체
-          </Button>
-          {RESTAURANTS.map(r => (
-            <Button
-              key={r.id}
-              variant={selectedRestaurantId === r.id ? 'default' : 'outline'}
-              size="sm"
-              className="rounded-full px-4 flex-shrink-0"
-              onClick={() => setSelectedRestaurantId(selectedRestaurantId === r.id ? null : r.id)}
-            >
-              {r.name}
-            </Button>
-          ))}
-        </div>
-
-        {/* 4. Forecast CTA */}
-        <Button
-          variant="outline"
-          className="w-full border-dashed border-primary/50 text-primary hover:bg-primary/5 hover:text-primary"
-          onClick={() => setIsForecastSheetOpen(true)}
-        >
-          {isForecastMode ? (
-            <span className="font-bold">⏱ {forecastOffset}분 후 시간 예측 중 (클릭하여 변경)</span>
-          ) : (
-            <span>⏱ 대기 시간 예측 / 미리보기</span>
-          )}
-        </Button>
-
-        {/* 5. Restaurant List */}
-        <div className="space-y-6 mt-2">
-          {isWaitingLoading && !waitingData && !menuData ? (
-            // Loading Skeleton
-            <div className="space-y-8">
-              {[1, 2].map(i => (
-                <div key={i} className="animate-pulse space-y-3">
-                  <div className="h-6 w-1/3 bg-muted rounded" />
-                  <div className="h-24 bg-muted rounded-lg" />
-                  <div className="h-24 bg-muted rounded-lg" />
+        {isWaitingLoading && !waitingData && !menuData ? (
+          <div className="space-y-4">
+            {RESTAURANTS.map((r) => (
+              <div key={r.id} className="animate-pulse">
+                <div className="h-6 w-32 bg-muted rounded mb-3" />
+                <div className="space-y-3">
+                  {r.cornerOrder.map((c) => (
+                    <div key={c} className="h-24 bg-muted rounded-lg" />
+                  ))}
                 </div>
-              ))}
-            </div>
-          ) : (
-            filteredRestaurants.map(restaurant => (
-              <div key={restaurant.id} id={`restaurant-${restaurant.id}`}>
-                <RestaurantSection
-                  restaurant={restaurant}
-                  menus={menuData?.[restaurant.id] || {}}
-                  waitingData={waitingData || []} // We process this inside? Or pass raw? RestaurantSection takes WaitingData[]
-                  dayKey={activeDayKey}
-                  referenceTime={null} // Not using referenceTime for "sim mode" highlighting in the old way, OR pass timeStr?
-                  // Actually RestaurantSection uses referenceTime to gray out inactive corners.
-                  // We should pass displayTimeStr (HH:MM) so it knows what "Now" is for active/inactive check.
-                  referenceTimeStr={formatTime(displayTime)}
-                />
               </div>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <>
+            {loadedTimestamp && (
+              <div className="text-xs text-muted-foreground mb-3 text-center" data-testid="text-loaded-timestamp">
+                데이터 시각: {loadedTimestamp}
+              </div>
+            )}
+            {RESTAURANTS.map((restaurant) => (
+              <RestaurantSection
+                key={restaurant.id}
+                restaurant={restaurant}
+                menus={menuData?.[restaurant.id] || {}}
+                waitingData={(isToday || selectedTime5Min) ? (processedWaitingData || []) : []}
+                dayKey={selectedDate}
+                referenceTime={referenceTime}
+              />
+            ))}
+          </>
+        )}
       </main>
 
-      <ForecastSheet
-        isOpen={isForecastSheetOpen}
-        onOpenChange={setIsForecastSheetOpen}
-        selectedOffset={forecastOffset}
-        onApply={handleApplyForecast}
-        activeRestaurantId={selectedRestaurantId}
-      />
+      <footer className="border-t border-border py-4 mt-8">
+        <p className="text-center text-xs text-muted-foreground">
+          HY-eat - 한양대학교 학생식당 혼잡도 모니터링
+        </p>
+      </footer>
     </div>
   );
 }
