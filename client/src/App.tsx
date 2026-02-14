@@ -16,6 +16,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TimeProvider } from "@/lib/timeContext";
 import { TicketProvider } from "@/lib/ticketContext";
+import { FavoritesProvider } from "@/lib/favoritesContext";
 import { SplashProvider } from "@/contexts/SplashContext";
 import { SplashScreen } from "@/components/SplashScreen";
 import Home from "@/pages/Home";
@@ -70,12 +71,14 @@ function App() {
         <TooltipProvider>
           <TimeProvider>
             <TicketProvider>
-              <Toaster />
-              <TopAppBar />
-              <div className="pt-[56px] pb-[60px] min-h-screen bg-background">
-                <Router />
-              </div>
-              <BottomNav />
+              <FavoritesProvider>
+                <Toaster />
+                <TopAppBar />
+                <div className="pt-[56px] pb-[60px] min-h-screen bg-background">
+                  <Router />
+                </div>
+                <BottomNav />
+              </FavoritesProvider>
             </TicketProvider>
           </TimeProvider>
         </TooltipProvider>
