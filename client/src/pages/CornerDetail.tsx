@@ -53,7 +53,7 @@ export default function CornerDetail() {
   const [matchMenu, paramsMenu] = useRoute('/menu/detail/:restaurantId/:cornerId');
   const [location, setLocation] = useLocation();
   const searchString = useSearch();
-  const { ticket } = useTicketContext();
+  const { tickets } = useTicketContext();
   const { todayKey } = useTimeContext();
 
   // -- Payment Sheet State --
@@ -232,7 +232,11 @@ export default function CornerDetail() {
     }
   };
 
-  const hasExistingTicket = ticket && (ticket.status === 'stored' || ticket.status === 'active');
+  const hasExistingTicket = tickets.some(t =>
+    t.restaurantId === restaurantId &&
+    t.cornerId === cornerId &&
+    (t.status === 'stored' || t.status === 'active')
+  );
 
   // Get display names - use data if available, otherwise use placeholders
   const restaurantName = restaurant?.name || '식당';
