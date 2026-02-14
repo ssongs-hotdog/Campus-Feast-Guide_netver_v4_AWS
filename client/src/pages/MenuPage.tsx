@@ -16,6 +16,7 @@ import { useLocation, useSearch } from 'wouter';
 import { ChevronLeft, ChevronRight, Ticket, ChevronDown, ChevronUp, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RestaurantSection } from '@/components/RestaurantSection';
+import { RestaurantSelector } from '@/components/RestaurantSelector';
 import { DatePickerModal } from '@/components/DatePickerModal';
 import { useTimeContext } from '@/lib/timeContext';
 import { useTicketContext } from '@/lib/ticketContext';
@@ -53,7 +54,7 @@ export default function MenuPage() {
     const { tickets } = useTicketContext();
     const [isTimeSelectorOpen, setIsTimeSelectorOpen] = useState(false);
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-    const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null);
+    const [selectedRestaurantId, setSelectedRestaurantId] = useState<string>('all');
 
     // Try to restore date from URL query parameter
     const searchParams = new URLSearchParams(searchString);
@@ -282,32 +283,12 @@ export default function MenuPage() {
             <main className="max-w-lg mx-auto px-4 py-4">
 
                 {/* Restaurant Category Filter Tabs */}
-                <div className="mb-6 -mx-4">
-                    <div className="overflow-x-auto scrollbar-hide px-4">
-                        <div className="flex gap-2">
-                            <button
-                                onClick={() => setSelectedRestaurantId(null)}
-                                className={`whitespace-nowrap px-4 py-2 rounded-full font-medium transition-all duration-200 ${selectedRestaurantId === null
-                                    ? 'bg-[#0E4A84] text-white shadow-md'
-                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                    }`}
-                            >
-                                전체
-                            </button>
-                            {RESTAURANTS.map((restaurant) => (
-                                <button
-                                    key={restaurant.id}
-                                    onClick={() => setSelectedRestaurantId(restaurant.id)}
-                                    className={`whitespace-nowrap px-4 py-2 rounded-full font-medium transition-all duration-200 ${selectedRestaurantId === restaurant.id
-                                        ? 'bg-[#0E4A84] text-white shadow-md'
-                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                        }`}
-                                >
-                                    {restaurant.name}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
+                <div className="mb-2 -mx-4">
+                    <RestaurantSelector
+                        restaurants={RESTAURANTS.map(r => ({ id: r.id, name: r.name }))}
+                        selectedId={selectedRestaurantId}
+                        onSelect={setSelectedRestaurantId}
+                    />
                 </div>
 
                 {isWaitingLoading && !waitingData && !menuData ? (
@@ -331,7 +312,7 @@ export default function MenuPage() {
                             </div>
                         )}
                         {RESTAURANTS
-                            .filter(restaurant => selectedRestaurantId === null || restaurant.id === selectedRestaurantId)
+                            .filter(restaurant => selectedRestaurantId === 'all' || restaurant.id === selectedRestaurantId)
                             .map((restaurant) => (
                                 <RestaurantSection
                                     key={restaurant.id}
