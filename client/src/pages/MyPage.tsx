@@ -8,7 +8,7 @@
  * 4. Golden Time Widget (Mock)
  * 5. History & Footer
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useLocation } from 'wouter';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,66 @@ import { RESTAURANTS } from '@shared/types';
 import { getTodayKey } from '@/lib/dateUtils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { TicketVault } from '@/components/ticket/TicketVault';
+import {
+    CORNER_SCHEDULES,
+    isCornerActive,
+    getServiceDayType,
+    type TimeWindow
+} from '@/lib/domain/schedule';
+
+/**
+ * Calculates the status badge text for a corner based on current time and schedule.
+ * Statuses: "운영 전", "운영 중", "운영 종료"
+ */
+function getCornerBadgeStatus(restaurantId: string, cornerId: string): string {
+    const schedule = CORNER_SCHEDULES[restaurantId]?.[cornerId];
+    if (!schedule) return "운영 종료"; // No schedule data
+
+    const now = new Date(); // KST (Browser time, which is KST in this environment)
+    const dayKey = getTodayKey();
+
+    // Format current time as HH:MM
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const nowHHMM = `${hours}:${minutes}`;
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+    // 1. Check if currently active (Operating Now)
+    const isActive = isCornerActive({
+        restaurantId,
+        cornerId,
+        dateKey: dayKey,
+        timeHHMM: nowHHMM
+    });
+
+    if (isActive) return "운영 중";
+
+    // 2. Check if before operation (Operating Before)
+    // "Before" means there is a future operating window today that hasn't ended yet
+    // (or arguably hasn't started, but "Before next window" usually covers "between windows" too)
+    const dayType = getServiceDayType(dayKey);
+    let windows: TimeWindow[] = [];
+
+    if (dayType === 'WEEKDAY') windows = schedule.weekday || [];
+    else if (dayType === 'SATURDAY') windows = schedule.saturday || [];
+    else if (dayType === 'SUNDAY' && schedule.sunday) windows = schedule.sunday || [];
+
+    // Helper to convert HH:MM to minutes
+    const parseTime = (t: string) => {
+        const [h, m] = t.split(':').map(Number);
+        return h * 60 + m;
+    };
+
+    // If there is ANY window that ends AFTER now, we consider it "Before Operation" (or "Break")
+    // Strictly: User asked for "Before next upcoming window today" => "운영 전".
+    // If we are effectively "waiting for service", it is "운영 전".
+    const hasRemainingService = windows.some(w => parseTime(w.end) > nowMinutes);
+
+    if (hasRemainingService) return "운영 전";
+
+    // 3. Else (Operating Ended)
+    return "운영 종료";
+}
 
 export default function MyPage() {
     const [, setLocation] = useLocation();
@@ -34,19 +94,27 @@ export default function MyPage() {
     const [masterNotif, setMasterNotif] = useState(true);
     const [showTicketPopup, setShowTicketPopup] = useState(false);
 
+    // Force re-render every minute to update badges
+    const [, setTick] = useState(0);
+    useEffect(() => {
+        const timer = setInterval(() => setTick(t => t + 1), 60000);
+        return () => clearInterval(timer);
+    }, []);
+
     // -- Favorites Data Processing --
     // Flatten restaurants to find corners by ID
-    const allCorners = RESTAURANTS.flatMap(r =>
+    const allCorners = useMemo(() => RESTAURANTS.flatMap(r =>
         r.cornerOrder.map(cId => ({
             id: cId,
+            restaurantId: r.id,
             restaurantName: r.name,
             cornerName: CORNER_DISPLAY_NAMES[cId] || cId
         }))
-    );
+    ), []);
 
-    const favoriteList = favoritedCornerIds.map(fId =>
+    const favoriteList = useMemo(() => favoritedCornerIds.map(fId =>
         allCorners.find(c => c.id === fId)
-    ).filter(Boolean) as typeof allCorners;
+    ).filter(Boolean) as typeof allCorners, [favoritedCornerIds, allCorners]);
 
     const todayKey = getTodayKey();
 
@@ -82,25 +150,33 @@ export default function MyPage() {
 
                     {favoriteList.length > 0 ? (
                         <div className="space-y-3">
-                            {favoriteList.map(item => (
-                                <div
-                                    key={item.id}
-                                    className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0 cursor-pointer hover:bg-gray-50 rounded px-2 -mx-2 transition-colors"
-                                    onClick={() => {
-                                        // Find restaurant ID for navigation
-                                        const rest = RESTAURANTS.find(r => r.cornerOrder.includes(item.id));
-                                        if (rest) setLocation(`/d/${todayKey}/restaurant/${rest.id}/corner/${item.id}`);
-                                    }}
-                                >
-                                    <div>
-                                        <div className="font-medium text-gray-900">{item.restaurantName}</div>
-                                        <div className="text-sm text-gray-500">{item.cornerName}</div>
+                            {favoriteList.map(item => {
+                                const statusText = getCornerBadgeStatus(item.restaurantId, item.id);
+                                const isOperating = statusText === "운영 중";
+
+                                return (
+                                    <div
+                                        key={item.id}
+                                        className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0 cursor-pointer hover:bg-gray-50 rounded px-2 -mx-2 transition-colors"
+                                        onClick={() => {
+                                            // Find restaurant ID for navigation
+                                            const rest = RESTAURANTS.find(r => r.cornerOrder.includes(item.id));
+                                            if (rest) setLocation(`/d/${todayKey}/restaurant/${rest.id}/corner/${item.id}`);
+                                        }}
+                                    >
+                                        <div>
+                                            <div className="font-medium text-gray-900">{item.restaurantName}</div>
+                                            <div className="text-sm text-gray-500">{item.cornerName}</div>
+                                        </div>
+                                        <Badge
+                                            variant="secondary"
+                                            className={`font-normal ${isOperating ? 'bg-green-100 text-green-700 hover:bg-green-100' : 'bg-gray-100 text-gray-600 hover:bg-gray-100'}`}
+                                        >
+                                            {statusText}
+                                        </Badge>
                                     </div>
-                                    <Badge variant="secondary" className="bg-gray-100 text-gray-600 font-normal">
-                                        운영중
-                                    </Badge>
-                                </div>
-                            ))}
+                                )
+                            })}
                         </div>
                     ) : (
                         <div className="text-center py-6 bg-gray-50 rounded-lg">
