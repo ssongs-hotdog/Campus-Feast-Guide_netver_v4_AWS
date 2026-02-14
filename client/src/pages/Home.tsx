@@ -15,8 +15,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useRoute, useLocation } from 'wouter';
 import { ChevronLeft, ChevronRight, Ticket, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { BottomTimePanel } from '@/components/BottomTimePanel';
-import { ChartsPanel, ChartsPanelTrigger } from '@/components/ChartsPanel';
 import { RestaurantSection } from '@/components/RestaurantSection';
 import { useTimeContext } from '@/lib/timeContext';
 import { useTicketContext } from '@/lib/ticketContext';
@@ -83,7 +81,6 @@ export default function Home() {
     todayKey,
   } = useTimeContext();
   const { ticket } = useTicketContext();
-  const [isChartsOpen, setIsChartsOpen] = useState(false);
   const [isTimeSelectorOpen, setIsTimeSelectorOpen] = useState(false);
 
   // Validate dayKey from URL - redirect to today if missing or invalid
@@ -441,10 +438,6 @@ export default function Home() {
           HY-eat - 한양대학교 학생식당 혼잡도 모니터링
         </p>
       </footer>
-
-      <ChartsPanelTrigger onClick={() => setIsChartsOpen(true)} />
-      <ChartsPanel isOpen={isChartsOpen} onClose={() => setIsChartsOpen(false)} selectedDate={selectedDate} />
-      {isToday && <BottomTimePanel />}
     </div>
   );
 }
