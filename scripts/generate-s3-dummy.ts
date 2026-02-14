@@ -52,8 +52,9 @@ const CORNER_CONFIGS: Record<string, Record<string, CornerConfig>> = {
             saturday: [{ start: 600, end: 840 }], weight: 0.9
         },
         'cupbap': {
-            weekday: [{ start: 660, end: 870 }, { start: 960, end: 1080 }],
-            saturday: [{ start: 600, end: 840 }], weight: 0.5
+            // User Correction: 컵밥은 석식 시간(16:00~18:00)에만 운영
+            weekday: [{ start: 960, end: 1080 }],
+            saturday: [], weight: 0.5
         },
         'ramen': {
             weekday: [{ start: 720, end: 870 }, { start: 930, end: 1080 }],
@@ -239,8 +240,8 @@ async function main() {
                     // C. 대기열 계산 (확률 모델 적용)
                     const baseWeight = getBaseWeight(restaurant.id, cornerId);
 
-                    // 평균(Mean) 대기열 = 기본 인기 * 시간대 가중치 * 일별 컨디션 * 스케일(25명 기준)
-                    let meanQueue = baseWeight * timeMultiplier * dailyCondition * 25;
+                    // 평균(Mean) 대기열 = 기본 인기 * 시간대 가중치 * 일별 컨디션 * 스케일(25명 기준 -> 19명으로 하향)
+                    let meanQueue = baseWeight * timeMultiplier * dailyCondition * 19;
 
                     // 아침 메뉴 예외 처리 (천원의 아침밥은 매우 붐빔)
                     if (cornerId === 'breakfast_1000' && minutes <= 600) {
