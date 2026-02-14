@@ -64,7 +64,7 @@ const TIME_OPTIONS = (() => {
   const options: string[] = [];
   for (let h = 8; h <= 18; h++) {
     for (let m = 0; m < 60; m += 10) {
-      if (h === 18 && m > 0) break; // Stop at 18:00
+      if (h === 18 && m > 30) break; // Stop at 18:30
       options.push(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
     }
   }
