@@ -143,24 +143,22 @@ export function useRecommendation(
     const trendPick = useMemo(() => {
         if (allItems.length === 0) return null;
 
-        let bestDrop = 0;
-        let pick = null;
-
-        allItems.forEach(item => {
+        // Find the item with the biggest drop using reduce
+        const best = allItems.reduce((acc, item) => {
             const pastWait = historyData[`${item.restaurantId}-${item.cornerId}`];
-            if (pastWait !== undefined) {
-                const drop = pastWait - item.estWaitTimeMin;
-                if (drop > bestDrop) {
-                    bestDrop = drop;
-                    pick = item;
-                }
-            }
-        });
+            if (pastWait === undefined) return acc;
 
-        if (!pick) return null;
+            const drop = pastWait - item.estWaitTimeMin;
+            if (drop > acc.drop) {
+                return { item, drop };
+            }
+            return acc;
+        }, { item: null as RecommendationItem | null, drop: 0 });
+
+        if (!best.item) return null;
 
         return {
-            ...pick,
+            ...best.item,
             type: 'trend' as const,
             reason: '방금부터 내려가는 중'
         };
