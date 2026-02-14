@@ -16,7 +16,7 @@
  * - When waiting data is missing, shows "-" for wait time and "미제공" for congestion
  * - The page always renders the same structure even without data
  */
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useRoute, useLocation, useSearch } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Users } from 'lucide-react';
@@ -27,6 +27,7 @@ import { CongestionBar } from '@/components/CongestionBar';
 import { WaitTimeHistogram } from '@/components/WaitTimeHistogram';
 import { useTicketContext } from '@/lib/ticketContext';
 import { useTimeContext } from '@/lib/timeContext';
+import { PurchaseSheet } from '@/components/ticket/PurchaseSheet';
 import {
   RESTAURANTS,
   formatPrice,
@@ -52,8 +53,12 @@ export default function CornerDetail() {
   const [matchMenu, paramsMenu] = useRoute('/menu/detail/:restaurantId/:cornerId');
   const [location, setLocation] = useLocation();
   const searchString = useSearch();
-  const { createTicket, ticket } = useTicketContext();
+  const { ticket } = useTicketContext();
   const { todayKey } = useTimeContext();
+
+  // -- Payment Sheet State --
+  const [isPurchaseSheetOpen, setIsPurchaseSheetOpen] = useState(false);
+  const [purchaseTargetMenu, setPurchaseTargetMenu] = useState<MenuItem | null>(null);
 
   const params = matchNew ? paramsNew : (matchOld ? paramsOld : paramsMenu);
   const restaurantId = params?.restaurantId || '';
@@ -202,14 +207,19 @@ export default function CornerDetail() {
 
   const handlePaymentForVariant = (variantMenuName: string) => {
     if (!menu) return;
-    createTicket(restaurantId, cornerId, variantMenuName, menu.priceWon);
-    setLocation('/ticket');
+    // Create a temporary MenuItem for the variant to pass to the sheet
+    const variantItem: MenuItem = {
+      ...menu,
+      mainMenuName: variantMenuName
+    };
+    setPurchaseTargetMenu(variantItem);
+    setIsPurchaseSheetOpen(true);
   };
 
   const handlePayment = () => {
     if (!menu) return;
-    createTicket(restaurantId, cornerId, menu.mainMenuName, menu.priceWon);
-    setLocation('/ticket');
+    setPurchaseTargetMenu(menu);
+    setIsPurchaseSheetOpen(true);
   };
 
   const handleBack = () => {
@@ -457,6 +467,11 @@ export default function CornerDetail() {
           </>
         )}
       </main>
+      <PurchaseSheet
+        isOpen={isPurchaseSheetOpen}
+        onClose={() => setIsPurchaseSheetOpen(false)}
+        menu={purchaseTargetMenu}
+      />
     </div>
   );
 }
