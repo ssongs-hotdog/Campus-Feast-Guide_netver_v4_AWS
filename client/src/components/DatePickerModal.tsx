@@ -139,8 +139,8 @@ export function DatePickerModal({ isOpen, onClose, selectedDate, onDateSelect }:
               font-size: 0.875rem;
             }
             .date-picker-modal .rdp-day_today {
-              background-color: #0E4A84;
-              color: white;
+              background-color: #f3f4f6;
+              color: #1f2937;
               font-weight: 600;
             }
             .date-picker-modal .rdp-day_selected {
