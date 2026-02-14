@@ -16,6 +16,7 @@
  * - When waiting data is missing, shows "-" for wait time and "미제공" for congestion
  * - The page always renders the same structure even without data
  */
+import { useMemo } from 'react';
 import { useRoute, useLocation, useSearch } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Users } from 'lucide-react';
@@ -141,9 +142,48 @@ export default function CornerDetail() {
   });
 
   const menu = menuData?.[restaurantId]?.[cornerId];
-  const cornerWaiting = waitingData?.find(
-    (w) => w.restaurantId === restaurantId && w.cornerId === cornerId
-  );
+
+  // Fix for Main/Detail Discrepancy:
+  // Instead of just finding the first match (.find), we need to find the *closest* match 
+  // to the target time if we are in a historical/future view.
+  const cornerWaiting = useMemo(() => {
+    if (!waitingData || waitingData.length === 0) return undefined;
+
+    const relevantItems = waitingData.filter(
+      (w) => w.restaurantId === restaurantId && w.cornerId === cornerId
+    );
+
+    if (relevantItems.length === 0) return undefined;
+
+    // If live/today, usually we just take the first/only one as the API returns latest/specific
+    if (isToday) return relevantItems[0];
+
+    // For past/future with 5-min bucket, find closest to 'time5minParam'
+    if (time5minParam) {
+      const [targetH, targetM] = time5minParam.split(':').map(Number);
+      const targetMinutes = targetH * 60 + targetM;
+
+      let bestItem = relevantItems[0];
+      let minDiff = Infinity;
+
+      for (const item of relevantItems) {
+        const date = new Date(item.timestamp);
+        const h = date.getHours();
+        const m = date.getMinutes();
+        const itemMinutes = h * 60 + m;
+        const diff = Math.abs(itemMinutes - targetMinutes);
+
+        if (diff < minDiff) {
+          minDiff = diff;
+          bestItem = item;
+        }
+      }
+      return bestItem;
+    }
+
+    // Fallback
+    return relevantItems[0];
+  }, [waitingData, restaurantId, cornerId, isToday, time5minParam]);
 
   // Check data availability
   const hasMenuData = !!menu;

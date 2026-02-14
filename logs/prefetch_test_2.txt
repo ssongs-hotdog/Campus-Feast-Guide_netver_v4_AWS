@@ -1,0 +1,18 @@
+Starting prefetch speed test for 2026-01-15 +/- 5 days (Total 11 requests)...
+[2026-01-14] Status: 200, Time: 192.58ms
+[2026-01-18] Status: 404, Time: 189.66ms
+[2026-01-11] Status: 404, Time: 208.92ms
+[2026-01-12] Status: 200, Time: 211.20ms
+[2026-01-20] Status: 200, Time: 196.62ms
+[2026-01-16] Status: 200, Time: 208.51ms
+[2026-01-10] Status: 200, Time: 379.75ms
+[2026-01-17] Status: 200, Time: 216.40ms
+[2026-01-13] Status: 200, Time: 224.20ms
+[2026-01-15] Status: 200, Time: 225.97ms
+[2026-01-19] Status: 200, Time: 227.11ms
+
+--------------------------------------------------
+Total Requests: 11
+Total Duration: 399.00ms
+--------------------------------------------------
+Successful (200 OK): 9/11
