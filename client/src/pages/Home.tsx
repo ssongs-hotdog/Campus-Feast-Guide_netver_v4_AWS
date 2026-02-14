@@ -395,9 +395,11 @@ export default function Home() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-4">
+
         <div className="mb-4">
           <Banner />
         </div>
+
 
         {isWaitingLoading && !waitingData && !menuData ? (
           <div className="space-y-4">
