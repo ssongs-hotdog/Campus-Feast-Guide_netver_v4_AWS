@@ -19,7 +19,7 @@ export function SplashScreen() {
                 {/* Using max-w and w-full to ensure responsiveness and centering */}
                 <div className="w-[80%] max-w-[320px] h-auto relative">
                     <img
-                        src="/splash_logo.png"
+                        src="/splash_logo.jpg"
                         alt="HY-eat"
                         className="w-full h-full object-contain"
                         onError={(e) => {
