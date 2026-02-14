@@ -12,7 +12,7 @@
  * The date is now derived from the URL path, making the page fully URL-driven.
  * 
  * Placeholder behavior:
- * - When menu data is missing, shows "데이터 없음" for menu name
+ * - When menu data is missing, shows "휴무입니다🏖️" for menu name
  * - When waiting data is missing, shows "-" for wait time and "미제공" for congestion
  * - The page always renders the same structure even without data
  */
@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CongestionBar } from '@/components/CongestionBar';
+import { WaitTimeHistogram } from '@/components/WaitTimeHistogram';
 import { useTicketContext } from '@/lib/ticketContext';
 import { useTimeContext } from '@/lib/timeContext';
 import {
@@ -48,12 +49,13 @@ import { getMenus, getAvailableTimestamps, getWaitTimes, getLatestWaitTimes, get
 export default function CornerDetail() {
   const [matchNew, paramsNew] = useRoute('/d/:dayKey/restaurant/:restaurantId/corner/:cornerId');
   const [matchOld, paramsOld] = useRoute('/restaurant/:restaurantId/corner/:cornerId');
-  const [, setLocation] = useLocation();
+  const [matchMenu, paramsMenu] = useRoute('/menu/detail/:restaurantId/:cornerId');
+  const [location, setLocation] = useLocation();
   const searchString = useSearch();
   const { createTicket, ticket } = useTicketContext();
   const { todayKey } = useTimeContext();
 
-  const params = matchNew ? paramsNew : paramsOld;
+  const params = matchNew ? paramsNew : (matchOld ? paramsOld : paramsMenu);
   const restaurantId = params?.restaurantId || '';
   const cornerId = params?.cornerId || '';
 
@@ -211,7 +213,13 @@ export default function CornerDetail() {
   };
 
   const handleBack = () => {
-    setLocation(`/d/${effectiveDate}`);
+    // Detect if we came from Menu tab by checking current route
+    if (matchMenu) {
+      // Return to menu with the selected date preserved
+      setLocation(`/menu?date=${effectiveDate}`);
+    } else {
+      setLocation(`/d/${effectiveDate}`);
+    }
   };
 
   const hasExistingTicket = ticket && (ticket.status === 'stored' || ticket.status === 'active');
@@ -219,7 +227,7 @@ export default function CornerDetail() {
   // Get display names - use data if available, otherwise use placeholders
   const restaurantName = restaurant?.name || '식당';
   const cornerDisplayName = menu?.cornerDisplayName || CORNER_DISPLAY_NAMES[cornerId] || cornerId;
-  const menuName = hasMenuData ? menu.mainMenuName : '데이터 없음';
+  const menuName = hasMenuData ? menu.mainMenuName : '휴무입니다🏖️';
   const price = hasMenuData ? menu.priceWon : null;
   const menuItems = hasMenuData ? menu.items : [];
 
@@ -227,6 +235,35 @@ export default function CornerDetail() {
   const isBreakfast = isBreakfastCorner(cornerId);
   const hasVariants = isBreakfast && hasMenuData && hasRealVariants(menu);
   const variants = hasVariants ? getMenuVariants(menu) : [];
+
+  // Sample forecast data for histogram (TODO: Replace with actual API data)
+  const forecastData = [
+    { time: '09:00', waitMinutes: 0 },
+    { time: '09:30', waitMinutes: 0 },
+    { time: '10:00', waitMinutes: 2 },
+    { time: '10:30', waitMinutes: 5 },
+    { time: '11:00', waitMinutes: 10 },
+    { time: '11:30', waitMinutes: 15 },
+    { time: '12:00', waitMinutes: 20 },
+    { time: '12:30', waitMinutes: 18 },
+    { time: '13:00', waitMinutes: 12 },
+    { time: '13:30', waitMinutes: 8 },
+    { time: '14:00', waitMinutes: 5 },
+    { time: '14:30', waitMinutes: 2 },
+    { time: '15:00', waitMinutes: 0 },
+    { time: '15:30', waitMinutes: 0 },
+    { time: '16:00', waitMinutes: 3 },
+    { time: '16:30', waitMinutes: 8 },
+    { time: '17:00', waitMinutes: 12 },
+    { time: '17:30', waitMinutes: 16 },
+    { time: '18:00', waitMinutes: 14 },
+    { time: '18:30', waitMinutes: 10 },
+    { time: '19:00', waitMinutes: 5 },
+  ];
+
+  // Get operating hours from corner schedule (sample data for now)
+  // TODO: Get actual operating hours from corner data
+  const operatingHours = { openTime: '11:00', closeTime: '14:30' };
 
   return (
     <div className="min-h-screen bg-background">
@@ -253,10 +290,25 @@ export default function CornerDetail() {
             데이터 시각: {loadedTimestamp}
           </div>
         )}
+        {/* Hourly Wait Time Histogram */}
         <Card className="p-4 mb-4" data-testid="card-waiting-info">
+          {hasMenuData ? (
+            <WaitTimeHistogram
+              operatingHours={operatingHours}
+              forecastData={forecastData}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-48 bg-muted/30 rounded-lg">
+              <p className="text-sm text-muted-foreground">휴무입니다 🏖️</p>
+            </div>
+          )}
+        </Card>
+
+        {/* Current Wait Time Info (kept for reference) */}
+        <Card className="p-4 mb-4" data-testid="card-current-waiting">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <p className="text-sm text-muted-foreground">예상 대기시간</p>
+              <p className="text-sm text-muted-foreground">현재 대기시간</p>
               <p className={`text-2xl font-bold ${hasWaitingData ? 'text-foreground' : 'text-muted-foreground'}`}>
                 {hasWaitingData ? `${estWait}분` : '-'}
               </p>
