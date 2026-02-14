@@ -14,17 +14,17 @@ export function SplashScreen() {
             transition={{ duration: 0.5, ease: "easeInOut" }}
             className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#0E4A84]"
         >
-            <div className="flex flex-col items-center">
-                {/* Render Transparency-Optimized Logo */}
-                <div className="w-64 h-auto relative mb-4">
+            <div className="flex flex-col items-center justify-center w-full h-full p-8">
+                {/* Render Transparency-Optimized Logo (Image Only) */}
+                {/* Using max-w and w-full to ensure responsiveness and centering */}
+                <div className="w-[80%] max-w-[320px] h-auto relative">
                     <img
                         src="/splash_logo.png"
                         alt="HY-eat"
                         className="w-full h-full object-contain"
                         onError={(e) => {
-                            // Fallback to text if image is missing
                             e.currentTarget.style.display = 'none';
-                            e.currentTarget.parentElement!.innerHTML = `<h1 class="text-6xl font-black text-white tracking-tighter italic" style="font-family: sans-serif">HY-eat</h1>`;
+                            e.currentTarget.parentElement!.innerHTML = `<h1 class="text-5xl font-black text-white italic text-center" style="font-family: sans-serif">HY-eat</h1>`;
                         }}
                     />
                 </div>
