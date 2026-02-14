@@ -17,40 +17,10 @@ import { useTicketContext } from '@/lib/ticketContext';
 import { RESTAURANTS, formatTime, type WaitingData, type MenuData } from '@shared/types';
 import { isValidDayKey, type DayKey } from '@/lib/dateUtils';
 import { getMenus, getWaitTimes, getAvailableTimestamps, getLatestWaitTimes, getConfig } from '@/lib/data/dataProvider';
+import { BannerCarousel } from '@/components/BannerCarousel';
 
-function Banner() {
-  const [imageError, setImageError] = useState(false);
 
-  const handleImageError = useCallback(() => {
-    setImageError(true);
-  }, []);
-
-  return (
-    <div
-      className="w-full rounded-lg overflow-hidden shadow-sm border border-border"
-      style={{ aspectRatio: '2.35 / 1' }}
-      data-testid="banner-container"
-    >
-      {imageError ? (
-        <div
-          className="w-full h-full bg-[#0e4194] flex items-center justify-center"
-          data-testid="banner-placeholder"
-        >
-          <span className="text-white/60 text-sm">HY-eat</span>
-        </div>
-      ) : (
-        <img
-          src="/banner.png"
-          alt="HY-eat 배너"
-          className="w-full h-full"
-          style={{ objectFit: 'contain', backgroundColor: '#0e4194' }}
-          onError={handleImageError}
-          data-testid="banner-image"
-        />
-      )}
-    </div>
-  );
-}
+// Time options for the time selector dropdown (single source of truth)
 
 // Time options for the time selector dropdown (single source of truth)
 // Range: 08:00 to 18:00 in 10-minute increments
@@ -75,7 +45,7 @@ export default function Home() {
     selectedTime5Min,
     todayKey,
   } = useTimeContext();
-  const { ticket } = useTicketContext();
+  const { tickets } = useTicketContext();
 
   // New State for Restaurant Selector
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<string>('all');
@@ -83,6 +53,8 @@ export default function Home() {
   // Hardcode selectedDate to today
   const selectedDate: DayKey = todayKey;
   const isToday = true; // Always true in this view
+
+  // ... (query hooks remain the same) ...
 
   const { data: menuData } = useQuery<MenuData | null>({
     queryKey: ['/api/menu', selectedDate],
@@ -93,6 +65,10 @@ export default function Home() {
     },
     enabled: !!selectedDate,
   });
+
+  // ... (rest of the component) ...
+
+
 
   const { data: configData } = useQuery({
     queryKey: ['/api/config'],
@@ -184,7 +160,7 @@ export default function Home() {
     return `${month}월 ${day}일 (${dayName})`;
   }, []);
 
-  const hasActiveTicket = ticket && (ticket.status === 'stored' || ticket.status === 'active');
+  const hasActiveTicket = tickets.some(t => t.status === 'stored' || t.status === 'active');
 
   const loadedTimestamp = isToday && processedWaitingData?.[0]?.timestamp
     ? formatTime(new Date(processedWaitingData[0].timestamp))
@@ -260,9 +236,9 @@ export default function Home() {
           If absolute, banner is top. Ticket button floats on top.
       */}
       <main className="max-w-lg mx-auto px-4 py-4 pt-4">
-        {/* Banner */}
+        {/* Banner Carousel */}
         <div className="mb-4 pt-2"> {/* Reduced padding top from pt-10 to pt-2 */}
-          <Banner />
+          <BannerCarousel />
         </div>
 
         {/* Date & Time Status Line - CENTERED */}
