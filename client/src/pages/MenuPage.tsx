@@ -23,40 +23,7 @@ import { RESTAURANTS, formatTime, type WaitingData, type MenuData } from '@share
 import { addDays, formatDayKeyForDisplay, isValidDayKey, type DayKey } from '@/lib/dateUtils';
 import { getMenus, getWaitTimes, getAvailableTimestamps, getLatestWaitTimes, getConfig } from '@/lib/data/dataProvider';
 import { format } from 'date-fns';
-
-function Banner() {
-    const [imageError, setImageError] = useState(false);
-
-    const handleImageError = useCallback(() => {
-        setImageError(true);
-    }, []);
-
-    return (
-        <div
-            className="w-full rounded-lg overflow-hidden shadow-sm border border-border"
-            style={{ aspectRatio: '2.35 / 1' }}
-            data-testid="banner-container"
-        >
-            {imageError ? (
-                <div
-                    className="w-full h-full bg-[#0e4194] flex items-center justify-center"
-                    data-testid="banner-placeholder"
-                >
-                    <span className="text-white/60 text-sm">HY-eat</span>
-                </div>
-            ) : (
-                <img
-                    src="/banner.png"
-                    alt="HY-eat 배너"
-                    className="w-full h-full"
-                    style={{ objectFit: 'contain', backgroundColor: '#0e4194' }}
-                    onError={handleImageError}
-                    data-testid="banner-image"
-                />
-            )}
-        </div>
-    );
-}
+import { BannerCarousel } from '@/components/BannerCarousel';
 
 // Time options for the time selector dropdown (single source of truth)
 // Range: 08:00 to 18:00 in 10-minute increments
@@ -83,7 +50,7 @@ export default function MenuPage() {
         setSelectedTime5Min,
         todayKey,
     } = useTimeContext();
-    const { ticket } = useTicketContext();
+    const { tickets } = useTicketContext();
     const [isTimeSelectorOpen, setIsTimeSelectorOpen] = useState(false);
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
     const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null);
@@ -235,7 +202,7 @@ export default function MenuPage() {
     }, [waitingData, isToday, selectedTime5Min]);
 
     const displayDate = formatDayKeyForDisplay(selectedDate, todayKey);
-    const hasActiveTicket = ticket && (ticket.status === 'stored' || ticket.status === 'active');
+    const hasActiveTicket = tickets.some(t => t.status === 'stored' || t.status === 'active');
 
     const loadedTimestamp = isToday && processedWaitingData?.[0]?.timestamp
         ? formatTime(new Date(processedWaitingData[0].timestamp))

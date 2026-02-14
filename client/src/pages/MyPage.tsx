@@ -20,6 +20,8 @@ import { useFavorites } from '@/lib/favoritesContext';
 import { CORNER_DISPLAY_NAMES } from '@shared/cornerDisplayNames';
 import { RESTAURANTS } from '@shared/types';
 import { getTodayKey } from '@/lib/dateUtils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { TicketVault } from '@/components/ticket/TicketVault';
 
 export default function MyPage() {
     const [, setLocation] = useLocation();
@@ -30,6 +32,7 @@ export default function MyPage() {
     const [notifGolden, setNotifGolden] = useState(false);
     const [notifCrowded, setNotifCrowded] = useState(true);
     const [masterNotif, setMasterNotif] = useState(true);
+    const [showTicketPopup, setShowTicketPopup] = useState(false);
 
     // -- Favorites Data Processing --
     // Flatten restaurants to find corners by ID
@@ -58,8 +61,8 @@ export default function MyPage() {
             <div className="bg-white p-6 pb-8 border-b border-border">
                 <div className="flex justify-between items-start">
                     <div>
-                        <h1 className="text-xl font-bold text-gray-900">송준의님</h1>
-                        <p className="text-sm text-gray-500 mt-1">한양대학교</p>
+                        <h1 className="text-xl font-bold text-gray-900">엄준식님</h1>
+                        <p className="text-sm text-gray-500 mt-1">한양대학교 전기·생체공학부 전기공학전공</p>
                     </div>
                     <Button variant="ghost" size="sm" className="text-gray-400 hover:text-gray-600 h-auto p-0">
                         <span className="text-xs mr-1">계정 관리</span>
@@ -166,7 +169,10 @@ export default function MyPage() {
 
                 {/* 5. Tickets / History */}
                 <Card className="p-0 shadow-sm border-0 divide-y divide-gray-100 overflow-hidden">
-                    <div className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors">
+                    <div
+                        className="p-4 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors"
+                        onClick={() => setShowTicketPopup(true)}
+                    >
                         <div className="flex items-center gap-3">
                             <div className="bg-gray-100 p-2 rounded-full">
                                 <Receipt className="w-4 h-4 text-gray-600" />
@@ -185,6 +191,16 @@ export default function MyPage() {
                         <ChevronRight className="w-4 h-4 text-gray-400" />
                     </div>
                 </Card>
+
+                {/* Ticket Vault Dialog */}
+                <Dialog open={showTicketPopup} onOpenChange={setShowTicketPopup}>
+                    <DialogContent className="max-h-[90vh] overflow-y-auto">
+                        <DialogHeader>
+                            <DialogTitle>내 식권함</DialogTitle>
+                        </DialogHeader>
+                        <TicketVault />
+                    </DialogContent>
+                </Dialog>
 
                 {/* 6. Footer Links */}
                 <div className="pt-4 pb-8 text-center space-y-3">
