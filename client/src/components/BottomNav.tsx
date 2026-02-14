@@ -13,13 +13,16 @@ export default function BottomNav() {
         { name: "MY", path: "/my", icon: User, matchPrefix: true },
     ];
 
-    // Helper to check active state
-    // For home '/', allow '/d/...' to also be active, assuming home is the main view
+    // Helper to check active state with path-based detection
     const isActive = (path: string, matchPrefix: boolean) => {
         if (path === "/") {
-            // Home is active if exact match OR starts with /d/ (detail view) OR /restaurant (if navigated)
-            // Adjust logic based on your exact home routing requirements.
+            // Home is active if exact match OR starts with /d/ (detail view) OR /restaurant (legacy)
             return location === "/" || location.startsWith("/d/") || location.startsWith("/restaurant/");
+        }
+        if (matchPrefix) {
+            // For tabs like /menu, /recommend, etc., match by prefix
+            // This ensures /menu/detail/... activates the Menu tab
+            return location.startsWith(path);
         }
         return location === path;
     };

@@ -45,8 +45,11 @@ function Router() {
       <Route path="/d/:dayKey/restaurant/:restaurantId/corner/:cornerId" component={CornerDetail} />
       <Route path="/restaurant/:restaurantId/corner/:cornerId" component={CornerDetail} />
 
-      {/* Other Tab Routes */}
+      {/* Menu Tab Routes */}
       <Route path="/menu" component={MenuPage} />
+      <Route path="/menu/detail/:restaurantId/:cornerId" component={CornerDetail} />
+
+      {/* Other Tab Routes */}
       <Route path="/recommend" component={RecommendPage} />
       <Route path="/ticket" component={TabTicket} />
       <Route path="/my" component={MyPage} />

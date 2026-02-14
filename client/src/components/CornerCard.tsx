@@ -55,7 +55,7 @@ export function CornerCard({
   cornerDisplayName,
   isActive = false,
 }: CornerCardProps) {
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { availableTimestamps, timeState, selectedTime5Min, todayKey } = useTimeContext();
 
   // Check if we have actual data
@@ -82,28 +82,37 @@ export function CornerCard({
   const menuDisplayName = getMenuDisplayName();
 
   const handleClick = () => {
-    const baseUrl = `/d/${dayKey}/restaurant/${restaurantId}/corner/${cornerId}`;
-    const params = new URLSearchParams();
+    // Detect if we're on the MenuPage by checking current location
+    const isOnMenuPage = location.startsWith('/menu');
 
-    if (!isToday && selectedTime5Min) {
-      params.set('time5min', selectedTime5Min);
-    } else if (isToday && availableTimestamps.length > 0) {
-      const targetTime = timeState.displayTime.getTime();
-      let closestTs = availableTimestamps[0];
-      let minDiff = Math.abs(new Date(availableTimestamps[0]).getTime() - targetTime);
+    if (isOnMenuPage) {
+      // Menu tab navigation - use simplified route with date query param
+      setLocation(`/menu/detail/${restaurantId}/${cornerId}?date=${dayKey}`);
+    } else {
+      // Home tab navigation - use date-based route with query params
+      const baseUrl = `/d/${dayKey}/restaurant/${restaurantId}/corner/${cornerId}`;
+      const params = new URLSearchParams();
 
-      for (const ts of availableTimestamps) {
-        const diff = Math.abs(new Date(ts).getTime() - targetTime);
-        if (diff < minDiff) {
-          minDiff = diff;
-          closestTs = ts;
+      if (!isToday && selectedTime5Min) {
+        params.set('time5min', selectedTime5Min);
+      } else if (isToday && availableTimestamps.length > 0) {
+        const targetTime = timeState.displayTime.getTime();
+        let closestTs = availableTimestamps[0];
+        let minDiff = Math.abs(new Date(availableTimestamps[0]).getTime() - targetTime);
+
+        for (const ts of availableTimestamps) {
+          const diff = Math.abs(new Date(ts).getTime() - targetTime);
+          if (diff < minDiff) {
+            minDiff = diff;
+            closestTs = ts;
+          }
         }
+        params.set('t', closestTs);
       }
-      params.set('t', closestTs);
-    }
 
-    const queryString = params.toString();
-    setLocation(queryString ? `${baseUrl}?${queryString}` : baseUrl);
+      const queryString = params.toString();
+      setLocation(queryString ? `${baseUrl}?${queryString}` : baseUrl);
+    }
   };
 
   return (
