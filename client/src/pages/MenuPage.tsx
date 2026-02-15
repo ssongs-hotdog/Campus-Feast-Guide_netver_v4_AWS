@@ -15,7 +15,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useLocation, useSearch } from 'wouter';
 import { ChevronLeft, ChevronRight, Ticket, ChevronDown, ChevronUp, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { RestaurantSection } from '@/components/RestaurantSection';
+import { MenuRestaurantSection } from '@/components/menu/MenuRestaurantSection';
 import { RestaurantSelector } from '@/components/RestaurantSelector';
 import { DatePickerModal } from '@/components/DatePickerModal';
 import { useTimeContext } from '@/lib/timeContext';
@@ -314,7 +314,7 @@ export default function MenuPage() {
                         {RESTAURANTS
                             .filter(restaurant => selectedRestaurantId === 'all' || restaurant.id === selectedRestaurantId)
                             .map((restaurant) => (
-                                <RestaurantSection
+                                <MenuRestaurantSection
                                     key={restaurant.id}
                                     restaurant={restaurant}
                                     menus={menuData?.[restaurant.id] || {}}

@@ -42,7 +42,7 @@ export function TopPickCard({ type, item }: TopPickCardProps) {
             // We need today's date key here or just use /restaurant/... ID-based routing if available
             // The app routing for MenuDetail is /menu/detail/:restaurantId/:cornerId OR /d/:date/...
             // Let's use the simpler path if App.tsx supports it, or construct date-based one.
-            // Checking App.tsx: Route path="/restaurant/:restaurantId/corner/:cornerId" component={CornerDetail} exists
+            // Checking App.tsx: Route path="/restaurant/:restaurantId/corner/:cornerId" component={HomeCornerDetail} exists
             setLocation(`/restaurant/${item.restaurantId}/corner/${item.cornerId}`);
         }
     };
