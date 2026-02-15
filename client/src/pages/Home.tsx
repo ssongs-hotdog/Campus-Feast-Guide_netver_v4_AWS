@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import { Ticket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { RestaurantSection } from '@/components/RestaurantSection';
+import { HomeRestaurantSection } from '@/components/home/HomeRestaurantSection';
 import { RestaurantSelector } from '@/components/RestaurantSelector';
 import { useTimeContext } from '@/lib/timeContext';
 import { useTicketContext } from '@/lib/ticketContext';
@@ -271,7 +271,7 @@ export default function Home() {
         ) : (
           <>
             {filteredRestaurants.map((restaurant) => (
-              <RestaurantSection
+              <HomeRestaurantSection
                 key={restaurant.id}
                 restaurant={restaurant}
                 menus={menuData?.[restaurant.id] || {}}
@@ -289,6 +289,6 @@ export default function Home() {
           HY-eat - 한양대학교 학생식당 혼잡도 모니터링
         </p>
       </footer>
-    </div>
+    </div >
   );
 }

@@ -335,19 +335,7 @@ export default function CornerDetail() {
             데이터 시각: {loadedTimestamp}
           </div>
         )}
-        {/* Hourly Wait Time Histogram */}
-        <Card className="p-4 mb-4" data-testid="card-waiting-info">
-          {hasMenuData ? (
-            <WaitTimeHistogram
-              operatingHours={operatingHours}
-              forecastData={forecastData}
-            />
-          ) : (
-            <div className="flex items-center justify-center h-48 bg-muted/30 rounded-lg">
-              <p className="text-sm text-muted-foreground">휴무입니다 🏖️</p>
-            </div>
-          )}
-        </Card>
+
 
         {/* Current Wait Time Info (kept for reference) */}
         <Card className="p-4 mb-4" data-testid="card-current-waiting">
@@ -501,6 +489,20 @@ export default function CornerDetail() {
             )}
           </>
         )}
+
+        {/* Hourly Wait Time Histogram */}
+        <Card className="p-4 mb-4" data-testid="card-waiting-info">
+          {hasMenuData ? (
+            <WaitTimeHistogram
+              operatingHours={operatingHours}
+              forecastData={forecastData}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-48 bg-muted/30 rounded-lg">
+              <p className="text-sm text-muted-foreground">휴무입니다 🏖️</p>
+            </div>
+          )}
+        </Card>
       </main>
       <PurchaseSheet
         isOpen={isPurchaseSheetOpen}
