@@ -20,7 +20,8 @@ import { FavoritesProvider } from "@/lib/favoritesContext";
 import { SplashProvider } from "@/contexts/SplashContext";
 import { SplashScreen } from "@/components/SplashScreen";
 import Home from "@/pages/Home";
-import CornerDetail from "@/pages/CornerDetail";
+import HomeCornerDetail from "@/pages/HomeCornerDetail";
+import MenuCornerDetail from "@/pages/MenuCornerDetail";
 import NotFound from "@/pages/not-found";
 import { getTodayKey } from "@/lib/dateUtils";
 import BottomNav from "@/components/BottomNav";
@@ -43,12 +44,12 @@ function Router() {
       {/* Home Tab Routes */}
       <Route path="/" component={RedirectToToday} />
       <Route path="/d/:dayKey" component={Home} />
-      <Route path="/d/:dayKey/restaurant/:restaurantId/corner/:cornerId" component={CornerDetail} />
-      <Route path="/restaurant/:restaurantId/corner/:cornerId" component={CornerDetail} />
+      <Route path="/d/:dayKey/restaurant/:restaurantId/corner/:cornerId" component={HomeCornerDetail} />
+      <Route path="/restaurant/:restaurantId/corner/:cornerId" component={HomeCornerDetail} />
 
       {/* Menu Tab Routes */}
       <Route path="/menu" component={MenuPage} />
-      <Route path="/menu/detail/:restaurantId/:cornerId" component={CornerDetail} />
+      <Route path="/menu/detail/:restaurantId/:cornerId" component={MenuCornerDetail} />
 
       {/* Other Tab Routes */}
       <Route path="/recommend" component={RecommendPage} />
