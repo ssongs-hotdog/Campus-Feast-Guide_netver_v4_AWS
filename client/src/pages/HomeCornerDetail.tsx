@@ -292,7 +292,7 @@ export default function HomeCornerDetail() {
 
     return (
         <div className="min-h-screen bg-background">
-            <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border px-4 py-3">
+            <header className="bg-background border-b border-border px-4 py-3">
                 <div className="flex items-center gap-3 max-w-lg mx-auto">
                     <Button
                         variant="ghost"
