@@ -41,9 +41,16 @@ export default function MenuCornerDetail() {
     const { tickets } = useTicketContext();
     const { todayKey } = useTimeContext();
 
-    // Scroll to top on mount
+    // Scroll to top on mount - iOS Safari compatible
     useEffect(() => {
-        window.scrollTo(0, 0);
+        // Force scroll to top immediately
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        // Backup: iOS Safari may ignore immediate calls due to scroll restoration
+        // Using setTimeout(0) ensures this runs after iOS's scroll restoration
+        const timeoutId = setTimeout(() => {
+            window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        }, 0);
+        return () => clearTimeout(timeoutId);
     }, []);
 
     // -- Payment Sheet State --

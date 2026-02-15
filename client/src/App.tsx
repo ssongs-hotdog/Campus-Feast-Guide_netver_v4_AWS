@@ -78,7 +78,7 @@ function App() {
               <FavoritesProvider>
                 <Toaster />
                 <TopAppBar />
-                <div className="pt-[56px] pb-[60px] min-h-screen bg-background">
+                <div className="pt-header-safe pb-[60px] min-h-screen bg-background">
                   <Router />
                 </div>
                 <BottomNav />
