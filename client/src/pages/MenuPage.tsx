@@ -272,7 +272,7 @@ export default function MenuPage() {
             <main className="max-w-lg mx-auto px-4 py-4">
 
                 {/* Weekly Calendar Strip */}
-                <div className="mb-6">
+                <div className="mb-1">
                     <WeeklyCalendar
                         selectedDate={selectedDate}
                         onDateSelect={handleDateSelect}

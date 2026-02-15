@@ -68,7 +68,7 @@ export function WeeklyCalendar({ selectedDate, onDateSelect, onCalendarClick }: 
     const handleNextWeek = () => setViewDate(prev => addDays(prev, 7));
 
     return (
-        <div className="w-full bg-background pb-4">
+        <div className="w-full bg-background pb-2">
             {/* Header: < 2월 3주 > + Calendar Icon */}
             <div className="relative flex items-center justify-center mb-4 px-4">
                 {/* Centered Navigation */}
