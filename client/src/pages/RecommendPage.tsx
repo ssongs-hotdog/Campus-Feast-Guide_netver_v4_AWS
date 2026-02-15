@@ -136,16 +136,16 @@ export default function RecommendPage() {
                 <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide mb-4">
                     {[
                         { id: 'all', label: '전체' },
-                        { id: 'short', label: '짧게' },
-                        { id: 'price_over_6k', label: '6천원+' },
+                        { id: 'short', label: '빠른 식사' },
                         { id: 'value', label: '가성비' },
+                        { id: 'price_over_6k', label: '든든' },
                     ].map(chip => (
                         <button
                             key={chip.id}
                             onClick={() => setActiveFilter(chip.id)}
                             className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${activeFilter === chip.id
-                                    ? 'bg-[#0E4A84] text-white shadow-sm'
-                                    : 'bg-white text-gray-500 border border-gray-200'
+                                ? 'bg-[#0E4A84] text-white shadow-sm'
+                                : 'bg-white text-gray-500 border border-gray-200'
                                 }`}
                         >
                             {chip.label}

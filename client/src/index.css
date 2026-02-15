@@ -290,6 +290,15 @@
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  /* Combined safe area top with fixed header offset (TopAppBar height: 56px) */
+  .pt-header-safe {
+    padding-top: calc(56px + env(safe-area-inset-top, 0px));
+  }
+
   /* Hide scrollbar for Chrome, Safari and Opera */
   .scrollbar-hide::-webkit-scrollbar {
     display: none;

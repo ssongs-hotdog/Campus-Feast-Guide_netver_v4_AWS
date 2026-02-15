@@ -15,7 +15,7 @@
  */
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import type { TimeMode, TimeState } from '@shared/types';
-import { getTodayKey, type DayKey } from './dateUtils';
+import { getTodayKey, type DayKey, DEBUG_TEST_DATE } from './dateUtils';
 
 interface TimeContextValue {
   timeState: TimeState;
@@ -35,7 +35,12 @@ interface TimeContextValue {
 const TimeContext = createContext<TimeContextValue | null>(null);
 
 function getKSTNow(): Date {
-  return new Date();
+  const now = new Date();
+  if (DEBUG_TEST_DATE) {
+    const [y, m, d] = DEBUG_TEST_DATE.split('-').map(Number);
+    now.setFullYear(y, m - 1, d);
+  }
+  return now;
 }
 
 export function TimeProvider({ children }: { children: React.ReactNode }) {
@@ -100,7 +105,7 @@ export function TimeProvider({ children }: { children: React.ReactNode }) {
   }, [fetchConfigAndSync]);
 
   // Authoritative todayKey
-  const todayKey = serverToday ?? getTodayKey();
+  const todayKey = DEBUG_TEST_DATE ?? serverToday ?? getTodayKey();
 
   const setMode = useCallback((mode: TimeMode) => {
     setTimeState((prev) => ({ ...prev, mode }));
@@ -125,6 +130,10 @@ export function TimeProvider({ children }: { children: React.ReactNode }) {
   const goToRealtime = useCallback(() => {
     // When going to realtime, update immediately with current offset
     const nowWithOffset = new Date(Date.now() + serverOffset);
+    if (DEBUG_TEST_DATE) {
+      const [y, m, d] = DEBUG_TEST_DATE.split('-').map(Number);
+      nowWithOffset.setFullYear(y, m - 1, d);
+    }
     setTimeState({
       mode: 'realtime',
       displayTime: nowWithOffset,
@@ -145,9 +154,14 @@ export function TimeProvider({ children }: { children: React.ReactNode }) {
       // We update more frequently (e.g. 1s) for smoothness if seconds are shown, 
       // but here 10s is enough for minute-level UI.
       intervalRef.current = setInterval(() => {
+        const now = new Date(Date.now() + serverOffset);
+        if (DEBUG_TEST_DATE) {
+          const [y, m, d] = DEBUG_TEST_DATE.split('-').map(Number);
+          now.setFullYear(y, m - 1, d);
+        }
         setTimeState((prev) => ({
           ...prev,
-          displayTime: new Date(Date.now() + serverOffset),
+          displayTime: now,
         }));
       }, 5000); // Check every 5s to be responsive enough
     } else if (timeState.isPlaying && availableTimestamps.length > 0) {

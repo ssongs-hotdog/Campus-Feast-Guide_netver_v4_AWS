@@ -13,14 +13,13 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation, useSearch } from 'wouter';
-import { ChevronLeft, ChevronRight, Ticket, ChevronDown, ChevronUp, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MenuRestaurantSection } from '@/components/menu/MenuRestaurantSection';
 import { RestaurantSelector } from '@/components/RestaurantSelector';
 import { DatePickerModal } from '@/components/DatePickerModal';
 import { WeeklyCalendar } from '@/components/menu/WeeklyCalendar';
 import { useTimeContext } from '@/lib/timeContext';
-import { useTicketContext } from '@/lib/ticketContext';
 import { RESTAURANTS, formatTime, type WaitingData, type MenuData } from '@shared/types';
 import { addDays, formatDayKeyForDisplay, isValidDayKey, type DayKey } from '@/lib/dateUtils';
 import { getMenus, getWaitTimes, getAvailableTimestamps, getLatestWaitTimes, getConfig } from '@/lib/data/dataProvider';
@@ -52,7 +51,6 @@ export default function MenuPage() {
         setSelectedTime5Min,
         todayKey,
     } = useTimeContext();
-    const { tickets } = useTicketContext();
     const [isTimeSelectorOpen, setIsTimeSelectorOpen] = useState(false);
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
     const [selectedRestaurantId, setSelectedRestaurantId] = useState<string>('all');
@@ -204,7 +202,6 @@ export default function MenuPage() {
     }, [waitingData, isToday, selectedTime5Min]);
 
     const displayDate = formatDayKeyForDisplay(selectedDate, todayKey);
-    const hasActiveTicket = tickets.some(t => t.status === 'stored' || t.status === 'active');
 
     const loadedTimestamp = isToday && processedWaitingData?.[0]?.timestamp
         ? formatTime(new Date(processedWaitingData[0].timestamp))
@@ -249,25 +246,6 @@ export default function MenuPage() {
 
     return (
         <div className="min-h-screen bg-background pb-24">
-            <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border px-4 py-3">
-                <div className="max-w-lg mx-auto space-y-3">
-                    {/* Ticket Button (if active) - Date Trigger Removed */}
-                    {hasActiveTicket && (
-                        <div className="flex justify-end">
-                            <Button
-                                variant="default"
-                                size="icon"
-                                onClick={() => setLocation('/ticket')}
-                                className="relative"
-                                data-testid="button-ticket"
-                            >
-                                <Ticket className="w-4 h-4" />
-                                <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" />
-                            </Button>
-                        </div>
-                    )}
-                </div>
-            </header>
 
             <main className="max-w-lg mx-auto px-4 py-4">
 

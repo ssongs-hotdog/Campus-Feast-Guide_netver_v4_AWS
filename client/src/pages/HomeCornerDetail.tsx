@@ -47,9 +47,16 @@ export default function HomeCornerDetail() {
     const { tickets } = useTicketContext();
     const { todayKey } = useTimeContext();
 
-    // Scroll to top on mount
+    // Scroll to top on mount - iOS Safari compatible
     useEffect(() => {
-        window.scrollTo(0, 0);
+        // Force scroll to top immediately
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        // Backup: iOS Safari may ignore immediate calls due to scroll restoration
+        // Using setTimeout(0) ensures this runs after iOS's scroll restoration
+        const timeoutId = setTimeout(() => {
+            window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        }, 0);
+        return () => clearTimeout(timeoutId);
     }, []);
 
     // -- Payment Sheet State --
@@ -292,7 +299,7 @@ export default function HomeCornerDetail() {
 
     return (
         <div className="min-h-screen bg-background">
-            <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border px-4 py-3">
+            <header className="bg-background border-b border-border px-4 py-3">
                 <div className="flex items-center gap-3 max-w-lg mx-auto">
                     <Button
                         variant="ghost"
@@ -445,28 +452,32 @@ export default function HomeCornerDetail() {
                                     )}
                                 </div>
                             </div>
+                            <div className="flex justify-between items-center mt-4 pt-3 border-t border-border">
+                                <span className="text-sm text-muted-foreground" data-testid="text-remaining-meals">
+                                    잔여 식수: --명
+                                </span>
+                                {isToday && hasMenuData && (
+                                    hasExistingTicket ? (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setLocation('/ticket')}
+                                            data-testid="button-view-ticket"
+                                        >
+                                            주문권 확인
+                                        </Button>
+                                    ) : (
+                                        <Button
+                                            size="sm"
+                                            onClick={handlePayment}
+                                            data-testid="button-payment"
+                                        >
+                                            결제하기
+                                        </Button>
+                                    )
+                                )}
+                            </div>
                         </Card>
-
-                        {isToday && hasMenuData && (
-                            hasExistingTicket ? (
-                                <Button
-                                    variant="outline"
-                                    className="w-full h-12 text-base"
-                                    onClick={() => setLocation('/ticket')}
-                                    data-testid="button-view-ticket"
-                                >
-                                    주문권 확인하기
-                                </Button>
-                            ) : (
-                                <Button
-                                    className="w-full h-12 text-base"
-                                    onClick={handlePayment}
-                                    data-testid="button-payment"
-                                >
-                                    결제하기 (시뮬)
-                                </Button>
-                            )
-                        )}
                     </>
                 )}
 

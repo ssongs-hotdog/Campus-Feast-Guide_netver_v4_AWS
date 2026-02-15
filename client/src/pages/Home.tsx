@@ -8,12 +8,10 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
-import { Ticket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { HomeRestaurantSection } from '@/components/home/HomeRestaurantSection';
 import { RestaurantSelector } from '@/components/RestaurantSelector';
 import { useTimeContext } from '@/lib/timeContext';
-import { useTicketContext } from '@/lib/ticketContext';
 import { RESTAURANTS, formatTime, type WaitingData, type MenuData } from '@shared/types';
 import { isValidDayKey, type DayKey } from '@/lib/dateUtils';
 import { getMenus, getWaitTimes, getAvailableTimestamps, getLatestWaitTimes, getConfig } from '@/lib/data/dataProvider';
@@ -45,7 +43,6 @@ export default function Home() {
     selectedTime5Min,
     todayKey,
   } = useTimeContext();
-  const { tickets } = useTicketContext();
 
   // New State for Restaurant Selector
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<string>('all');
@@ -160,7 +157,6 @@ export default function Home() {
     return `${month}월 ${day}일 (${dayName})`;
   }, []);
 
-  const hasActiveTicket = tickets.some(t => t.status === 'stored' || t.status === 'active');
 
   const loadedTimestamp = isToday && processedWaitingData?.[0]?.timestamp
     ? formatTime(new Date(processedWaitingData[0].timestamp))
@@ -202,31 +198,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      {/* Header with Ticket Button Only (Date Nav Removed) */}
-      <header className="absolute top-0 left-0 right-0 z-50 px-4 py-3 bg-transparent">
-        <div className="flex items-center justify-between max-w-lg mx-auto">
-          {/* Logo or Title Placeholder if needed, otherwise empty space or ticket button alignment */}
-          <div className="text-lg font-bold text-foreground">
-            {/* Left Empty or Logo */}
-          </div>
-
-          <div className="flex items-center gap-1">
-            {/* Ticket Button */}
-            {hasActiveTicket && (
-              <Button
-                variant="default"
-                size="icon"
-                onClick={() => setLocation('/ticket')}
-                className="relative shadow-md"
-                data-testid="button-ticket"
-              >
-                <Ticket className="w-4 h-4" />
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" />
-              </Button>
-            )}
-          </div>
-        </div>
-      </header>
 
       {/* Main Content with paddingtop to account for header area if needed, but since header is absolute/transparent and likely over banner, careful. 
           Actually user wants "remove white bar traces". If transparent header is over banner, that's fine.

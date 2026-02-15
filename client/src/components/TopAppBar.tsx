@@ -21,7 +21,7 @@ export default function TopAppBar() {
     const hasUnread = unreadCount > 0;
 
     return (
-        <header className="fixed top-0 left-0 right-0 z-50 h-[56px] bg-[#0E4A84] flex items-center justify-between px-4 shadow-sm">
+        <header className="fixed top-0 left-0 right-0 z-50 h-[56px] pt-safe bg-[#0E4A84] flex items-center justify-between px-4 shadow-sm">
             {/* Left: Logo */}
             <div className="flex items-center">
                 <Link href="/">
