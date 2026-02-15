@@ -4,7 +4,7 @@
  * Purpose: Displays detailed information about a specific menu corner for the Menu tab.
  * Optimized for the Menu tab context.
  */
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useRoute, useLocation, useSearch } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft } from 'lucide-react';
@@ -40,6 +40,11 @@ export default function MenuCornerDetail() {
     const searchString = useSearch();
     const { tickets } = useTicketContext();
     const { todayKey } = useTimeContext();
+
+    // Scroll to top on mount
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, []);
 
     // -- Payment Sheet State --
     const [isPurchaseSheetOpen, setIsPurchaseSheetOpen] = useState(false);
