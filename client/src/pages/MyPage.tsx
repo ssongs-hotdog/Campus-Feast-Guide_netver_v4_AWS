@@ -8,7 +8,7 @@
  * 4. Golden Time Widget (Mock)
  * 5. History & Footer
  */
-import { useEffect, useState, useMemo, Suspense, lazy } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useLocation } from 'wouter';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
