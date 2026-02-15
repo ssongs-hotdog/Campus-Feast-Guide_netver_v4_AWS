@@ -471,15 +471,27 @@ export default function HomeCornerDetail() {
 
                 {/* Hourly Wait Time Histogram */}
                 <Card className="p-4 mb-4" data-testid="card-waiting-info">
-                    {hasMenuData ? (
+                    {hasMenuData && forecastData.length > 0 ? (
                         <WaitTimeHistogram
                             operatingHours={operatingHours}
                             forecastData={forecastData}
                         />
                     ) : (
-                        <div className="flex items-center justify-center h-48 bg-muted/30 rounded-lg">
-                            <p className="text-sm text-muted-foreground">{getMissingMenuText(effectiveDate)}</p>
-                        </div>
+                        <>
+                            <div className="mb-2">
+                                <h3 className="text-sm font-medium text-foreground">시간대별 예상 대기시간</h3>
+                            </div>
+                            <div className="flex flex-col items-center justify-center h-48 bg-muted/30 rounded-lg text-center p-4">
+                                {hasMenuData ? (
+                                    <>
+                                        <p className="text-sm font-medium text-muted-foreground mb-1">아직 예측 데이터가 충분하지 않아요.</p>
+                                        <p className="text-xs text-muted-foreground/70">조금 뒤 다시 확인해 주세요.</p>
+                                    </>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground">예상 추이를 제공할 수 없어요.</p>
+                                )}
+                            </div>
+                        </>
                     )}
                 </Card>
             </main>

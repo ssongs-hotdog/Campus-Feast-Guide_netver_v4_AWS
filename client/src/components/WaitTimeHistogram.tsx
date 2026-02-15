@@ -30,7 +30,7 @@ function getBarColor(waitMinutes: number): string {
     return '#EF4444'; // Red
 }
 
-export function WaitTimeHistogram({ operatingHours, forecastData, currentTime }: WaitTimeHistogramProps) {
+export function WaitTimeHistogram({ operatingHours, forecastData, currentTime, showTitle = true }: WaitTimeHistogramProps & { showTitle?: boolean }) {
     // Filter data to only show operating hours
     const filteredData = useMemo(() => {
         const openMinutes = timeToMinutes(operatingHours.openTime);
@@ -69,23 +69,26 @@ export function WaitTimeHistogram({ operatingHours, forecastData, currentTime }:
 
     return (
         <div className="w-full">
-            <div className="mb-2 flex items-center justify-between">
-                <h3 className="text-sm font-medium text-foreground">시간대별 예상 대기시간</h3>
-                <div className="flex items-center gap-3 text-xs">
-                    <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 rounded-sm bg-[#10B981]" />
-                        <span className="text-muted-foreground">&lt;5분</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 rounded-sm bg-[#F59E0B]" />
-                        <span className="text-muted-foreground">5-15분</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                        <div className="w-3 h-3 rounded-sm bg-[#EF4444]" />
-                        <span className="text-muted-foreground">&gt;15분</span>
+            {showTitle && (
+                <div className="mb-2 flex items-center justify-between">
+                    <h3 className="text-sm font-medium text-foreground">시간대별 예상 대기시간</h3>
+                    <div className="flex items-center gap-3 text-xs">
+                        <div className="flex items-center gap-1">
+                            <div className="w-3 h-3 rounded-sm bg-[#10B981]" />
+                            <span className="text-muted-foreground">&lt;5분</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <div className="w-3 h-3 rounded-sm bg-[#F59E0B]" />
+                            <span className="text-muted-foreground">5-15분</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <div className="w-3 h-3 rounded-sm bg-[#EF4444]" />
+                            <span className="text-muted-foreground">&gt;15분</span>
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
+
 
             <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={filteredData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
