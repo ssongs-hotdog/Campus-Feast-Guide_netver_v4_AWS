@@ -68,7 +68,7 @@ export type ScheduleConfig = Record<string, Record<string, CornerSchedule>>;
 export const CORNER_SCHEDULES: ScheduleConfig = {
   hanyang_plaza: {
     breakfast_1000: {
-      weekday: [{ start: '08:00', end: '09:30' }],
+      weekday: [{ start: '08:20', end: '10:20' }],
       // No saturday/sunday - closed
     },
     western: {
