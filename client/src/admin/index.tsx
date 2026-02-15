@@ -2,6 +2,7 @@ import { Route, Switch, Redirect } from "wouter";
 import { AdminLayout } from "./layouts/AdminLayout";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminLogin from "./pages/AdminLogin";
+import ComingSoon from "./pages/ComingSoon";
 import { AdminAuthProvider } from "./context/AdminAuthContext";
 import { AdminRouteGuard } from "./components/AdminRouteGuard";
 
@@ -25,6 +26,25 @@ export default function AdminRoot() {
                             <Switch>
                                 <Route path="/admin" component={() => <Redirect to="/admin/dashboard" />} />
                                 <Route path="/admin/dashboard" component={AdminDashboard} />
+
+                                {/* Operations */}
+                                <Route path="/admin/monitor" component={ComingSoon} />
+                                <Route path="/admin/menu" component={ComingSoon} />
+                                <Route path="/admin/ops" component={ComingSoon} />
+                                {/* Legacy / hidden routes */}
+                                <Route path="/admin/settings" component={ComingSoon} />
+                                <Route path="/admin/menus" component={ComingSoon} />
+
+                                {/* Content */}
+                                <Route path="/admin/notices" component={ComingSoon} />
+                                <Route path="/admin/banners" component={ComingSoon} />
+
+                                {/* Analytics */}
+                                <Route path="/admin/reports" component={ComingSoon} />
+                                <Route path="/admin/logs" component={ComingSoon} />
+
+                                {/* System */}
+                                <Route path="/admin/admins" component={ComingSoon} />
 
                                 {/* Fallback for unknown admin routes */}
                                 <Route path="/admin/:rest*">
