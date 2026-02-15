@@ -33,6 +33,11 @@ import MyPage from "@/pages/MyPage";
 import TopAppBar from "@/components/TopAppBar";
 import NotificationCenter from "@/pages/NotificationCenter";
 
+import { Suspense, lazy } from "react";
+
+// Lazy load Admin module to keep user bundle small
+const AdminRoot = lazy(() => import("@/admin"));
+
 function RedirectToToday() {
   const todayKey = getTodayKey();
   return <Redirect to={`/d/${todayKey}`} />;
@@ -41,6 +46,13 @@ function RedirectToToday() {
 function Router() {
   return (
     <Switch>
+      {/* Admin Route - Isolated & Lazy Loaded */}
+      <Route path="/admin/*">
+        <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading Admin...</div>}>
+          <AdminRoot />
+        </Suspense>
+      </Route>
+
       {/* Home Tab Routes */}
       <Route path="/" component={RedirectToToday} />
       <Route path="/d/:dayKey" component={Home} />
