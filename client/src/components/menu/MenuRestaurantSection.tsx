@@ -130,7 +130,8 @@ export function MenuRestaurantSection({ restaurant, menus, dayKey, referenceTime
                 </div>
             </div>
 
-            <div className="flex flex-col gap-6">
+
+            <div className="flex flex-col gap-4">
                 {/* Breakfast Section */}
                 {groupedCorners.breakfast.length > 0 && (
                     <div>
@@ -146,7 +147,7 @@ export function MenuRestaurantSection({ restaurant, menus, dayKey, referenceTime
                 {/* Lunch Section */}
                 {groupedCorners.lunch.length > 0 && (
                     <div>
-                        <div className="flex items-center gap-2 mb-3 mt-2">
+                        <div className="flex items-center gap-2 mb-3">
                             <span className="text-sm font-bold text-[#0E4A84] bg-[#0E4A84]/10 px-3 py-1 rounded-full">
                                 점심
                             </span>
@@ -158,7 +159,7 @@ export function MenuRestaurantSection({ restaurant, menus, dayKey, referenceTime
                 {/* Dinner Section */}
                 {groupedCorners.dinner.length > 0 && (
                     <div>
-                        <div className="flex items-center gap-2 mb-3 mt-2">
+                        <div className="flex items-center gap-2 mb-3">
                             <span className="text-sm font-bold text-[#0E4A84] bg-[#0E4A84]/10 px-3 py-1 rounded-full">
                                 저녁
                             </span>
