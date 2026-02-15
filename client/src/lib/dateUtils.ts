@@ -107,7 +107,7 @@ export function parseDayKeyFromPath(pathname: string): DayKey | null {
 export function isValidDayKey(str: string): boolean {
   const pattern = /^\d{4}-\d{2}-\d{2}$/;
   if (!pattern.test(str)) return false;
-  
+
   // Also check if it's a valid date
   const date = new Date(str + 'T12:00:00');
   return !isNaN(date.getTime());
@@ -122,7 +122,7 @@ export function isValidDayKey(str: string): boolean {
  */
 export function formatDayKeyForDisplay(dayKey: DayKey, todayKey?: DayKey): string {
   const date = parseDayKeyToDate(dayKey);
-  
+
   // If today is provided, we could add relative labels like "오늘", "어제", "내일"
   // but for now we just format the date
   return date.toLocaleDateString('ko-KR', {
@@ -151,6 +151,24 @@ export function getRelativeLabel(dayKey: DayKey, todayKey: DayKey): string {
  * 
  * @returns negative if a < b, positive if a > b, 0 if equal
  */
-export function compareDayKeys(a: DayKey, b: DayKey): number {
-  return a.localeCompare(b);
+
+/**
+ * Returns the appropriate text to display when menu data is missing.
+ * 
+ * Rules:
+ * - Today & Past: "휴무입니다"
+ * - Future: "식단 정보가 등록되지 않았습니다."
+ * 
+ * @param dayKey - The date of the menu being viewed
+ * @returns The localized status text
+ */
+export function getMissingMenuText(dayKey: DayKey): string {
+  const today = getTodayKey();
+
+  // simple string comparison works for YYYY-MM-DD
+  if (dayKey > today) {
+    return "식단 정보가 등록되지 않았습니다.";
+  }
+
+  return "휴무입니다";
 }

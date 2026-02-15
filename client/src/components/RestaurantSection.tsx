@@ -75,7 +75,7 @@ export function RestaurantSection({ restaurant, menus, waitingData, dayKey, refe
         {sortedCorners.map(({ cornerId, isActive }) => {
           const menu = menus[cornerId];
           const cornerDisplayName = menu?.cornerDisplayName || CORNER_DISPLAY_NAMES[cornerId] || cornerId;
-          
+
           return (
             <CornerCard
               key={cornerId}

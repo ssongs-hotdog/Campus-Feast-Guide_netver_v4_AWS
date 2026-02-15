@@ -1,0 +1,52 @@
+[Start] Generating ADVANCED dummy data from 2026-01-01 to 2026-01-31...
+[Skip] 2026-01-01 is Holiday/Sunday.
+[Uploaded] 2026-01-02.json (273 items)
+[Uploaded] 2026-01-03.json (238 items)
+[Skip] 2026-01-04 is Holiday/Sunday.
+[Uploaded] 2026-01-05.json (273 items)
+[Uploaded] 2026-01-06.json (273 items)
+[Uploaded] 2026-01-07.json (273 items)
+[Uploaded] 2026-01-08.json (273 items)
+[Uploaded] 2026-01-09.json (273 items)
+[Uploaded] 2026-01-10.json (238 items)
+[Skip] 2026-01-11 is Holiday/Sunday.
+[Uploaded] 2026-01-12.json (273 items)
+[Uploaded] 2026-01-13.json (273 items)
+[Uploaded] 2026-01-14.json (273 items)
+[Uploaded] 2026-01-15.json (273 items)
+[Uploaded] 2026-01-16.json (273 items)
+[Uploaded] 2026-01-17.json (238 items)
+[Skip] 2026-01-18 is Holiday/Sunday.
+[Uploaded] 2026-01-19.json (273 items)
+[Uploaded] 2026-01-20.json (273 items)
+[Uploaded] 2026-01-21.json (273 items)
+[Uploaded] 2026-01-22.json (273 items)
+[Uploaded] 2026-01-23.json (273 items)
+[Uploaded] 2026-01-24.json (238 items)
+[Skip] 2026-01-25 is Holiday/Sunday.
+[Uploaded] 2026-01-26.json (273 items)
+[Uploaded] 2026-01-27.json (273 items)
+[Uploaded] 2026-01-28.json (273 items)
+[Uploaded] 2026-01-29.json (273 items)
+[Uploaded] 2026-01-30.json (273 items)
+[Uploaded] 2026-01-31.json (238 items)
+[Done] All advanced dummy data generated.
+
+================ [Verification Report] ================
+| Corner ID | Count | Avg Wait | Max Wait | Zero Wait % |
+|---|---|---|---|---|
+| pangeos_lunch        | 401   | 10.7     | 19       | 0.0% |
+| single_dish          | 338   | 9.7      | 19       | 0.0% |
+| dam_a_lunch          | 401   | 8.4      | 19       | 0.2% |
+| instant              | 860   | 8.1      | 19       | 0.0% |
+| breakfast_1000       | 273   | 7.6      | 16       | 0.0% |
+| set_meal             | 338   | 7.4      | 17       | 0.0% |
+| rice_bowl            | 338   | 7.4      | 16       | 0.6% |
+| korean               | 860   | 6.2      | 17       | 0.3% |
+| dinner               | 210   | 6.0      | 11       | 0.5% |
+| western              | 860   | 5.4      | 17       | 0.2% |
+| ramen                | 917   | 4.9      | 15       | 0.3% |
+| dam_a_dinner         | 210   | 4.1      | 9        | 0.0% |
+| cupbap               | 917   | 3.9      | 12       | 0.3% |
+=======================================================
+

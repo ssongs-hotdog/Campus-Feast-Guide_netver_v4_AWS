@@ -10,17 +10,28 @@
  * - / : Redirects to today's date
  */
 import { Switch, Route, Redirect } from "wouter";
-import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient, persister } from "./lib/queryClient";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TimeProvider } from "@/lib/timeContext";
 import { TicketProvider } from "@/lib/ticketContext";
+import { FavoritesProvider } from "@/lib/favoritesContext";
+import { SplashProvider } from "@/contexts/SplashContext";
+import { SplashScreen } from "@/components/SplashScreen";
 import Home from "@/pages/Home";
-import CornerDetail from "@/pages/CornerDetail";
-import TicketPage from "@/pages/TicketPage";
+import HomeCornerDetail from "@/pages/HomeCornerDetail";
+import MenuCornerDetail from "@/pages/MenuCornerDetail";
 import NotFound from "@/pages/not-found";
 import { getTodayKey } from "@/lib/dateUtils";
+import BottomNav from "@/components/BottomNav";
+import MenuPage from "@/pages/MenuPage";
+import RecommendPage from "@/pages/RecommendPage";
+import TabTicket from "@/pages/TabTicket";
+import MyPage from "@/pages/MyPage";
+
+import TopAppBar from "@/components/TopAppBar";
+import NotificationCenter from "@/pages/NotificationCenter";
 
 function RedirectToToday() {
   const todayKey = getTodayKey();
@@ -30,11 +41,24 @@ function RedirectToToday() {
 function Router() {
   return (
     <Switch>
+      {/* Home Tab Routes */}
       <Route path="/" component={RedirectToToday} />
       <Route path="/d/:dayKey" component={Home} />
-      <Route path="/d/:dayKey/restaurant/:restaurantId/corner/:cornerId" component={CornerDetail} />
-      <Route path="/restaurant/:restaurantId/corner/:cornerId" component={CornerDetail} />
-      <Route path="/ticket" component={TicketPage} />
+      <Route path="/d/:dayKey/restaurant/:restaurantId/corner/:cornerId" component={HomeCornerDetail} />
+      <Route path="/restaurant/:restaurantId/corner/:cornerId" component={HomeCornerDetail} />
+
+      {/* Menu Tab Routes */}
+      <Route path="/menu" component={MenuPage} />
+      <Route path="/menu/detail/:restaurantId/:cornerId" component={MenuCornerDetail} />
+
+      {/* Other Tab Routes */}
+      <Route path="/recommend" component={RecommendPage} />
+      <Route path="/ticket" component={TabTicket} />
+      <Route path="/my" component={MyPage} />
+
+      {/* Feature Routes */}
+      <Route path="/notifications" component={NotificationCenter} />
+
       <Route component={NotFound} />
     </Switch>
   );
@@ -42,16 +66,28 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <TimeProvider>
-          <TicketProvider>
-            <Toaster />
-            <Router />
-          </TicketProvider>
-        </TimeProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{ persister }}
+    >
+      <SplashProvider>
+        <SplashScreen />
+        <TooltipProvider>
+          <TimeProvider>
+            <TicketProvider>
+              <FavoritesProvider>
+                <Toaster />
+                <TopAppBar />
+                <div className="pt-header-safe pb-[60px] min-h-screen bg-background">
+                  <Router />
+                </div>
+                <BottomNav />
+              </FavoritesProvider>
+            </TicketProvider>
+          </TimeProvider>
+        </TooltipProvider>
+      </SplashProvider>
+    </PersistQueryClientProvider>
   );
 }
 

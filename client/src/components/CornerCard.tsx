@@ -14,7 +14,7 @@
  * - isActive: Whether the corner is currently operating (green dot = active, gray = inactive)
  * 
  * Placeholder behavior:
- * - When menu is missing, shows "데이터 없음" for menu name
+ * - When menu is missing, shows "휴무입니다🏖️" for menu name
  * - When waiting data is missing, shows "-" for wait time and "미제공" for congestion
  * 
  * Status indicator:
@@ -27,6 +27,8 @@ import { Badge } from '@/components/ui/badge';
 import { CongestionBar } from './CongestionBar';
 import { useTimeContext } from '@/lib/timeContext';
 import { useTicketContext } from '@/lib/ticketContext';
+import { Star } from 'lucide-react';
+import { useFavorites } from '@/lib/favoritesContext';
 import {
   getMenuVariants,
   isBreakfastCorner,
@@ -34,7 +36,7 @@ import {
   type MenuItem,
   type WaitingData
 } from '@shared/types';
-import type { DayKey } from '@/lib/dateUtils';
+import { getMissingMenuText, type DayKey } from '@/lib/dateUtils';
 
 interface CornerCardProps {
   menu?: MenuItem | null;
@@ -55,8 +57,16 @@ export function CornerCard({
   cornerDisplayName,
   isActive = false,
 }: CornerCardProps) {
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { availableTimestamps, timeState, selectedTime5Min, todayKey } = useTimeContext();
+  const { isFavorite, toggleFavorite } = useFavorites();
+
+  const isFavorited = isFavorite(cornerId);
+
+  const handleFavoriteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggleFavorite(cornerId);
+  };
 
   // Check if we have actual data
   const hasMenuData = !!menu;
@@ -68,7 +78,7 @@ export function CornerCard({
 
   // Get display name for menu - handle breakfast variants
   const getMenuDisplayName = (): string => {
-    if (!hasMenuData) return '데이터 없음';
+    if (!hasMenuData) return getMissingMenuText(dayKey);
     if (isBreakfastCorner(cornerId) && hasRealVariants(menu)) {
       const variants = getMenuVariants(menu);
       if (variants.length >= 2) {
@@ -82,58 +92,88 @@ export function CornerCard({
   const menuDisplayName = getMenuDisplayName();
 
   const handleClick = () => {
-    const baseUrl = `/d/${dayKey}/restaurant/${restaurantId}/corner/${cornerId}`;
-    const params = new URLSearchParams();
+    // Detect if we're on the MenuPage by checking current location
+    const isOnMenuPage = location.startsWith('/menu');
 
-    if (!isToday && selectedTime5Min) {
-      params.set('time5min', selectedTime5Min);
-    } else if (isToday && availableTimestamps.length > 0) {
-      const targetTime = timeState.displayTime.getTime();
-      let closestTs = availableTimestamps[0];
-      let minDiff = Math.abs(new Date(availableTimestamps[0]).getTime() - targetTime);
+    if (isOnMenuPage) {
+      // Menu tab navigation - use simplified route with date query param
+      setLocation(`/menu/detail/${restaurantId}/${cornerId}?date=${dayKey}`);
+    } else {
+      // Home tab navigation - use date-based route with query params
+      const baseUrl = `/d/${dayKey}/restaurant/${restaurantId}/corner/${cornerId}`;
+      const params = new URLSearchParams();
 
-      for (const ts of availableTimestamps) {
-        const diff = Math.abs(new Date(ts).getTime() - targetTime);
-        if (diff < minDiff) {
-          minDiff = diff;
-          closestTs = ts;
+      if (!isToday && selectedTime5Min) {
+        params.set('time5min', selectedTime5Min);
+      } else if (isToday && availableTimestamps.length > 0) {
+        const targetTime = timeState.displayTime.getTime();
+        let closestTs = availableTimestamps[0];
+        let minDiff = Math.abs(new Date(availableTimestamps[0]).getTime() - targetTime);
+
+        for (const ts of availableTimestamps) {
+          const diff = Math.abs(new Date(ts).getTime() - targetTime);
+          if (diff < minDiff) {
+            minDiff = diff;
+            closestTs = ts;
+          }
         }
+        params.set('t', closestTs);
       }
-      params.set('t', closestTs);
-    }
 
-    const queryString = params.toString();
-    setLocation(queryString ? `${baseUrl}?${queryString}` : baseUrl);
+      const queryString = params.toString();
+      setLocation(queryString ? `${baseUrl}?${queryString}` : baseUrl);
+    }
   };
 
   return (
     <Card
-      className="p-4 cursor-pointer hover-elevate active-elevate-2 transition-all duration-150"
+      className="p-4 cursor-pointer hover-elevate active-elevate-2 transition-all duration-150 relative group flex flex-col justify-between min-h-[120px]"
       onClick={handleClick}
       data-testid={`card-corner-${cornerId}`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <Badge
-            variant="secondary"
-            className="mb-2 text-xs font-medium px-2 py-0.5 flex items-center gap-1.5 w-fit"
-            data-testid={`badge-corner-${cornerId}`}
-          >
-            <span
-              className={`w-2 h-2 rounded-full flex-shrink-0 ${isActive ? 'bg-green-500' : 'bg-gray-400'}`}
-              data-testid={`status-${cornerId}`}
-              aria-label={isActive ? '운영 중' : '운영 종료'}
-            />
-            {menu?.cornerDisplayName || cornerDisplayName}
-          </Badge>
-          <h3
-            className={`text-lg font-semibold truncate ${hasMenuData ? 'text-foreground' : 'text-muted-foreground'}`}
-            data-testid={`text-menu-${cornerId}`}
-          >
-            {menuDisplayName}
-          </h3>
-        </div>
-        <div className="w-24 flex-shrink-0">
+      <button
+        onClick={handleFavoriteClick}
+        className="absolute top-3 right-3 z-10 p-2 rounded-full hover:bg-gray-100 transition-colors"
+        aria-label={isFavorited ? "즐겨찾기 해제" : "즐겨찾기 추가"}
+      >
+        <Star
+          className={`w-5 h-5 transition-all ${isFavorited ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300 hover:text-gray-400'}`}
+        />
+      </button>
+
+      <div className="mr-8">
+        <Badge
+          variant="secondary"
+          className="mb-2 text-xs font-medium px-2 py-0.5 flex items-center gap-1.5 w-fit"
+          data-testid={`badge-corner-${cornerId}`}
+        >
+          <span
+            className={`w-2 h-2 rounded-full flex-shrink-0 ${isActive ? 'bg-green-500' : 'bg-gray-400'}`}
+            data-testid={`status-${cornerId}`}
+            aria-label={isActive ? '운영 중' : '운영 종료'}
+          />
+          {menu?.cornerDisplayName || cornerDisplayName}
+        </Badge>
+        <h3
+          className={`text-lg font-semibold truncate ${hasMenuData ? 'text-foreground' : 'text-muted-foreground'}`}
+          data-testid={`text-menu-${cornerId}`}
+        >
+          {menuDisplayName}
+        </h3>
+      </div>
+
+      <div className="flex items-end justify-between mt-4">
+        <p
+          className="text-xs text-muted-foreground mb-0.5"
+          data-testid={`text-wait-${cornerId}`}
+        >
+          예상 대기: {hasWaitingData ? (
+            <span className="font-medium text-foreground transition-opacity duration-150">{estWait}분</span>
+          ) : (
+            <span className="font-medium text-muted-foreground">-</span>
+          )}
+        </p>
+        <div className="w-24">
           <CongestionBar
             estWaitTime={hasWaitingData ? estWait : undefined}
             size="md"
@@ -141,16 +181,6 @@ export function CornerCard({
           />
         </div>
       </div>
-      <p
-        className="mt-3 text-sm text-muted-foreground"
-        data-testid={`text-wait-${cornerId}`}
-      >
-        예상 대기시간: {hasWaitingData ? (
-          <span className="font-medium text-foreground transition-opacity duration-150">{estWait}분</span>
-        ) : (
-          <span className="font-medium text-muted-foreground">-</span>
-        )}
-      </p>
     </Card>
   );
 }

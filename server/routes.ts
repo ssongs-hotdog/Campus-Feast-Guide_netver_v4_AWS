@@ -33,6 +33,11 @@ import {
   checkDdbConnection,
   getPredictionByDayAndTime
 } from "./ddbWaitingRepo";
+import {
+  isS3WaitingEnabled,
+  getWaitingDataFromS3,
+  getS3WaitingCacheStats
+} from "./s3WaitingService";
 // import { computeWaitMinutes } from "./waitModel"; // ❌ REMOVED: Now using DynamoDB estWaitTimeMin
 import { validate, DateParamSchema, DateTimeQuerySchema } from "./utils/validation"; // [New] Import Validation
 import { log, logError } from "./utils/logger"; // [New] Import Logger
@@ -99,17 +104,33 @@ export async function registerRoutes(
   app.get('/api/waiting/timestamps', validate(DateParamSchema), async (req: Request, res: Response) => {
     const dateParam = req.query.date as string | undefined;
     const targetDate = dateParam || getTodayDateKey();
+    const isToday = targetDate === getTodayDateKey();
 
     try {
-      if (isDdbWaitingEnabled()) {
-        log(`[API] Fetching timestamps for date: ${targetDate}`);
-        const timestamps = await ddbGetTimestampsByDate(targetDate);
-        log(`[API] Successfully fetched ${timestamps.length} timestamps`);
-        return res.json({ timestamps });
+      if (isToday) {
+        if (isDdbWaitingEnabled()) {
+          log(`[API] Fetching timestamps for date: ${targetDate} (DDB)`);
+          const timestamps = await ddbGetTimestampsByDate(targetDate);
+          log(`[API] Successfully fetched ${timestamps.length} timestamps`);
+          return res.json({ timestamps });
+        }
+      } else {
+        if (isS3WaitingEnabled()) {
+          log(`[API] Fetching timestamps for date: ${targetDate} (S3)`);
+          const s3Result = await getWaitingDataFromS3(targetDate);
+
+          if (s3Result.success && s3Result.data) {
+            const uniqueTimestamps = Array.from(new Set(s3Result.data.map(item => item.timestamp))).sort();
+            log(`[API] Successfully fetched ${uniqueTimestamps.length} timestamps from S3`);
+            return res.json({ timestamps: uniqueTimestamps });
+          }
+          if (s3Result.error === "S3 object not found") {
+            return res.json({ timestamps: [] });
+          }
+        }
       }
 
-      // If DDB is disabled, we cannot serve this request
-      return res.status(503).json({ error: 'DynamoDB waiting source is disabled' });
+      return res.status(503).json({ error: 'Waiting data source is unavailable or disabled' });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       const errorStack = error instanceof Error ? error.stack : 'No stack trace';
@@ -125,9 +146,11 @@ export async function registerRoutes(
     const timeParam = req.query.time as string | undefined;
 
     const targetDate = dateParam || getTodayDateKey();
+    const isToday = targetDate === getTodayDateKey();
 
     try {
-      if (isDdbWaitingEnabled()) {
+      // 1. TODAY -> DynamoDB Logic
+      if (isToday && isDdbWaitingEnabled()) {
         let filtered;
 
         if (timeParam) {
@@ -175,8 +198,6 @@ export async function registerRoutes(
             });
 
             // ✅ HOTFIX: Convert sequential queries to parallel execution
-            // Before: 15 sequential await calls = ~7.5s (causing timeout)
-            // After: 15 parallel queries = max(query times) = ~0.5s
             const queryPromises = allCorners.map(async ({ restaurantId, cornerId }) => {
               const pk = `CORNER#${restaurantId}#${cornerId}`;
               try {
@@ -281,6 +302,49 @@ export async function registerRoutes(
         });
 
         return res.json(mapped);
+      } // End of TODAY + DDB
+
+      // 2. PAST/FUTURE -> S3 Logic
+      else if (!isToday && isS3WaitingEnabled()) {
+        const s3Result = await getWaitingDataFromS3(targetDate);
+        if (!s3Result.success || !s3Result.data) {
+          if (s3Result.error === "S3 object not found") {
+            return res.json([]);
+          }
+          throw new Error(s3Result.error || "S3 fetch failed");
+        }
+
+        let filtered = s3Result.data;
+
+        if (timeParam) {
+          if (timeParam.includes('T') || timeParam.includes('+')) {
+            filtered = filtered.filter(item => item.timestamp === timeParam);
+          } else {
+            // HH:MM Filter
+            filtered = filtered.filter(item => {
+              const timePart = item.timestamp.split('T')[1];
+              if (!timePart) return false;
+              const hhmm = timePart.substring(0, 5);
+
+              const [tHour, tMin] = hhmm.split(':').map(Number);
+              const [pHour, pMin] = timeParam.split(':').map(Number);
+
+              if (tHour !== pHour) return false;
+
+              const bucketStart = Math.floor(pMin / 5) * 5;
+              return tMin >= bucketStart && tMin < bucketStart + 5;
+            });
+          }
+        } else {
+          // No time param -> latest
+          if (filtered.length > 0) {
+            filtered.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+            const latestTs = filtered[0].timestamp;
+            filtered = filtered.filter(item => item.timestamp === latestTs);
+          }
+        }
+
+        return res.json(filtered);
       }
 
       return res.status(503).json({ error: 'DynamoDB waiting source is disabled' });
@@ -294,11 +358,24 @@ export async function registerRoutes(
   app.get('/api/waiting/all', validate(DateParamSchema), async (req: Request, res: Response) => {
     const dateParam = req.query.date as string | undefined;
     const targetDate = dateParam || getTodayDateKey();
+    const isToday = targetDate === getTodayDateKey();
 
     try {
-      if (isDdbWaitingEnabled()) {
-        const data = await ddbGetAllDataByDate(targetDate);
-        return res.json(data);
+      if (isToday) {
+        if (isDdbWaitingEnabled()) {
+          const data = await ddbGetAllDataByDate(targetDate);
+          return res.json(data);
+        }
+      } else {
+        if (isS3WaitingEnabled()) {
+          const s3Result = await getWaitingDataFromS3(targetDate);
+          if (s3Result.success && s3Result.data) {
+            return res.json(s3Result.data);
+          }
+          if (s3Result.error === "S3 object not found") {
+            return res.json([]);
+          }
+        }
       }
       return res.status(503).json({ error: 'DynamoDB waiting source is disabled' });
     } catch (error) {
@@ -380,6 +457,9 @@ export async function registerRoutes(
     const s3Enabled = isS3MenuEnabled();
     const menuCacheStats = getMenuCacheStats();
 
+    // [New] S3 Waiting Stats
+    const s3WaitingStats = getS3WaitingCacheStats();
+
     res.json({
       status: 'ok',
       timestamp: now,
@@ -388,9 +468,13 @@ export async function registerRoutes(
           enabled: isDdbWaitingEnabled(),
           connected: ddbStatus,
         },
-        s3: {
+        s3Menu: {
           enabled: s3Enabled,
           cache: menuCacheStats,
+        },
+        s3Waiting: {
+          enabled: isS3WaitingEnabled(),
+          cache: s3WaitingStats
         }
       }
     });
@@ -402,6 +486,8 @@ export async function registerRoutes(
     const ddbStatus = isDdbWaitingEnabled() ? (await checkDdbConnection()) : false;
     const s3Enabled = isS3MenuEnabled();
     const menuCacheStats = getMenuCacheStats();
+    // [New] S3 Waiting Stats
+    const s3WaitingStats = getS3WaitingCacheStats();
 
     res.json({
       status: 'ok',
@@ -411,9 +497,13 @@ export async function registerRoutes(
           enabled: isDdbWaitingEnabled(),
           connected: ddbStatus,
         },
-        s3: {
+        s3Menu: {
           enabled: s3Enabled,
           cache: menuCacheStats,
+        },
+        s3Waiting: {
+          enabled: isS3WaitingEnabled(),
+          cache: s3WaitingStats
         }
       }
     });
@@ -423,8 +513,10 @@ export async function registerRoutes(
   app.get('/api/waiting/latest', validate(DateParamSchema), async (req: Request, res: Response) => {
     const startTime = Date.now();
     const dateParam = (req.query.date as string) || getTodayDateKey();
+    const isToday = dateParam === getTodayDateKey();
 
-    if (isDdbWaitingEnabled()) {
+    // 1. TODAY -> Use DDB
+    if (isToday && isDdbWaitingEnabled()) {
       try {
         const { rows, latestTimestamp } = await ddbGetLatestByDate(dateParam);
 
@@ -468,6 +560,28 @@ export async function registerRoutes(
         logError(`[Latest] DDB_FAIL: ${errorMessage} latencyMs=${latency}`, error);
         return res.status(503).json({ error: 'DynamoDB unavailable' });
       }
+    }
+    // 2. PAST -> S3 (Latest in that day)
+    else if (!isToday && isS3WaitingEnabled()) {
+      const s3Result = await getWaitingDataFromS3(dateParam);
+
+      if (s3Result.success && s3Result.data && s3Result.data.length > 0) {
+        // Sort DESC, take first group
+        const sorted = s3Result.data.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+        const latestTimestamp = sorted[0].timestamp;
+        const latestItems = sorted.filter(item => item.timestamp === latestTimestamp);
+
+        return res.json(latestItems.map(item => ({
+          timestamp: item.timestamp,
+          restaurantId: item.restaurantId,
+          cornerId: item.cornerId,
+          queue_len: item.queueLen,
+          est_wait_time_min: item.estWaitTimeMin,
+          data_type: 'archived'
+        })));
+      }
+
+      return res.json([]); // Return empty if no S3 data
     }
 
     // Fallback? NO. strict SSOT means if DB is disabled, we return error.

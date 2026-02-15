@@ -1,0 +1,12 @@
+
+> rest-express@1.0.0 dev
+> cross-env NODE_ENV=development tsx server/index.ts
+
+[DEBUG] Env Check: {
+  DDB_TABLE_WAITING_ENV: 'hyeat-waiting-data-dev',
+  Result: 'hyeat-waiting-data-dev'
+}
+[32minfo[39m: serving on port 5000 {"service":"hy-eat-api","timestamp":"2026-02-14T06:15:53.736Z"}
+[32minfo[39m: HEAD /api/config 200 in 76ms :: {"useDbWaiting":true,"today":"2026-02-14","tomorrow":"2026-02-15","serverTime":"2026-02-14T15:17:23+09:00"} {"service":"hy-eat-api","timestamp":"2026-02-14T06:17:23.552Z"}
+
+A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.

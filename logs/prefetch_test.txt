@@ -1,0 +1,18 @@
+Starting prefetch speed test for 2026-01-15 +/- 5 days (Total 11 requests)...
+[2026-01-10] Failed: TypeError: fetch failed
+[2026-01-11] Failed: TypeError: fetch failed
+[2026-01-12] Failed: TypeError: fetch failed
+[2026-01-13] Failed: TypeError: fetch failed
+[2026-01-14] Failed: TypeError: fetch failed
+[2026-01-15] Failed: TypeError: fetch failed
+[2026-01-17] Failed: TypeError: fetch failed
+[2026-01-16] Failed: TypeError: fetch failed
+[2026-01-18] Failed: TypeError: fetch failed
+[2026-01-19] Failed: TypeError: fetch failed
+[2026-01-20] Failed: TypeError: fetch failed
+
+--------------------------------------------------
+Total Requests: 11
+Total Duration: 89.99ms
+--------------------------------------------------
+Successful (200 OK): 0/11

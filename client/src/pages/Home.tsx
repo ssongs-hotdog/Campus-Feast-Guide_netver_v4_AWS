@@ -2,61 +2,25 @@
  * Home.tsx - Main Home Page
  * 
  * Purpose: Displays the main view of all restaurants and their menu/waiting data
- * for a specific date. The date is determined by the URL path (/d/YYYY-MM-DD).
- * 
- * Key features:
- * - URL-driven date navigation (refresh-safe, shareable)
- * - Shows menu data for each restaurant corner
- * - Displays real-time or historical congestion data
- * - Supports previous/next date navigation
+ * for TODAY only. Date navigation has been removed as per the "Today-only" requirement.
+ * Includes a restaurant selector for filtering.
  */
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useRoute, useLocation } from 'wouter';
-import { ChevronLeft, ChevronRight, Ticket, ChevronDown, ChevronUp } from 'lucide-react';
+import { useLocation } from 'wouter';
+import { Ticket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { BottomTimePanel } from '@/components/BottomTimePanel';
-import { ChartsPanel, ChartsPanelTrigger } from '@/components/ChartsPanel';
-import { RestaurantSection } from '@/components/RestaurantSection';
+import { HomeRestaurantSection } from '@/components/home/HomeRestaurantSection';
+import { RestaurantSelector } from '@/components/RestaurantSelector';
 import { useTimeContext } from '@/lib/timeContext';
 import { useTicketContext } from '@/lib/ticketContext';
 import { RESTAURANTS, formatTime, type WaitingData, type MenuData } from '@shared/types';
-import { addDays, formatDayKeyForDisplay, isValidDayKey, type DayKey } from '@/lib/dateUtils';
+import { isValidDayKey, type DayKey } from '@/lib/dateUtils';
 import { getMenus, getWaitTimes, getAvailableTimestamps, getLatestWaitTimes, getConfig } from '@/lib/data/dataProvider';
+import { BannerCarousel } from '@/components/BannerCarousel';
 
-function Banner() {
-  const [imageError, setImageError] = useState(false);
 
-  const handleImageError = useCallback(() => {
-    setImageError(true);
-  }, []);
-
-  return (
-    <div 
-      className="w-full rounded-lg overflow-hidden shadow-sm border border-border"
-      style={{ aspectRatio: '2.35 / 1' }}
-      data-testid="banner-container"
-    >
-      {imageError ? (
-        <div 
-          className="w-full h-full bg-[#0e4194] flex items-center justify-center"
-          data-testid="banner-placeholder"
-        >
-          <span className="text-white/60 text-sm">HY-eat</span>
-        </div>
-      ) : (
-        <img
-          src="/banner.png"
-          alt="HY-eat 배너"
-          className="w-full h-full"
-          style={{ objectFit: 'contain', backgroundColor: '#0e4194' }}
-          onError={handleImageError}
-          data-testid="banner-image"
-        />
-      )}
-    </div>
-  );
-}
+// Time options for the time selector dropdown (single source of truth)
 
 // Time options for the time selector dropdown (single source of truth)
 // Range: 08:00 to 18:00 in 10-minute increments
@@ -64,7 +28,7 @@ const TIME_OPTIONS = (() => {
   const options: string[] = [];
   for (let h = 8; h <= 18; h++) {
     for (let m = 0; m < 60; m += 10) {
-      if (h === 18 && m > 0) break; // Stop at 18:00
+      if (h === 18 && m > 30) break; // Stop at 18:30
       options.push(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
     }
   }
@@ -72,42 +36,25 @@ const TIME_OPTIONS = (() => {
 })();
 
 export default function Home() {
-  const [, params] = useRoute('/d/:dayKey');
+  // Removed URL based date routing. Always uses todayKey.
   const [, setLocation] = useLocation();
-  
-  const { 
-    timeState, 
+
+  const {
+    timeState,
     setAvailableTimestamps,
     selectedTime5Min,
-    setSelectedTime5Min,
     todayKey,
   } = useTimeContext();
-  const { ticket } = useTicketContext();
-  const [isChartsOpen, setIsChartsOpen] = useState(false);
-  const [isTimeSelectorOpen, setIsTimeSelectorOpen] = useState(false);
+  const { tickets } = useTicketContext();
 
-  // Validate dayKey from URL - redirect to today if missing or invalid
-  const rawDayKey = params?.dayKey || '';
-  const selectedDate: DayKey = isValidDayKey(rawDayKey) ? rawDayKey : todayKey;
+  // New State for Restaurant Selector
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string>('all');
 
-  // Redirect to today if dayKey is missing or invalid
-  useEffect(() => {
-    if (!rawDayKey || !isValidDayKey(rawDayKey)) {
-      setLocation(`/d/${todayKey}`, { replace: true });
-    }
-  }, [rawDayKey, todayKey, setLocation]);
+  // Hardcode selectedDate to today
+  const selectedDate: DayKey = todayKey;
+  const isToday = true; // Always true in this view
 
-  const isToday = selectedDate === todayKey;
-
-  const goPrevDate = useCallback(() => {
-    const prevDate = addDays(selectedDate, -1);
-    setLocation(`/d/${prevDate}`);
-  }, [selectedDate, setLocation]);
-
-  const goNextDate = useCallback(() => {
-    const nextDate = addDays(selectedDate, 1);
-    setLocation(`/d/${nextDate}`);
-  }, [selectedDate, setLocation]);
+  // ... (query hooks remain the same) ...
 
   const { data: menuData } = useQuery<MenuData | null>({
     queryKey: ['/api/menu', selectedDate],
@@ -118,6 +65,10 @@ export default function Home() {
     },
     enabled: !!selectedDate,
   });
+
+  // ... (rest of the component) ...
+
+
 
   const { data: configData } = useQuery({
     queryKey: ['/api/config'],
@@ -130,10 +81,6 @@ export default function Home() {
   });
 
   const useDbWaiting = configData?.useDbWaiting ?? false;
-  const tomorrowKey = configData?.tomorrow || addDays(todayKey, 1);
-  const isTomorrow = selectedDate === tomorrowKey;
-  const isPast = selectedDate < todayKey;
-  const showTimeSelector = !isToday && (isPast || isTomorrow);
 
   const { data: timestampsData } = useQuery<{ timestamps: string[] }>({
     queryKey: ['/api/waiting/timestamps', selectedDate],
@@ -156,7 +103,7 @@ export default function Home() {
     const targetTime = timeState.displayTime.getTime();
     let closestIdx = 0;
     let minDiff = Math.abs(new Date(timestampsData.timestamps[0]).getTime() - targetTime);
-    
+
     for (let i = 1; i < timestampsData.timestamps.length; i++) {
       const diff = Math.abs(new Date(timestampsData.timestamps[i]).getTime() - targetTime);
       if (diff < minDiff) {
@@ -172,7 +119,7 @@ export default function Home() {
   const { data: waitingData, isLoading: isWaitingLoading } = useQuery<WaitingData[]>({
     queryKey: useLiveEndpoint
       ? ['/api/waiting/latest', selectedDate]
-      : isToday 
+      : isToday
         ? ['/api/waiting', selectedDate, currentTimestamp]
         : ['/api/waiting', selectedDate, selectedTime5Min, '5min'],
     queryFn: async () => {
@@ -197,20 +144,31 @@ export default function Home() {
     refetchIntervalInBackground: false,
   });
 
-  const displayDate = formatDayKeyForDisplay(selectedDate, todayKey);
-  const hasActiveTicket = ticket && (ticket.status === 'stored' || ticket.status === 'active');
+  const processedWaitingData = useMemo(() => {
+    if (!waitingData || waitingData.length === 0) return [];
+    if (isToday) return waitingData;
+    return waitingData; // Simplified since we are only doing today
+  }, [waitingData, isToday]);
 
-  // Display timestamp: only show when data is loaded
-  // For non-today with no selection (null), don't show timestamp
-  const loadedTimestamp = isToday && waitingData?.[0]?.timestamp 
-    ? formatTime(new Date(waitingData[0].timestamp))
-    : (!isToday && selectedTime5Min) ? selectedTime5Min : null;
+  // Format Date for Display: "2월 14일 (금)"
+  const formattedDate = useMemo(() => {
+    const d = new Date();
+    const month = d.getMonth() + 1;
+    const day = d.getDate();
+    const days = ['일', '월', '화', '수', '목', '금', '토'];
+    const dayName = days[d.getDay()];
+    return `${month}월 ${day}일 (${dayName})`;
+  }, []);
+
+  const hasActiveTicket = tickets.some(t => t.status === 'stored' || t.status === 'active');
+
+  const loadedTimestamp = isToday && processedWaitingData?.[0]?.timestamp
+    ? formatTime(new Date(processedWaitingData[0].timestamp))
+    : null;
 
   const [scheduleRefreshKey, setScheduleRefreshKey] = useState(0);
-  
-  // Format current time as HH:MM in Korea timezone (KST, UTC+9)
+
   const getCurrentTimeKST = useCallback(() => {
-    // Use Intl.DateTimeFormat to get time in Korea timezone
     const formatter = new Intl.DateTimeFormat('ko-KR', {
       timeZone: 'Asia/Seoul',
       hour: '2-digit',
@@ -223,69 +181,43 @@ export default function Home() {
     return `${hour}:${minute}`;
   }, []);
 
-  // Reference time for schedule-based active/inactive status
-  // - Today: always use current Korea time (KST)
-  // - Non-today: use selected time, or null if no selection (all corners inactive)
   const referenceTime = useMemo(() => {
-    if (isToday) {
-      // For today, use current Korea time (KST)
-      // scheduleRefreshKey triggers re-computation every 10 minutes
-      void scheduleRefreshKey; // Dependency marker
-      return getCurrentTimeKST();
-    } else {
-      // For non-today dates: null = no selection = all corners inactive
-      return selectedTime5Min;
-    }
-  }, [isToday, selectedTime5Min, scheduleRefreshKey, getCurrentTimeKST]);
+    void scheduleRefreshKey;
+    return getCurrentTimeKST();
+  }, [scheduleRefreshKey, getCurrentTimeKST]);
 
-  // Refresh schedule every 10 minutes for today only
-  // Clear interval immediately when leaving today view
   useEffect(() => {
-    if (!isToday) {
-      // Not today - no interval needed, reset key to ensure fresh state when returning
-      setScheduleRefreshKey(0);
-      return;
-    }
-    
     const interval = setInterval(() => {
       setScheduleRefreshKey(prev => prev + 1);
-    }, 10 * 60 * 1000); // 10 minutes
+    }, 10 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [isToday]);
+  }, []);
+
+  // Filter restaurants based on selection
+  const filteredRestaurants = useMemo(() => {
+    if (selectedRestaurantId === 'all') return RESTAURANTS;
+    return RESTAURANTS.filter(r => r.id === selectedRestaurantId);
+  }, [selectedRestaurantId]);
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border px-4 py-3">
+      {/* Header with Ticket Button Only (Date Nav Removed) */}
+      <header className="absolute top-0 left-0 right-0 z-50 px-4 py-3 bg-transparent">
         <div className="flex items-center justify-between max-w-lg mx-auto">
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="text-muted-foreground" 
-            onClick={goPrevDate}
-            data-testid="button-prev-date"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </Button>
-          <h1 className="text-base font-semibold text-foreground" data-testid="text-date">
-            {displayDate}
-          </h1>
+          {/* Logo or Title Placeholder if needed, otherwise empty space or ticket button alignment */}
+          <div className="text-lg font-bold text-foreground">
+            {/* Left Empty or Logo */}
+          </div>
+
           <div className="flex items-center gap-1">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="text-muted-foreground"
-              onClick={goNextDate}
-              data-testid="button-next-date"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </Button>
+            {/* Ticket Button */}
             {hasActiveTicket && (
-              <Button 
-                variant="default" 
-                size="icon" 
+              <Button
+                variant="default"
+                size="icon"
                 onClick={() => setLocation('/ticket')}
-                className="relative"
+                className="relative shadow-md"
                 data-testid="button-ticket"
               >
                 <Ticket className="w-4 h-4" />
@@ -294,58 +226,38 @@ export default function Home() {
             )}
           </div>
         </div>
-
-        {showTimeSelector && (
-          <div className="max-w-lg mx-auto mt-2">
-            <button
-              onClick={() => setIsTimeSelectorOpen(!isTimeSelectorOpen)}
-              className="flex items-center justify-between w-full p-2 bg-muted/50 rounded-lg text-sm"
-              data-testid="button-time-selector-toggle"
-            >
-              <span className="text-muted-foreground">
-                {isPast ? '시간 선택 (통계 데이터 제공)' : '시간 선택 (예측 데이터 제공)'}
-              </span>
-              <div className="flex items-center gap-2">
-                <span className="font-medium" data-testid="text-selected-time">{selectedTime5Min ?? '-'}</span>
-                {isTimeSelectorOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              </div>
-            </button>
-            
-            {isTimeSelectorOpen && (
-              <div className="mt-2 p-3 bg-muted/30 rounded-lg">
-                <label className="block text-sm text-muted-foreground mb-2">
-                  {isPast ? '시간 선택 (통계 데이터 제공)' : '시간 선택 (예측 데이터 제공)'}
-                </label>
-                <select
-                  value={selectedTime5Min ?? ''}
-                  onChange={(e) => {
-                    setSelectedTime5Min(e.target.value || null);
-                    setIsTimeSelectorOpen(false);
-                  }}
-                  className="w-full p-3 bg-background border border-border rounded-lg text-foreground text-base focus:outline-none focus:ring-2 focus:ring-primary"
-                  data-testid="select-time-5min"
-                >
-                  <option value="">-</option>
-                  {TIME_OPTIONS.map((time) => (
-                    <option key={time} value={time}>
-                      {time}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
-        )}
       </header>
 
-      <main className="max-w-lg mx-auto px-4 py-4">
-        <div className="mb-4">
-          <Banner />
+      {/* Main Content with paddingtop to account for header area if needed, but since header is absolute/transparent and likely over banner, careful. 
+          Actually user wants "remove white bar traces". If transparent header is over banner, that's fine.
+          Let's add pt-safe or just py-4. If absolute header is 50px high, banner might be covered.
+          But user said "remove white bar traces", implying they don't want the sticky header eating space?
+          Let's just use normal flow or transparent absolute. 
+          If absolute, banner is top. Ticket button floats on top.
+      */}
+      <main className="max-w-lg mx-auto px-4 py-4 pt-4">
+        {/* Banner Carousel */}
+        <div className="mb-4 pt-2"> {/* Reduced padding top from pt-10 to pt-2 */}
+          <BannerCarousel />
+        </div>
+
+        {/* Date & Time Status Line - CENTERED */}
+        <div className="text-sm text-gray-500 font-medium mb-2 text-center"> {/* Reduced margin bottom from mb-3 to mb-2 */}
+          {formattedDate} {referenceTime} 기준
+        </div>
+
+        {/* Restaurant Selector - ALIGNED (Full bleed scroll) */}
+        <div className="mb-2 -mx-4"> {/* Reduced margin bottom from mb-6 to mb-2 */}
+          <RestaurantSelector
+            restaurants={RESTAURANTS.map(r => ({ id: r.id, name: r.name }))}
+            selectedId={selectedRestaurantId}
+            onSelect={setSelectedRestaurantId}
+          />
         </div>
 
         {isWaitingLoading && !waitingData && !menuData ? (
           <div className="space-y-4">
-            {RESTAURANTS.map((r) => (
+            {filteredRestaurants.map((r) => (
               <div key={r.id} className="animate-pulse">
                 <div className="h-6 w-32 bg-muted rounded mb-3" />
                 <div className="space-y-3">
@@ -358,17 +270,12 @@ export default function Home() {
           </div>
         ) : (
           <>
-            {loadedTimestamp && (
-              <div className="text-xs text-muted-foreground mb-3 text-center" data-testid="text-loaded-timestamp">
-                데이터 시각: {loadedTimestamp}
-              </div>
-            )}
-            {RESTAURANTS.map((restaurant) => (
-              <RestaurantSection
+            {filteredRestaurants.map((restaurant) => (
+              <HomeRestaurantSection
                 key={restaurant.id}
                 restaurant={restaurant}
                 menus={menuData?.[restaurant.id] || {}}
-                waitingData={(isToday || selectedTime5Min) ? (waitingData || []) : []}
+                waitingData={(processedWaitingData || [])}
                 dayKey={selectedDate}
                 referenceTime={referenceTime}
               />
@@ -382,10 +289,6 @@ export default function Home() {
           HY-eat - 한양대학교 학생식당 혼잡도 모니터링
         </p>
       </footer>
-
-      <ChartsPanelTrigger onClick={() => setIsChartsOpen(true)} />
-      <ChartsPanel isOpen={isChartsOpen} onClose={() => setIsChartsOpen(false)} selectedDate={selectedDate} />
-      {isToday && <BottomTimePanel />}
-    </div>
+    </div >
   );
 }
