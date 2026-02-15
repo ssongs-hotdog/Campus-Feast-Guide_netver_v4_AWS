@@ -9,17 +9,21 @@ import { Lock } from "lucide-react";
 export default function AdminLogin() {
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
     const { login } = useAdminAuth();
 
-    const handleLogin = (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
+        setError("");
+        setIsLoading(true);
 
-        // GATE 2: Simple hardcoded check for dev/demo purpose
-        // GATE 3: Replace with Cognito/Backend verification
-        if (password === "admin1234") {
-            login("mock_token_for_gate_2");
-        } else {
-            setError("비밀번호가 올바르지 않습니다.");
+        try {
+            await login(password);
+            // Redirect happens in Context
+        } catch (err: any) {
+            setError(err.message || "로그인에 실패했습니다.");
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -50,8 +54,8 @@ export default function AdminLogin() {
                         {error && <p className="text-sm text-red-500 font-medium">{error}</p>}
                     </CardContent>
                     <CardFooter>
-                        <Button className="w-full bg-[#0E4A84] hover:bg-[#0b3d6e]" type="submit">
-                            로그인
+                        <Button className="w-full bg-[#0E4A84] hover:bg-[#0b3d6e]" type="submit" disabled={isLoading}>
+                            {isLoading ? "로그인 중..." : "로그인"}
                         </Button>
                     </CardFooter>
                 </form>
