@@ -9,16 +9,25 @@ import { formatPrice, RESTAURANTS } from '@shared/types';
 import { CORNER_DISPLAY_NAMES } from '@shared/cornerDisplayNames';
 // New Import
 import { TicketVault } from '@/components/ticket/TicketVault';
+import { ChargePaymentSheet } from '@/components/ticket/ChargePaymentSheet';
 
 export default function TabTicket() {
-    const { history, balance, chargeBalance } = useTicketContext();
+    const { history, balance } = useTicketContext();
 
     // -- Local State --
     const [showTopup, setShowTopup] = useState(false);
+    const [selectedChargeAmount, setSelectedChargeAmount] = useState<number | null>(null);
 
     // -- Actions --
-    const handleTopup = (amount: number) => {
-        chargeBalance(amount);
+    const handleTopupClick = (amount: number) => {
+        setSelectedChargeAmount(amount);
+        // We do NOT close 'showTopup' here if you want nested modals, 
+        // OR we close it and open the payment sheet over it? 
+        // User flow: +5000 -> ChargePaymentModal opens. 
+        // If we want to replace the topup dialog content, we could just switch state.
+        // But requested is: "ChargePaymentModal popup open".
+        // Let's keep showTopup open? Or close it?
+        // Usually better to iterate forward. Let's close topup dialog and open payment sheet.
         setShowTopup(false);
     };
 
@@ -62,16 +71,16 @@ export default function TabTicket() {
                 </Card>
             </div>
 
-            {/* Top-up Dialog (Simple Simulation) */}
+            {/* Top-up Dialog (Amount Selection) */}
             <Dialog open={showTopup} onOpenChange={setShowTopup}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>금액 충전</DialogTitle>
-                        <DialogDescription>충전할 금액을 선택해주세요. (시뮬레이션)</DialogDescription>
+                        <DialogDescription>충전할 금액을 선택해주세요.</DialogDescription>
                     </DialogHeader>
                     <div className="grid grid-cols-2 gap-3 py-4">
                         {[5000, 10000, 20000, 50000].map(amt => (
-                            <Button key={amt} variant="outline" onClick={() => handleTopup(amt)}>
+                            <Button key={amt} variant="outline" onClick={() => handleTopupClick(amt)}>
                                 +{amt.toLocaleString()}원
                             </Button>
                         ))}
@@ -79,6 +88,14 @@ export default function TabTicket() {
                 </DialogContent>
             </Dialog>
 
+            {/* Payment Method Sheet (New) */}
+            {selectedChargeAmount && (
+                <ChargePaymentSheet
+                    isOpen={!!selectedChargeAmount}
+                    onClose={() => setSelectedChargeAmount(null)}
+                    amount={selectedChargeAmount}
+                />
+            )}
 
             <div className="px-4 mt-6 space-y-6">
 
@@ -120,7 +137,6 @@ export default function TabTicket() {
         </div>
     );
 }
-
 
 function TicketIcon({ className }: { className?: string }) {
     return (

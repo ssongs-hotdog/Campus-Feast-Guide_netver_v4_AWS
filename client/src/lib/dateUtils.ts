@@ -17,6 +17,10 @@
  */
 export type DayKey = string; // Format: YYYY-MM-DD
 
+// DEBUG: Set this to a 'YYYY-MM-DD' string to force the app to think it's that day.
+// Set to null to use the real current date.
+export const DEBUG_TEST_DATE: string | null = null;
+
 /**
  * Gets the current date as a DayKey (YYYY-MM-DD format).
  * Uses browser local time.
@@ -24,6 +28,7 @@ export type DayKey = string; // Format: YYYY-MM-DD
  * @returns The current date as YYYY-MM-DD string
  */
 export function getTodayKey(): DayKey {
+  if (DEBUG_TEST_DATE) return DEBUG_TEST_DATE;
   const now = new Date();
   return formatDateToKey(now);
 }

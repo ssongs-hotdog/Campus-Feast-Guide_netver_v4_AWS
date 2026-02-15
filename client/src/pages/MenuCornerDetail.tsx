@@ -14,7 +14,6 @@ import { Card } from '@/components/ui/card';
 import { WaitTimeHistogram } from '@/components/WaitTimeHistogram';
 import { useTicketContext } from '@/lib/ticketContext';
 import { useTimeContext } from '@/lib/timeContext';
-import { PurchaseSheet } from '@/components/ticket/PurchaseSheet';
 import {
     RESTAURANTS,
     formatPrice,
@@ -24,7 +23,6 @@ import {
     hasRealVariants,
     type WaitingData,
     type MenuData,
-    type MenuItem,
 } from '@shared/types';
 import { isValidDayKey, getMissingMenuText, type DayKey } from '@/lib/dateUtils';
 import { CORNER_DISPLAY_NAMES } from '@shared/cornerDisplayNames';
@@ -53,9 +51,9 @@ export default function MenuCornerDetail() {
         return () => clearTimeout(timeoutId);
     }, []);
 
-    // -- Payment Sheet State --
-    const [isPurchaseSheetOpen, setIsPurchaseSheetOpen] = useState(false);
-    const [purchaseTargetMenu, setPurchaseTargetMenu] = useState<MenuItem | null>(null);
+    // -- Payment - REMOVED for Menu Tab --
+    // const [isPurchaseSheetOpen, setIsPurchaseSheetOpen] = useState(false);
+    // const [purchaseTargetMenu, setPurchaseTargetMenu] = useState<MenuItem | null>(null);
 
     const params = paramsMenu;
     const restaurantId = params?.restaurantId || '';
@@ -126,23 +124,6 @@ export default function MenuCornerDetail() {
     const loadedTimestamp = isToday && waitingData?.[0]?.timestamp
         ? formatTime(new Date(waitingData[0].timestamp))
         : null;
-
-    const handlePaymentForVariant = (variantMenuName: string) => {
-        if (!menu) return;
-        // Create a temporary MenuItem for the variant to pass to the sheet
-        const variantItem: MenuItem = {
-            ...menu,
-            mainMenuName: variantMenuName
-        };
-        setPurchaseTargetMenu(variantItem);
-        setIsPurchaseSheetOpen(true);
-    };
-
-    const handlePayment = () => {
-        if (!menu) return;
-        setPurchaseTargetMenu(menu);
-        setIsPurchaseSheetOpen(true);
-    };
 
     const handleBack = () => {
         // Return to menu with the selected date preserved
@@ -284,25 +265,15 @@ export default function MenuCornerDetail() {
                                     <span className="text-sm text-muted-foreground" data-testid={`text-remaining-meals-${variantIdx}`}>
                                         잔여 식수: --명
                                     </span>
-                                    {isToday && (
-                                        hasExistingTicket ? (
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => setLocation('/ticket')}
-                                                data-testid={`button-view-ticket-variant-${variantIdx}`}
-                                            >
-                                                주문권 확인
-                                            </Button>
-                                        ) : (
-                                            <Button
-                                                size="sm"
-                                                onClick={() => handlePaymentForVariant(variant.mainMenuName)}
-                                                data-testid={`button-payment-variant-${variantIdx}`}
-                                            >
-                                                결제하기
-                                            </Button>
-                                        )
+                                    {isToday && hasExistingTicket && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setLocation('/ticket')}
+                                            data-testid={`button-view-ticket-variant-${variantIdx}`}
+                                        >
+                                            주문권 확인
+                                        </Button>
                                     )}
                                 </div>
                             </Card>
@@ -339,25 +310,15 @@ export default function MenuCornerDetail() {
                             </div>
                         </Card>
 
-                        {isToday && hasMenuData && (
-                            hasExistingTicket ? (
-                                <Button
-                                    variant="outline"
-                                    className="w-full h-12 text-base"
-                                    onClick={() => setLocation('/ticket')}
-                                    data-testid="button-view-ticket"
-                                >
-                                    주문권 확인하기
-                                </Button>
-                            ) : (
-                                <Button
-                                    className="w-full h-12 text-base"
-                                    onClick={handlePayment}
-                                    data-testid="button-payment"
-                                >
-                                    결제하기 (시뮬)
-                                </Button>
-                            )
+                        {isToday && hasMenuData && hasExistingTicket && (
+                            <Button
+                                variant="outline"
+                                className="w-full h-12 text-base"
+                                onClick={() => setLocation('/ticket')}
+                                data-testid="button-view-ticket"
+                            >
+                                주문권 확인하기
+                            </Button>
                         )}
                     </>
                 )}
@@ -376,11 +337,6 @@ export default function MenuCornerDetail() {
                     )}
                 </Card>
             </main>
-            <PurchaseSheet
-                isOpen={isPurchaseSheetOpen}
-                onClose={() => setIsPurchaseSheetOpen(false)}
-                menu={purchaseTargetMenu}
-            />
         </div>
     );
 }
