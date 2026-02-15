@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { MenuRestaurantSection } from '@/components/menu/MenuRestaurantSection';
 import { RestaurantSelector } from '@/components/RestaurantSelector';
 import { DatePickerModal } from '@/components/DatePickerModal';
+import { WeeklyCalendar } from '@/components/menu/WeeklyCalendar';
 import { useTimeContext } from '@/lib/timeContext';
 import { useTicketContext } from '@/lib/ticketContext';
 import { RESTAURANTS, formatTime, type WaitingData, type MenuData } from '@shared/types';
@@ -282,6 +283,14 @@ export default function MenuPage() {
 
             <main className="max-w-lg mx-auto px-4 py-4">
 
+                {/* Weekly Calendar Strip */}
+                <div className="mb-6">
+                    <WeeklyCalendar
+                        selectedDate={selectedDate}
+                        onDateSelect={handleDateSelect}
+                    />
+                </div>
+
                 {/* Restaurant Category Filter Tabs */}
                 <div className="mb-2 -mx-4">
                     <RestaurantSelector
@@ -318,7 +327,6 @@ export default function MenuPage() {
                                     key={restaurant.id}
                                     restaurant={restaurant}
                                     menus={menuData?.[restaurant.id] || {}}
-                                    waitingData={(isToday || selectedTime5Min) ? (processedWaitingData || []) : []}
                                     dayKey={selectedDate}
                                     referenceTime={referenceTime}
                                 />

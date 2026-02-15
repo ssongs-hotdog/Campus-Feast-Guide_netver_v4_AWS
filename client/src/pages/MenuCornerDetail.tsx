@@ -7,11 +7,10 @@
 import { useMemo, useState } from 'react';
 import { useRoute, useLocation, useSearch } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Users } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { CongestionBar } from '@/components/CongestionBar';
+
 import { WaitTimeHistogram } from '@/components/WaitTimeHistogram';
 import { useTicketContext } from '@/lib/ticketContext';
 import { useTimeContext } from '@/lib/timeContext';
@@ -20,9 +19,6 @@ import {
     RESTAURANTS,
     formatPrice,
     formatTime,
-    getCongestionLevel,
-    CONGESTION_LABELS,
-    CONGESTION_COLORS,
     getMenuVariants,
     isBreakfastCorner,
     hasRealVariants,
@@ -111,26 +107,9 @@ export default function MenuCornerDetail() {
     });
 
     const menu = menuData?.[restaurantId]?.[cornerId];
-
-    const cornerWaiting = useMemo(() => {
-        if (!waitingData || waitingData.length === 0) return undefined;
-
-        const relevantItems = waitingData.filter(
-            (w) => w.restaurantId === restaurantId && w.cornerId === cornerId
-        );
-
-        if (relevantItems.length === 0) return undefined;
-        return relevantItems[0];
-    }, [waitingData, restaurantId, cornerId]);
-
-    // Check data availability
     const hasMenuData = !!menu;
-    const hasWaitingData = !!cornerWaiting;
 
-    // Phase 2 Update: use camelCase from API
-    const estWait = cornerWaiting?.estWaitTimeMin;
-    const queueLen = cornerWaiting?.queueLen;
-    const level = hasWaitingData && estWait !== undefined ? getCongestionLevel(estWait) : null;
+
 
     const loadedTimestamp = isToday && waitingData?.[0]?.timestamp
         ? formatTime(new Date(waitingData[0].timestamp))
@@ -257,46 +236,7 @@ export default function MenuCornerDetail() {
                 )}
 
 
-                {/* Current Wait Time Info */}
-                <Card className="p-4 mb-4" data-testid="card-current-waiting">
-                    <div className="flex items-center justify-between mb-3">
-                        <div>
-                            <p className="text-sm text-muted-foreground">현재 대기시간</p>
-                            <p className={`text-2xl font-bold ${hasWaitingData ? 'text-foreground' : 'text-muted-foreground'}`}>
-                                {hasWaitingData ? `${estWait}분` : '-'}
-                            </p>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                            <Users className="w-4 h-4" />
-                            <span className="text-sm" data-testid="text-queue-len">
-                                대기 {hasWaitingData ? `${queueLen}명` : '-'}
-                            </span>
-                        </div>
-                    </div>
-                    <div className="mb-2">
-                        <CongestionBar estWaitTime={estWait} size="md" noData={!hasWaitingData} />
-                    </div>
-                    {hasWaitingData && level ? (
-                        <Badge
-                            variant="secondary"
-                            className="mt-1"
-                            style={{
-                                backgroundColor: `${CONGESTION_COLORS[level]}20`,
-                                color: CONGESTION_COLORS[level],
-                                borderColor: CONGESTION_COLORS[level],
-                            }}
-                        >
-                            {CONGESTION_LABELS[level]}
-                        </Badge>
-                    ) : (
-                        <Badge
-                            variant="secondary"
-                            className="mt-1 text-muted-foreground"
-                        >
-                            미제공
-                        </Badge>
-                    )}
-                </Card>
+
 
                 {hasVariants ? (
                     <div className="space-y-4 mb-6">

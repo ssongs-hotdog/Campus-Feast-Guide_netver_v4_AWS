@@ -1,13 +1,12 @@
 /**
  * MenuCornerCard.tsx - Corner Card for Menu Tab
  * 
- * Purpose: Displays a single menu corner card with congestion information.
- * Optimized for the Menu tab view.
+ * Purpose: Displays a single menu corner card.
+ * Optimized for the Menu tab view (No congestion data).
  */
 import { useLocation } from 'wouter';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CongestionBar } from '@/components/CongestionBar';
 import { Star } from 'lucide-react';
 import { useFavorites } from '@/lib/favoritesContext';
 import {
@@ -15,13 +14,11 @@ import {
     isBreakfastCorner,
     hasRealVariants,
     type MenuItem,
-    type WaitingData
 } from '@shared/types';
 import type { DayKey } from '@/lib/dateUtils';
 
 interface MenuCornerCardProps {
     menu?: MenuItem | null;
-    waitingData?: WaitingData;
     dayKey: DayKey;
     restaurantId: string;
     cornerId: string;
@@ -31,7 +28,6 @@ interface MenuCornerCardProps {
 
 export function MenuCornerCard({
     menu,
-    waitingData,
     dayKey,
     restaurantId,
     cornerId,
@@ -49,8 +45,6 @@ export function MenuCornerCard({
     };
 
     const hasMenuData = !!menu;
-    const hasWaitingData = !!waitingData;
-    const estWait = waitingData?.estWaitTimeMin;
 
     const getMenuDisplayName = (): string => {
         if (!hasMenuData) return '휴무입니다🏖️';
@@ -73,7 +67,7 @@ export function MenuCornerCard({
 
     return (
         <Card
-            className="p-4 cursor-pointer hover-elevate active-elevate-2 transition-all duration-150 relative group flex flex-col justify-between min-h-[120px]"
+            className="p-4 cursor-pointer hover-elevate active-elevate-2 transition-all duration-150 relative group flex flex-col"
             onClick={handleClick}
             data-testid={`card-corner-${cornerId}`}
         >
@@ -90,14 +84,9 @@ export function MenuCornerCard({
             <div className="mr-8">
                 <Badge
                     variant="secondary"
-                    className="mb-2 text-xs font-medium px-2 py-0.5 flex items-center gap-1.5 w-fit"
+                    className="mb-2 text-xs font-medium px-2 py-0.5 w-fit"
                     data-testid={`badge-corner-${cornerId}`}
                 >
-                    <span
-                        className={`w-2 h-2 rounded-full flex-shrink-0 ${isActive ? 'bg-green-500' : 'bg-gray-400'}`}
-                        data-testid={`status-${cornerId}`}
-                        aria-label={isActive ? '운영 중' : '운영 종료'}
-                    />
                     {menu?.cornerDisplayName || cornerDisplayName}
                 </Badge>
                 <h3
@@ -107,26 +96,7 @@ export function MenuCornerCard({
                     {menuDisplayName}
                 </h3>
             </div>
-
-            <div className="flex items-end justify-between mt-4">
-                <p
-                    className="text-xs text-muted-foreground mb-0.5"
-                    data-testid={`text-wait-${cornerId}`}
-                >
-                    예상 대기: {hasWaitingData ? (
-                        <span className="font-medium text-foreground transition-opacity duration-150">{estWait}분</span>
-                    ) : (
-                        <span className="font-medium text-muted-foreground">-</span>
-                    )}
-                </p>
-                <div className="w-24">
-                    <CongestionBar
-                        estWaitTime={hasWaitingData ? estWait : undefined}
-                        size="md"
-                        noData={!hasWaitingData}
-                    />
-                </div>
-            </div>
         </Card>
     );
 }
+
