@@ -5,24 +5,25 @@ import "dotenv/config";
 // ==========================================
 // [Config] 날짜 범위 및 설정
 // ==========================================
-const START_DATE = "2026-02-01";
-const END_DATE = "2026-02-10";
+const START_DATE = "2025-12-01";
+const END_DATE = "2025-12-31";
 const AWS_REGION = process.env.AWS_REGION || "ap-northeast-2";
 const S3_BUCKET = process.env.S3_BUCKET_WAITING || "hyeat-menu-dev";
 
-// [Config] 2026년 주요 휴무일 (양력 기준)
-const HOLIDAYS_2026 = new Set([
+// [Config] 주요 휴무일 (2025-12 ~ 2026)
+const HOLIDAYS = new Set([
+    "2025-12-25", // 성탄절 (2025)
     "2026-01-01", // 신정
     "2026-02-17", "2026-02-18", "2026-02-19", // 설날 연휴
     "2026-03-01", // 삼일절
     "2026-05-05", // 어린이날
-    "2026-05-24", // 석가탄신일 (대체공휴일 체크 필요)
+    "2026-05-24", // 석가탄신일 (이 경우 2026-05-25가 대체공휴일로 지정될 수 있음, 필요시 추가)
     "2026-06-06", // 현충일
     "2026-08-15", // 광복절
     "2026-09-24", "2026-09-25", "2026-09-26", // 추석 연휴
     "2026-10-03", // 개천절
     "2026-10-09", // 한글날
-    "2026-12-25", // 성탄절
+    "2026-12-25", // 성탄절 (2026)
 ]);
 
 // [Config] 코너별 운영 시간 및 인기 가중치 설정
@@ -160,7 +161,7 @@ function randomNormal(mean: number, stdDev: number): number {
 
 function isHoliday(dateKey: string, date: Date): boolean {
     // 1. 공휴일 리스트 체크
-    if (HOLIDAYS_2026.has(dateKey)) return true;
+    if (HOLIDAYS.has(dateKey)) return true;
 
     // 2. 일요일 체크 (0: 일요일, 6: 토요일)
     const dayOfWeek = date.getDay();
