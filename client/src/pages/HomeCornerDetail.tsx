@@ -31,6 +31,7 @@ import {
     type MenuItem,
 } from '@shared/types';
 import { isValidDayKey, getMissingMenuText, type DayKey } from '@/lib/dateUtils';
+import { getForecastData } from '@/lib/forecastLogic';
 import { CORNER_DISPLAY_NAMES } from '@shared/cornerDisplayNames';
 // Import schedule logic directly from shared domain
 import { CORNER_SCHEDULES, getServiceDayType, type TimeWindow } from '@shared/domain/schedule';
@@ -466,28 +467,84 @@ export default function HomeCornerDetail() {
 
                 {/* Hourly Wait Time Histogram */}
                 <Card className="p-4 mb-4" data-testid="card-waiting-info">
-                    {hasMenuData && forecastData.length > 0 ? (
-                        <WaitTimeHistogram
-                            operatingHours={operatingHours}
-                            forecastData={forecastData}
-                        />
-                    ) : (
-                        <>
-                            <div className="mb-2">
-                                <h3 className="text-sm font-medium text-foreground">시간대별 예상 대기시간</h3>
-                            </div>
-                            <div className="flex flex-col items-center justify-center h-48 bg-muted/30 rounded-lg text-center p-4">
-                                {hasMenuData ? (
-                                    <>
-                                        <p className="text-sm font-medium text-muted-foreground mb-1">아직 예측 데이터가 충분하지 않아요.</p>
-                                        <p className="text-xs text-muted-foreground/70">조금 뒤 다시 확인해 주세요.</p>
-                                    </>
-                                ) : (
-                                    <p className="text-sm text-muted-foreground">예상 추이를 제공할 수 없어요.</p>
-                                )}
-                            </div>
-                        </>
-                    )}
+                    {(() => {
+                        // 1. Determine Anchor Time (Single Source of Truth)
+                        // effectiveTimestamp is "HH:MM" string like "11:30"
+                        const anchorTimeStr = loadedTimestamp ? loadedTimestamp.substring(0, 5) : null;
+
+                        if (!hasMenuData || !anchorTimeStr || !allWaitingData) {
+                            // Missing data case
+                            return (
+                                <>
+                                    <div className="mb-2">
+                                        <h3 className="text-sm font-medium text-foreground">시간대별 예상 대기시간</h3>
+                                    </div>
+                                    <div className="flex flex-col items-center justify-center h-48 bg-muted/30 rounded-lg text-center p-4">
+                                        {hasMenuData ? (
+                                            <>
+                                                <p className="text-sm font-medium text-muted-foreground mb-1">아직 예측 데이터가 충분하지 않아요.</p>
+                                                <p className="text-xs text-muted-foreground/70">조금 뒤 다시 확인해 주세요.</p>
+                                            </>
+                                        ) : (
+                                            <p className="text-sm text-muted-foreground">예상 추이를 제공할 수 없어요.</p>
+                                        )}
+                                    </div>
+                                </>
+                            );
+                        }
+
+                        // Use extracted logic
+                        const finalChartData = getForecastData(anchorTimeStr, allWaitingData, restaurantId, cornerId);
+
+                        // Check if we have ANY data to show
+                        const validPoints = finalChartData.filter((d: any) => d.waitMinutes !== undefined).length;
+
+                        if (validPoints === 0) {
+                            return (
+                                <>
+                                    <div className="mb-2">
+                                        <h3 className="text-sm font-medium text-foreground">시간대별 예상 대기시간</h3>
+                                    </div>
+                                    <div className="flex flex-col items-center justify-center h-48 bg-muted/30 rounded-lg text-center p-4">
+                                        <p className="text-sm text-muted-foreground">아직 예측 데이터가 충분하지 않아요.</p>
+                                    </div>
+                                </>
+                            );
+                        }
+
+                        // Determine operating hours (not strictly needed for Relative X-axis but prop required)
+                        // We can just pass wide range or actual hours.
+                        // Actually WaitTimeHistogram filters by operating hours!
+                        // We need to bypass that filter or ensure our relative labels pass it.
+                        // WaitTimeHistogram logic:
+                        // const itemMinutes = timeToMinutes(item.time);
+                        // return itemMinutes >= openMinutes ...
+                        // Our item.time is "지금", "+10분"... timeToMinutes defaults to NaN!
+                        // This BREAKS the existing WaitTimeHistogram filter logic.
+
+                        // CRITICAL: We need to modify WaitTimeHistogram to handle categorical labels OR 
+                        // bypass filter if labels are not HH:MM.
+                        // OR, we update this logic to trick WaitTimeHistogram.
+                        // Better to update WaitTimeHistogram to be "dumb" regarding filtering 
+                        // if we pass a special flag or just handle it gracefully.
+
+                        // Let's modify WaitTimeHistogram to SKIP filtering if time format is not HH:MM.
+                        // See next step. For now, render the component.
+
+                        return (
+                            <>
+                                <div className="mb-2">
+                                    <h3 className="text-sm font-medium text-foreground">시간대별 예상 대기시간</h3>
+                                    <p className="text-xs text-muted-foreground">현재 기준 예측({anchorTimeStr})</p>
+                                </div>
+                                <WaitTimeHistogram
+                                    operatingHours={{ openTime: "00:00", closeTime: "23:59" }} // Helper to bypass filter (if filter relies on time range)
+                                    forecastData={finalChartData as any}
+                                    showTitle={false} // We rendered title above with caption
+                                />
+                            </>
+                        );
+                    })()}
                 </Card>
             </main>
             <PurchaseSheet

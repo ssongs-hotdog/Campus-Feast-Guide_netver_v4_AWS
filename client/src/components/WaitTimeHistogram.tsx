@@ -37,7 +37,12 @@ export function WaitTimeHistogram({ operatingHours, forecastData, currentTime, s
         const closeMinutes = timeToMinutes(operatingHours.closeTime);
 
         return forecastData.filter(item => {
+            // Try to parse as HH:MM
+            if (typeof item.time === 'string' && (item.time.includes('지금') || item.time.includes('+'))) {
+                return true; // Bypass filter for relative labels
+            }
             const itemMinutes = timeToMinutes(item.time);
+            if (isNaN(itemMinutes)) return true; // Safety fallback
             return itemMinutes >= openMinutes && itemMinutes <= closeMinutes;
         });
     }, [forecastData, operatingHours]);
