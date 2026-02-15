@@ -18,7 +18,7 @@ import {
     type MenuItem,
     type WaitingData
 } from '@shared/types';
-import type { DayKey } from '@/lib/dateUtils';
+import { getMissingMenuText, type DayKey } from '@/lib/dateUtils';
 
 interface HomeCornerCardProps {
     menu?: MenuItem | null;
@@ -57,7 +57,7 @@ export function HomeCornerCard({
     const isToday = dayKey === todayKey;
 
     const getMenuDisplayName = (): string => {
-        if (!hasMenuData) return '휴무입니다🏖️';
+        if (!hasMenuData) return getMissingMenuText(dayKey);
         if (isBreakfastCorner(cornerId) && hasRealVariants(menu)) {
             const variants = getMenuVariants(menu);
             if (variants.length >= 2) {

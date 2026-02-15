@@ -15,7 +15,7 @@ import {
     hasRealVariants,
     type MenuItem,
 } from '@shared/types';
-import type { DayKey } from '@/lib/dateUtils';
+import { getMissingMenuText, type DayKey } from '@/lib/dateUtils';
 
 interface MenuCornerCardProps {
     menu?: MenuItem | null;
@@ -47,7 +47,7 @@ export function MenuCornerCard({
     const hasMenuData = !!menu;
 
     const getMenuDisplayName = (): string => {
-        if (!hasMenuData) return '휴무입니다🏖️';
+        if (!hasMenuData) return getMissingMenuText(dayKey);
         if (isBreakfastCorner(cornerId) && hasRealVariants(menu)) {
             const variants = getMenuVariants(menu);
             if (variants.length >= 2) {
