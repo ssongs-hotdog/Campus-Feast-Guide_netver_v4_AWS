@@ -251,19 +251,7 @@ export default function MenuPage() {
         <div className="min-h-screen bg-background pb-24">
             <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border px-4 py-3">
                 <div className="max-w-lg mx-auto space-y-3">
-                    {/* Date Trigger Button - Full Width */}
-                    <button
-                        onClick={() => setIsCalendarOpen(true)}
-                        className="w-full flex items-center gap-2 px-4 py-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-                        data-testid="button-date-trigger"
-                    >
-                        <Calendar className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-base font-semibold text-foreground">
-                            {format(new Date(selectedDate), 'yyyy.MM.dd')}
-                        </span>
-                    </button>
-
-                    {/* Ticket Button (if active) */}
+                    {/* Ticket Button (if active) - Date Trigger Removed */}
                     {hasActiveTicket && (
                         <div className="flex justify-end">
                             <Button
@@ -288,6 +276,7 @@ export default function MenuPage() {
                     <WeeklyCalendar
                         selectedDate={selectedDate}
                         onDateSelect={handleDateSelect}
+                        onCalendarClick={() => setIsCalendarOpen(true)}
                     />
                 </div>
 

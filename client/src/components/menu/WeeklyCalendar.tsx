@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { format, addDays, startOfWeek, isSameDay, getWeekOfMonth, getMonth } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
@@ -9,9 +9,10 @@ import { DayKey, formatDateToKey, parseDayKeyToDate } from '@/lib/dateUtils';
 interface WeeklyCalendarProps {
     selectedDate: DayKey;
     onDateSelect: (date: DayKey) => void;
+    onCalendarClick?: () => void;
 }
 
-export function WeeklyCalendar({ selectedDate, onDateSelect }: WeeklyCalendarProps) {
+export function WeeklyCalendar({ selectedDate, onDateSelect, onCalendarClick }: WeeklyCalendarProps) {
     // Initialize view based on selectedDate
     // We want the week view to always include the selectedDate when it changes from outside (e.g. month picker)
     const initialDate = useMemo(() => parseDayKeyToDate(selectedDate), []);
@@ -68,29 +69,44 @@ export function WeeklyCalendar({ selectedDate, onDateSelect }: WeeklyCalendarPro
 
     return (
         <div className="w-full bg-background pb-4">
-            {/* Header: < 2월 3주 > */}
-            <div className="flex items-center justify-center gap-4 mb-4">
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 hover:bg-muted/50"
-                    onClick={handlePrevWeek}
-                >
-                    <ChevronLeft className="h-5 w-5 text-muted-foreground" />
-                </Button>
+            {/* Header: < 2월 3주 > + Calendar Icon */}
+            <div className="relative flex items-center justify-center mb-4 px-4">
+                {/* Centered Navigation */}
+                <div className="flex items-center gap-4">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 hover:bg-muted/50"
+                        onClick={handlePrevWeek}
+                    >
+                        <ChevronLeft className="h-5 w-5 text-muted-foreground" />
+                    </Button>
 
-                <h2 className="text-lg font-bold text-foreground min-w-[80px] text-center">
-                    {headerTitle}
-                </h2>
+                    <h2 className="text-lg font-bold text-foreground min-w-[80px] text-center">
+                        {headerTitle}
+                    </h2>
 
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 hover:bg-muted/50"
-                    onClick={handleNextWeek}
-                >
-                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                </Button>
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 hover:bg-muted/50"
+                        onClick={handleNextWeek}
+                    >
+                        <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                    </Button>
+                </div>
+
+                {/* Right-aligned Calendar Icon */}
+                <div className="absolute right-4">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 hover:bg-muted/50"
+                        onClick={onCalendarClick}
+                    >
+                        <Calendar className="h-5 w-5 text-foreground" />
+                    </Button>
+                </div>
             </div>
 
             {/* Days Strip */}
