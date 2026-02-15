@@ -249,7 +249,7 @@ export default function MenuPage() {
 
     return (
         <div className="min-h-screen bg-background pb-24">
-            <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border px-4 py-3">
+            <header className="bg-background border-b border-border px-4 py-3">
                 <div className="max-w-lg mx-auto space-y-3">
                     {/* Ticket Button (if active) - Date Trigger Removed */}
                     {hasActiveTicket && (
