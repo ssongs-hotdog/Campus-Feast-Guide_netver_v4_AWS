@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { QrCode, X } from 'lucide-react';
+import QRCode from "react-qr-code";
 import { formatPrice, RESTAURANTS } from '@shared/types';
 import { CORNER_DISPLAY_NAMES } from '@shared/cornerDisplayNames';
 
@@ -20,7 +21,7 @@ function TicketIcon({ className }: { className?: string }) {
 }
 
 export function TicketVault() {
-    const { tickets, cancelTicket, activateTicket, markUsed, remainingSeconds } = useTicketContext();
+    const { tickets, activateTicket, markUsed, remainingSeconds } = useTicketContext();
 
     // -- Local State --
     const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
@@ -76,7 +77,7 @@ export function TicketVault() {
 
             {activeTicket && (
                 <div className="mb-4">
-                    <Card className="p-4 border-l-4 border-l-green-500 bg-green-50/50 shadow-sm animate-pulse">
+                    <Card className="p-4 border-l-4 border-l-green-500 bg-green-50/50 shadow-sm">
                         <div className="flex justify-between items-start mb-2">
                             <Badge className="bg-green-500 hover:bg-green-600">사용 중 (QR 활성화)</Badge>
                             <span className="text-xs text-green-700 font-bold">{Math.floor(remainingSeconds(activeTicket.id) / 60)}분 {remainingSeconds(activeTicket.id) % 60}초 남음</span>
@@ -104,7 +105,6 @@ export function TicketVault() {
                 <div className="space-y-3">
                     {storedTickets.map(ticket => {
                         const { rName, cName } = getNames(ticket.restaurantId, ticket.cornerId);
-                        const canCancel = (Date.now() - ticket.createdAt) < (5 * 60 * 1000); // 5 min
 
                         return (
                             <Card key={ticket.id} className="p-0 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
@@ -122,18 +122,8 @@ export function TicketVault() {
                                     </div>
 
                                     <div className="flex gap-2">
-                                        {canCancel && (
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="flex-1 text-red-500 border-red-100 hover:bg-red-50 hover:text-red-600"
-                                                onClick={() => cancelTicket(ticket.id)}
-                                            >
-                                                취소
-                                            </Button>
-                                        )}
                                         <Button
-                                            className="flex-[2] bg-[#0E4A84] hover:bg-[#0b3d6e]"
+                                            className="w-full bg-[#0E4A84] hover:bg-[#0b3d6e]"
                                             size="sm"
                                             onClick={() => initiateActivation(ticket.id)}
                                         >
@@ -180,46 +170,77 @@ export function TicketVault() {
                 if (!t) return null;
                 const { rName, cName } = getNames(t.restaurantId, t.cornerId);
 
+                // Timer Logic for Red Color
+                const remaining = remainingSeconds(t.id);
+                const isUrgent = remaining < 30;
+
                 return (
-                    <div className="fixed inset-0 z-[100] bg-[#0E4A84] flex flex-col items-center justify-center p-6 text-white animate-in fade-in duration-200">
-                        <Button
-                            className="absolute top-4 right-4 text-white hover:bg-white/20 rounded-full w-10 h-10 p-0"
-                            variant="ghost"
-                            onClick={() => handleQRClose(false)}
-                        >
-                            <X className="w-6 h-6" />
-                        </Button>
+                    <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center p-6 animate-in fade-in duration-200">
 
-                        <div className="text-center mb-8">
-                            <h2 className="text-2xl font-bold mb-2">{t.menuName}</h2>
-                            <p className="text-lg opacity-80">{rName} · {cName}</p>
-                        </div>
+                        {/* Wrapper for Layout */}
+                        <div className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden ring-1 ring-gray-900/5">
 
-                        <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm aspect-square flex items-center justify-center mb-8 relative">
-                            {/* QR Placeholder */}
-                            <div className="w-full h-full bg-gray-900 flex items-center justify-center text-white rounded-xl">
-                                [ QR CODE PLACEHOLDER ]
-                            </div>
-                            <div className="absolute -bottom-12 left-0 right-0 text-center">
-                                <p className="text-3xl font-mono font-bold tracking-widest">{qrCodeString || '------'}</p>
-                            </div>
-                        </div>
-
-                        <p className="text-center text-white/60 text-sm mb-8 max-w-xs">
-                            리더기에 QR 코드를 스캔해주세요.<br />
-                            문제가 발생하면 직원에게 위 번호를 보여주세요.
-                        </p>
-
-                        <div className="flex gap-4 w-full max-w-xs">
-                            <Button variant="outline" className="flex-1 bg-transparent text-white border-white/40 hover:bg-white/10">
-                                화면 밝기 최대
-                            </Button>
-                            <Button
-                                className="flex-1 bg-white text-[#0E4A84] hover:bg-gray-100"
-                                onClick={() => handleQRClose(true)} // User clicks "Done" -> Mark Used
+                            {/* Close Button - Using plain button for definitive positioning */}
+                            <button
+                                className="absolute top-5 right-5 z-[60] text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full w-10 h-10 flex items-center justify-center transition-colors bg-transparent border-0 cursor-pointer"
+                                onClick={() => handleQRClose(false)}
+                                aria-label="Close"
                             >
-                                사용 완료
-                            </Button>
+                                <X className="w-6 h-6" />
+                            </button>
+
+                            {/* Header (Title) */}
+                            <div className="relative pt-6 pb-4 px-6 border-b border-gray-100 text-center">
+                                <h2 className="text-xl font-bold text-[#0E4A84]">식권 사용하기</h2>
+                            </div>
+
+                            {/* Content */}
+                            <div className="pt-8 pb-6 text-center px-6">
+
+                                <div className="mb-8">
+                                    <div className="text-sm text-gray-500 font-medium mb-1">{rName} · {cName}</div>
+                                    <div className="text-2xl font-bold text-[#0E4A84] leading-tight mt-1">
+                                        {t.menuName}
+                                    </div>
+                                </div>
+
+                                {/* QR Code Area */}
+                                <div className="flex justify-center mb-8">
+                                    <div className="p-4 bg-white rounded-2xl shadow-[0_8px_30px_rgba(14,74,132,0.15)] border border-gray-100 relative">
+                                        {/* Decorative Corner Frame Lines in Hanyang Blue */}
+                                        <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-[#0E4A84] rounded-tl-xl -mt-1 -ml-1"></div>
+                                        <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-[#0E4A84] rounded-tr-xl -mt-1 -mr-1"></div>
+                                        <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-[#0E4A84] rounded-bl-xl -mb-1 -ml-1"></div>
+                                        <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-[#0E4A84] rounded-br-xl -mb-1 -mr-1"></div>
+
+                                        <QRCode
+                                            value={t.id}
+                                            size={240}
+                                            viewBox={`0 0 256 256`}
+                                            style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Timer */}
+                                <div className={`text-4xl font-mono font-bold tracking-tight tabular-nums mb-2 ${isUrgent ? 'text-red-500 animate-pulse' : 'text-[#0E4A84]'}`}>
+                                    {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')}
+                                </div>
+                                <p className="text-sm text-gray-400 font-medium">남은 시간</p>
+                            </div>
+
+                            {/* Footer / Guide */}
+                            <div className="bg-gray-50/80 p-5 text-center border-t border-gray-100 backdrop-blur-sm">
+                                <p className="text-sm text-gray-500 mb-4 font-medium">
+                                    리더기에 QR 코드를 스캔해주세요.
+                                </p>
+                                <Button
+                                    className="w-full bg-[#0E4A84] hover:bg-[#0A3865] text-white font-bold py-6 text-lg rounded-xl shadow-lg transition-all duration-200"
+                                    onClick={() => handleQRClose(true)} // User clicks "Done" -> Mark Used
+                                >
+                                    사용 완료
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 );
