@@ -26,7 +26,7 @@ import {
     type MenuData,
     type MenuItem,
 } from '@shared/types';
-import { isValidDayKey, type DayKey } from '@/lib/dateUtils';
+import { isValidDayKey, getMissingMenuText, type DayKey } from '@/lib/dateUtils';
 import { CORNER_DISPLAY_NAMES } from '@shared/cornerDisplayNames';
 // Import schedule logic directly from shared domain
 import { CORNER_SCHEDULES, getServiceDayType, type TimeWindow } from '@shared/domain/schedule';
@@ -146,7 +146,7 @@ export default function MenuCornerDetail() {
     // Get display names
     const restaurantName = restaurant?.name || '식당';
     const cornerDisplayName = menu?.cornerDisplayName || CORNER_DISPLAY_NAMES[cornerId] || cornerId;
-    const menuName = hasMenuData ? menu.mainMenuName : '휴무입니다🏖️';
+    const menuName = hasMenuData ? menu.mainMenuName : getMissingMenuText(effectiveDate);
     const price = hasMenuData ? menu.priceWon : null;
     const menuItems = hasMenuData ? menu.items : [];
 
@@ -359,7 +359,7 @@ export default function MenuCornerDetail() {
                         />
                     ) : (
                         <div className="flex items-center justify-center h-48 bg-muted/30 rounded-lg">
-                            <p className="text-sm text-muted-foreground">휴무입니다 🏖️</p>
+                            <p className="text-sm text-muted-foreground">{getMissingMenuText(effectiveDate)}</p>
                         </div>
                     )}
                 </Card>
