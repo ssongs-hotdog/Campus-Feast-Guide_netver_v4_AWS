@@ -345,17 +345,7 @@ export default function MyPage() {
                                 />
                             </div>
                         </div>
-                        <DialogFooter className="flex flex-row justify-between items-center sm:justify-between">
-                            <Button
-                                variant="ghost"
-                                className="text-sm text-gray-400 hover:text-gray-600 hover:underline bg-transparent h-auto p-0"
-                                onClick={() => {
-                                    setLocation('/admin/dashboard');
-                                    setIsProfileOpen(false);
-                                }}
-                            >
-                                (관리자)
-                            </Button>
+                        <DialogFooter>
                             <Button type="submit" onClick={handleSaveProfile} className="bg-[#0E4A84] hover:bg-[#0b3d6e]">
                                 확인
                             </Button>
@@ -366,6 +356,7 @@ export default function MyPage() {
                 {/* 6. Footer Links */}
                 <div className="pt-4 pb-8 text-center space-y-3">
                     <div className="flex justify-center gap-6 text-xs text-gray-500">
+                        <span className="cursor-pointer hover:underline" onClick={() => setLocation('/admin/dashboard')}>Admin</span>
                         <span className="cursor-pointer hover:underline">공지사항</span>
                         <span className="cursor-pointer hover:underline">문의/피드백</span>
                         <span className="cursor-pointer hover:underline">앱 정보</span>
