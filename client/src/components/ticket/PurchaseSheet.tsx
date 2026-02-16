@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { useTicketContext } from '@/lib/ticketContext';
+import { isMobile } from '@/lib/utils';
 import { MenuItem, formatPrice } from '@shared/types';
 import {
     Dialog,
@@ -65,6 +66,7 @@ export function PurchaseSheet({ isOpen, onClose, menu }: PurchaseSheetProps) {
             // Given the prompt "Test Store ID", we use that.
 
             // PortOne V2 requestPayment
+            const isMobileDevice = isMobile();
             const response = await window.PortOne.requestPayment({
                 storeId: "store-49462607-f6ad-4ada-bba9-a177cdebac40", // User-provided Store ID
                 channelKey: "channel-key-8f869ce3-33e6-4e95-963a-97cfaeab8b1a", // Kakao Pay Channel Key
@@ -73,6 +75,11 @@ export function PurchaseSheet({ isOpen, onClose, menu }: PurchaseSheetProps) {
                 totalAmount: menu.priceWon,
                 currency: "KRW",
                 payMethod: "EASY_PAY",
+                redirectUrl: isMobileDevice ? window.location.href : undefined,
+                windowType: {
+                    pc: "IFRAME",
+                    mobile: "REDIRECTION",
+                },
             });
 
             if (response.code != null) {
@@ -88,8 +95,6 @@ export function PurchaseSheet({ isOpen, onClose, menu }: PurchaseSheetProps) {
             }
 
             // Success Case (Mock)
-            // alert("결제가 완료되었습니다! (테스트)"); // Removed simple alert
-
             // 1. Create Ticket (Data Sync)
             // Using 'KakaoPay' as method ensures balance is NOT deducted, but ticket is generated.
             const success = purchaseTicket(menu, 'KakaoPay');

@@ -74,8 +74,8 @@ export function TicketProvider({ children }: { children: React.ReactNode }) {
 
   const chargeBalance = useCallback((amount: number) => {
     setBalance(prev => prev + amount);
-    toast({ title: '충전 완료', description: `${amount.toLocaleString()}원이 충전되었습니다.` });
-  }, [toast]);
+    // toast({ title: '충전 완료', description: `${amount.toLocaleString()}원이 충전되었습니다.` });
+  }, []);
 
   const purchaseTicket = useCallback((menu: MenuItem, paymentMethod: string) => {
     if (paymentMethod === '충전액 결제' && balance < menu.priceWon) {
