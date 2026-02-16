@@ -1,23 +1,21 @@
 import { useState, useEffect } from "react";
 import { DashboardHeader } from "../components/dashboard/DashboardHeader";
-import { KpiStatsGrid } from "../components/dashboard/KpiStatsGrid";
-import { HotspotsTable } from "../components/dashboard/HotspotsTable";
-import { QuickActions } from "../components/dashboard/QuickActions";
-import { fetchDashboardData, DashboardStats, CornerStatus } from "../data/mockDashboardData";
+import { Scoreboard } from "../components/dashboard/Scoreboard";
+import { BottleneckSpotlight } from "../components/dashboard/BottleneckSpotlight";
+import { OpsWorkbench } from "../components/dashboard/OpsWorkbench";
+import { fetchDashboardDataV2, DashboardDataV2 } from "../data/mockDashboardDataV2";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AdminDashboard() {
-    const [stats, setStats] = useState<DashboardStats | null>(null);
-    const [hotspots, setHotspots] = useState<CornerStatus[]>([]);
+    const [data, setData] = useState<DashboardDataV2 | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
 
     const loadData = async () => {
         setIsLoading(true);
         try {
-            const data = await fetchDashboardData();
-            setStats(data.stats);
-            setHotspots(data.hotspots);
+            const result = await fetchDashboardDataV2();
+            setData(result);
         } catch (error) {
             console.error("Dashboard data fetch failed", error);
             toast({
@@ -42,32 +40,44 @@ export default function AdminDashboard() {
         });
     };
 
+    // Safe destructuring with default values for initial render
+    const kpis = data?.kpis || [];
+    const goals = data?.goals || [];
+    const bottlenecks = data?.bottlenecks || [];
+    const demandCapacity = data?.demandCapacity || { arrivalRate: 0, capacity: 0, gap: 0 };
+
     return (
-        <div className="space-y-6 pb-8">
+        <div className="space-y-6 pb-8 min-h-screen bg-gray-50/50">
             {/* Header */}
             <DashboardHeader
-                title="대시보드"
-                subtitle="운영 현황 요약 및 빠른 대응"
-                lastSync={stats?.lastSync}
+                title="한양대학교 식당"
+                subtitle="실시간 운영 현황 (Live)"
+                lastSync={data?.lastSync}
                 onRefresh={handleRefresh}
                 isLoading={isLoading}
             />
 
-            {/* KPI Cards */}
-            <KpiStatsGrid stats={stats} isLoading={isLoading} />
+            {/* Section A: Today Scoreboard (Where/Status) */}
+            <Scoreboard
+                kpis={kpis}
+                goals={goals}
+                isLoading={isLoading}
+            />
 
-            {/* Main Content Area */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left: Hotspots Table (Takes 2 columns) */}
-                <div className="lg:col-span-2 h-full">
-                    <HotspotsTable hotspots={hotspots} isLoading={isLoading} />
-                </div>
+            {/* Section B: Bottleneck Spotlight (Why/Problem) */}
+            <BottleneckSpotlight
+                bottlenecks={bottlenecks}
+                demandCapacity={demandCapacity}
+                isLoading={isLoading}
+            />
 
-                {/* Right: Quick Actions (Takes 1 column) */}
-                <div className="h-full">
-                    <QuickActions />
-                </div>
-            </div>
+            {/* Section C: Ops Workbench (What/Action) */}
+            {data && (
+                <OpsWorkbench
+                    data={data}
+                    isLoading={isLoading}
+                />
+            )}
         </div>
     );
 }
