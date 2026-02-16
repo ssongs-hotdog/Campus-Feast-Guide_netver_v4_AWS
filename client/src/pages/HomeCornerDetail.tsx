@@ -567,7 +567,7 @@ export default function HomeCornerDetail() {
                 {/* Review Action Button - Styled as Card */}
                 <Card
                     className="p-4 mt-4 w-full cursor-pointer hover:bg-gray-50 active:scale-[0.98] transition-all duration-150 flex items-center justify-center group"
-                    onClick={() => setLocation(`/reviews/${restaurantId}/${cornerId}`)}
+                    onClick={() => setLocation(`/reviews/${restaurantId}/${cornerId}?date=${effectiveDate}`)}
                     role="button"
                     tabIndex={0}
                 >
