@@ -2,6 +2,7 @@ import { Route, Switch, Redirect } from "wouter";
 import { AdminLayout } from "./layouts/AdminLayout";
 import AdminDashboard from "./pages/AdminDashboard";
 import MonitoringPage from "./pages/MonitoringPage";
+import MenuManagementPage from "./pages/MenuManagementPage";
 import AdminLogin from "./pages/AdminLogin";
 import ComingSoon from "./pages/ComingSoon";
 import { AdminAuthProvider } from "./context/AdminAuthContext";
@@ -32,7 +33,7 @@ export default function AdminRoot() {
                                 {/* Operations */}
                                 <Route path="/admin/monitor" component={MonitoringPage} />
                                 <Route path="/admin/monitoring" component={MonitoringPage} />
-                                <Route path="/admin/menu" component={() => <ComingSoon title="메뉴 관리" />} />
+                                <Route path="/admin/menu" component={MenuManagementPage} />
                                 <Route path="/admin/ops" component={() => <ComingSoon title="운영 제어" />} />
                                 {/* Legacy / hidden routes */}
                                 <Route path="/admin/settings" component={() => <ComingSoon title="설정" />} />
