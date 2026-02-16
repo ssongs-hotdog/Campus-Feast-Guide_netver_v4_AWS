@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTicketContext } from '@/lib/ticketContext';
+import { isMobile } from '@/lib/utils';
 import { formatPrice } from '@shared/types';
 import {
     Dialog,
@@ -13,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { CreditCard, Wallet } from 'lucide-react';
+import { PaymentSuccessModal } from './PaymentSuccessModal';
 import { useToast } from '@/hooks/use-toast';
 
 interface ChargePaymentSheetProps {
@@ -25,13 +27,13 @@ export function ChargePaymentSheet({ isOpen, onClose, amount }: ChargePaymentShe
     const { chargeBalance } = useTicketContext();
     const { toast } = useToast();
     const [paymentMethod, setPaymentMethod] = useState('kakao'); // 'kakao', 'other'
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
 
     const handlePurchase = async () => {
         // Case B: Other Payment Methods (Simulation)
         if (paymentMethod === 'other') {
             chargeBalance(amount);
-            alert(`${amount.toLocaleString()}원이 충전되었습니다.`);
-            onClose();
+            setShowSuccessModal(true);
             return;
         }
 
@@ -47,6 +49,7 @@ export function ChargePaymentSheet({ isOpen, onClose, amount }: ChargePaymentShe
 
         try {
             const paymentId = `charge_${Date.now()}`;
+            const isMobileDevice = isMobile();
             const response = await window.PortOne.requestPayment({
                 storeId: "store-49462607-f6ad-4ada-bba9-a177cdebac40", // User-provided Store ID
                 channelKey: "channel-key-8f869ce3-33e6-4e95-963a-97cfaeab8b1a", // Kakao Pay Channel Key
@@ -55,6 +58,11 @@ export function ChargePaymentSheet({ isOpen, onClose, amount }: ChargePaymentShe
                 totalAmount: amount,
                 currency: "KRW",
                 payMethod: "EASY_PAY",
+                redirectUrl: isMobileDevice ? window.location.href : undefined,
+                windowType: {
+                    pc: "IFRAME",
+                    mobile: "REDIRECTION",
+                },
             });
 
             if (response.code != null) {
@@ -68,11 +76,12 @@ export function ChargePaymentSheet({ isOpen, onClose, amount }: ChargePaymentShe
 
             // Success
             chargeBalance(amount);
-            toast({
-                title: "충전 완료",
-                description: `${amount.toLocaleString()}원이 충전되었습니다.`
-            });
-            onClose();
+            // toast({
+            //     title: "충전 완료",
+            //     description: `${amount.toLocaleString()}원이 충전되었습니다.`
+            // });
+            // onClose();
+            setShowSuccessModal(true);
 
         } catch (error: any) {
             console.error("Payment Error:", error);
@@ -143,6 +152,15 @@ export function ChargePaymentSheet({ isOpen, onClose, amount }: ChargePaymentShe
                     </Button>
                 </DialogFooter>
             </DialogContent>
+
+            <PaymentSuccessModal
+                isOpen={showSuccessModal}
+                onClose={() => {
+                    setShowSuccessModal(false);
+                    onClose();
+                }}
+                amount={amount}
+            />
         </Dialog>
     );
 }
