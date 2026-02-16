@@ -3,6 +3,7 @@ import { AdminLayout } from "./layouts/AdminLayout";
 import AdminDashboard from "./pages/AdminDashboard";
 import MonitoringPage from "./pages/MonitoringPage";
 import MenuManagementPage from "./pages/MenuManagementPage";
+import NoticesPage from "./pages/NoticesPage";
 import AdminLogin from "./pages/AdminLogin";
 import ComingSoon from "./pages/ComingSoon";
 import { AdminAuthProvider } from "./context/AdminAuthContext";
@@ -40,7 +41,7 @@ export default function AdminRoot() {
                                 <Route path="/admin/menus" component={() => <ComingSoon title="메뉴 관리" />} />
 
                                 {/* Content */}
-                                <Route path="/admin/notices" component={() => <ComingSoon title="공지사항" />} />
+                                <Route path="/admin/notices" component={NoticesPage} />
                                 <Route path="/admin/banners" component={() => <ComingSoon title="배너 관리" />} />
 
                                 {/* Analytics */}
