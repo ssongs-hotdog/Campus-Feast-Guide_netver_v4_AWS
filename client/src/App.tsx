@@ -18,6 +18,7 @@ import { TimeProvider } from "@/lib/timeContext";
 import { TicketProvider } from "@/lib/ticketContext";
 import { FavoritesProvider } from "@/lib/favoritesContext";
 import { SplashProvider } from "@/contexts/SplashContext";
+import { UserProvider } from "@/lib/userContext";
 import { SplashScreen } from "@/components/SplashScreen";
 import Home from "@/pages/Home";
 import HomeCornerDetail from "@/pages/HomeCornerDetail";
@@ -95,8 +96,10 @@ function App() {
           <TimeProvider>
             <TicketProvider>
               <FavoritesProvider>
-                <Toaster />
-                <Router />
+                <UserProvider>
+                  <Toaster />
+                  <Router />
+                </UserProvider>
               </FavoritesProvider>
             </TicketProvider>
           </TimeProvider>
