@@ -12,6 +12,16 @@ import { ChevronRight, ExternalLink } from "lucide-react";
 import { MonitoringCornerStatus } from "@/admin/data/mockMonitoringData";
 import { cn } from "@/lib/utils";
 
+// Helper for generating deterministic mock data
+const getDeterministicValue = (id: string, seed: number) => {
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) {
+        hash = id.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const x = Math.sin(seed + hash) * 10000;
+    return x - Math.floor(x);
+};
+
 interface MonitoringTableProps {
     data: MonitoringCornerStatus[];
     onRowClick: (item: MonitoringCornerStatus) => void;
@@ -61,12 +71,13 @@ export function MonitoringTable({ data, onRowClick }: MonitoringTableProps) {
                 <TableHeader className="bg-gray-50">
                     <TableRow>
                         <TableHead className="w-[200px]">식당 / 코너명</TableHead>
-                        <TableHead>예상 대기</TableHead>
-                        <TableHead>상태</TableHead>
-                        <TableHead>업데이트</TableHead>
-                        <TableHead>추세</TableHead>
-                        <TableHead>신뢰도</TableHead>
-                        <TableHead className="text-right">관리</TableHead>
+                        <TableHead className="w-[100px] text-center">예상 대기</TableHead>
+                        <TableHead className="w-[100px] text-center">상태</TableHead>
+                        <TableHead className="w-[110px] text-center">업데이트</TableHead>
+                        <TableHead className="w-[60px] text-center">추세</TableHead>
+                        <TableHead className="w-[120px] text-center">신뢰도</TableHead>
+                        <TableHead className="w-[130px] text-center">금일 결제 건수</TableHead>
+                        <TableHead className="w-[100px] text-center">상세</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -82,18 +93,18 @@ export function MonitoringTable({ data, onRowClick }: MonitoringTableProps) {
                                     <span className="text-xs text-gray-400">{item.restaurantName}</span>
                                 </div>
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="text-center">
                                 <span className={cn(
-                                    "font-mono font-bold text-lg",
+                                    "font-bold text-lg",
                                     item.estWaitTimeMin >= 20 ? "text-rose-600" : "text-gray-700"
                                 )}>
                                     {item.estWaitTimeMin}분
                                 </span>
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="text-center">
                                 {getStatusBadge(item.status)}
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="text-center">
                                 <span className={cn(
                                     "text-sm",
                                     item.updateDelayMin >= 10 ? "text-rose-500 font-medium" : "text-gray-500"
@@ -101,11 +112,11 @@ export function MonitoringTable({ data, onRowClick }: MonitoringTableProps) {
                                     {item.updateDelayMin > 0 ? `${item.updateDelayMin}분 전` : "방금 전"}
                                 </span>
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="text-center">
                                 {getTrendIcon(item.recentTrendPoints)}
                             </TableCell>
                             <TableCell>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center justify-center gap-2">
                                     <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                                         <div
                                             className={cn("h-full", item.reliabilityPct >= 80 ? "bg-emerald-500" : "bg-amber-500")}
@@ -115,10 +126,15 @@ export function MonitoringTable({ data, onRowClick }: MonitoringTableProps) {
                                     <span className="text-xs text-gray-500">{item.reliabilityPct}%</span>
                                 </div>
                             </TableCell>
-                            <TableCell className="text-right">
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 group-hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-all">
-                                    <ChevronRight className="h-4 w-4" />
-                                </Button>
+                            <TableCell className="text-center">
+                                <span className="text-sm font-semibold text-gray-700">
+                                    {Math.floor(getDeterministicValue(item.id, 123) * 150 + 50)}건
+                                </span>
+                            </TableCell>
+                            <TableCell className="text-center">
+                                <span className="text-sm text-blue-600 font-medium hover:text-blue-700 transition-colors">
+                                    상세보기
+                                </span>
                             </TableCell>
                         </TableRow>
                     ))}

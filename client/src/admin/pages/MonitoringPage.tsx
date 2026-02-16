@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
-import { useLocation } from "wouter";
+import { AdminPageHeader } from "../components/AdminPageHeader";
+import { CornerDetailModal } from "../components/monitoring/CornerDetailModal";
 import {
     MonitoringCornerStatus,
     MOCK_MONITORING_DATA,
@@ -9,10 +10,7 @@ import { RESTAURANTS } from "../data/mock_canonical";
 import { MonitoringKpiCards } from "../components/monitoring/MonitoringKpiCards";
 import { MonitoringFilterBar } from "../components/monitoring/MonitoringFilterBar";
 import { MonitoringTable } from "../components/monitoring/MonitoringTable";
-import { Button } from "@/components/ui/button";
-import { RefreshCw, ChevronDown } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import { ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
     Select,
@@ -30,7 +28,7 @@ export default function MonitoringPage() {
     const [onlyCongested, setOnlyCongested] = useState(false);
     const [autoRefresh, setAutoRefresh] = useState(true);
     const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
-    const [_, setLocation] = useLocation();
+    const [selectedCornerId, setSelectedCornerId] = useState<string | null>(null);
 
     const { toast } = useToast();
 
@@ -71,9 +69,8 @@ export default function MonitoringPage() {
     };
 
     const handleRowClick = (corner: MonitoringCornerStatus) => {
-        // ONE CLICK NAVIGATION
-        // Route: /admin/monitoring/corners/:restaurantId/:cornerId
-        setLocation(`/admin/monitoring/corners/${corner.restaurantId}/${corner.id}`);
+        // Open modal instead of navigating
+        setSelectedCornerId(corner.id);
     };
 
     const handleResetFilters = () => {
@@ -93,9 +90,18 @@ export default function MonitoringPage() {
     }, [autoRefresh]);
 
     return (
-        <div className="space-y-6 pb-8">
+        <div className="space-y-4 pb-8">
+            <AdminPageHeader
+                title="실시간 모니터링"
+                subtitle="전체 코너의 대기·상태를 실시간으로 관제합니다."
+                lastUpdated={lastUpdated}
+                onRefresh={handleRefresh}
+                autoRefresh={autoRefresh}
+                onAutoRefreshChange={setAutoRefresh}
+            />
+
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
+                <div className="flex-1">
                     <div className="flex items-center gap-2">
                         <Select value={selectedRestaurant} onValueChange={setSelectedRestaurant}>
                             <SelectTrigger
@@ -105,7 +111,7 @@ export default function MonitoringPage() {
                                 )}
                             >
                                 <div className="flex items-center gap-2">
-                                    <h2 className="text-2xl font-bold text-gray-800 tracking-tight leading-none text-left">
+                                    <h2 className="text-xl font-bold text-gray-800 tracking-tight leading-none text-left">
                                         <SelectValue placeholder="식당 선택" />
                                     </h2>
                                     <ChevronDown className="w-5 h-5 text-gray-400" />
@@ -121,31 +127,6 @@ export default function MonitoringPage() {
                             </SelectContent>
                         </Select>
                     </div>
-                    <p className="text-sm text-gray-500 mt-2 ml-1">전체 코너의 대기·상태를 실시간으로 관제합니다.</p>
-                </div>
-
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center space-x-2">
-                        <Switch
-                            id="auto-refresh"
-                            checked={autoRefresh}
-                            onCheckedChange={setAutoRefresh}
-                        />
-                        <Label htmlFor="auto-refresh" className="text-sm text-gray-600">자동 갱신</Label>
-                    </div>
-                    <div className="h-4 w-px bg-gray-300 mx-1"></div>
-                    <span className="text-xs text-gray-400">
-                        마지막 업데이트: {lastUpdated.toLocaleTimeString()}
-                    </span>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleRefresh}
-                        className="h-8 gap-2 bg-white"
-                    >
-                        <RefreshCw className="w-3.5 h-3.5" />
-                        새로고침
-                    </Button>
                 </div>
             </div>
 
@@ -166,7 +147,12 @@ export default function MonitoringPage() {
                     onRowClick={handleRowClick}
                 />
             </div>
-            {/* Drawer Removed */}
+
+            {/* Corner Detail Modal */}
+            <CornerDetailModal
+                cornerId={selectedCornerId}
+                onClose={() => setSelectedCornerId(null)}
+            />
         </div>
     );
 }
