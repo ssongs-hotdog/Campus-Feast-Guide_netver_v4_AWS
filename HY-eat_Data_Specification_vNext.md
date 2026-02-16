@@ -1,8 +1,8 @@
 # HY-eat 데이터 명세서 및 계약 (Data Specification & Contract)
 
-**Version:** 2.1.0  
-**Last Updated:** 2026-02-13  
-**Status:** **DRAFT (승인 대기 중)**  
+**Version:** 2.2.0 (Updated)
+**Last Updated:** 2026-02-16
+**Status:** **DRAFT (승인 대기 중)**
 **Language:** Korean (한국어)
 
 ---
@@ -12,8 +12,9 @@
 본 문서는 HY-eat 프로젝트의 데이터 파이프라인(S3 메뉴 데이터, DynamoDB 대기열 데이터)에 대한 **단일 진실 공급원(Single Source of Truth)**입니다. 모든 데이터 생성, 수집, 처리는 본 명세서를 엄격히 준수해야 합니다.
 
 ### 변경 이력 (Changelog)
+- **v2.2.0**: 메뉴 리뷰 및 별점 시스템 도입을 위한 DynamoDB 스키마(`hyeat_reviews`) 및 데이터 인터페이스 추가.
 - **v2.1.0**: 엣지 디바이스(Jetson Nano) 데이터 계약 추가 및 DynamoDB 저장 스키마 최신화.
-- **v2.0.0**: 및 AWS 마이그레이션 반영. `breakfast_1000` (천원의 아침밥) 코너 예시 추가. 운영 시간(Operating Hours) 최신화 반영 (Codebase 기준).
+- **v2.0.0**: S3 메뉴 데이터 v4 및 AWS 마이그레이션 반영. `breakfast_1000` (천원의 아침밥) 코너 예시 추가. 운영 시간(Operating Hours) 최신화 반영 (Codebase 기준).
 - **v1.0.0**: 초기 버전 (Legacy).
 
 ---
@@ -247,6 +248,130 @@ AWS Lambda에서 데이터를 변환하여 최종적으로 DynamoDB에 저장하
 | **PK/SK 불일치** | SK에 밀리초(`17...`) 대신 초(`17...`)를 넣거나 문자열 형식이 아님 | SK는 **밀리초(13자리)**여야 하며, DDB 저장 시 **문자열(String)** 타입이어야 합니다. |
 | **속성명(Casing)** | `estimated_wait_time` (Snake) vs `estWaitTimeMin` (Camel) 혼용 | 최신 스펙인 **CamelCase (`estWaitTimeMin`)**를 준수하십시오. (서버는 둘 다 처리하지만 Camel 권장) |
 | **조식 메뉴 누락** | `breakfast_1000`에 `variants` 없이 `mainMenuName`만 넣음 | 조식은 반드시 **`variants` 배열**을 포함해야 '백반식/간편식'이 제대로 표시됩니다. (5.3 예시 참조) |
+
+---
+
+## 9. [NEW] 메뉴 리뷰 및 별점 데이터 명세 (Menu Review & Rating Specification)
+
+메뉴 리뷰 시스템은 AWS DynamoDB를 사용하여 개별 리뷰와 집계(평균 별점) 데이터를 관리합니다.
+S3에 저장된 정적 메뉴 데이터와 연결하기 위해 **고유한 메뉴 키 생성 규칙(Menu Key Generation)**을 따릅니다.
+
+### 9.1 DynamoDB 테이블 설계
+- **Table Name**: `hyeat_reviews` (환경변수 `DDB_TABLE_REVIEWS` 참조)
+- **Partition Key (PK)**: `MENU#{Date}#{RestaurantId}#{CornerId}#{VariantIndex}`
+  - 설명: 특정 날짜, 특정 식당 코너의 메뉴를 고유하게 식별하는 키입니다.
+- **Sort Key (SK)**:
+  - 개별 리뷰: `USER#{UserId}`
+  - 집계 데이터: `STATS`
+
+### 9.2 메뉴 키 생성 규칙 (Menu Mapping Key)
+S3 메뉴 데이터에는 고유 ID가 없으므로, 클라이언트와 서버는 아래 규칙에 따라 ID를 생성하여 일치시켜야 합니다.
+
+- **Format**: `MENU#{YYYY-MM-DD}#{restaurantId}#{cornerId}#{variantIndex}`
+  - `YYYY-MM-DD`: 메뉴 날짜 (예: 2026-02-16)
+  - `restaurantId`: 식당 ID (예: hanyang_plaza)
+  - `cornerId`: 코너 ID (예: breakfast_1000)
+  - `variantIndex`:
+    - 단일 메뉴인 경우: `0`
+    - `variants` 배열이 있는 경우(조식 등): 해당 배열의 인덱스 (0, 1...)
+
+**Example**:
+- 한양플라자 천원의 아침밥 A코너(첫 번째): `MENU#2026-02-16#hanyang_plaza#breakfast_1000#0`
+- 한양플라자 양식 코너: `MENU#2026-02-16#hanyang_plaza#western#0`
+
+### 9.3 데이터 스키마 (Schema Definition)
+
+#### Type A: 집계 데이터 (Aggregated Stats)
+해당 메뉴의 평균 별점을 저장하는 아이템입니다. `SK = STATS`로 고정됩니다.
+
+| 필드명 | 타입 | 필수 | 설명 | 초기값 |
+|---|---|---|---|---|
+| `pk` | string | **Y** | MENU#{Key}... | - |
+| `sk` | string | **Y** | STATS | - |
+| `ratingSum` | number | **Y** | 별점 총합 | 0 |
+| `ratingCount` | number | **Y** | 리뷰 참여자 수 | 0 |
+| `averageRating` | number | **Y** | 평균 별점 (소수점 1자리) | 0.0 |
+| `lastUpdatedIso` | string | **Y** | 마지막 업데이트 시간 | Now |
+
+**Data Example (Stats):**
+```json
+{
+  "pk": "MENU#2026-02-16#hanyang_plaza#western#0",
+  "sk": "STATS",
+  "ratingSum": 45,
+  "ratingCount": 10,
+  "averageRating": 4.5,
+  "lastUpdatedIso": "2026-02-16T12:30:00+09:00"
+}
+```
+
+#### Type B: 개별 리뷰 데이터 (Individual Review)
+사용자가 작성한 개별 리뷰 아이템입니다. `SK = USER#{UserId}` 형식을 따릅니다.
+
+| 필드명 | 타입 | 필수 | 설명 | 비고 |
+|---|---|---|---|---|
+| `pk` | string | **Y** | MENU#{Key}... | - |
+| `sk` | string | **Y** | USER#{UserId} | UserId는 UUID 또는 해시값 |
+| `rating` | number | **Y** | 별점 (1~5 정수) | - |
+| `comment` | string | N | 한줄평 (최대 100자) | - |
+| `userNickname` | string | N | 작성자 닉네임 | 마스킹 처리 권장 |
+| `createdAtIso` | string | **Y** | 작성 시간 (KST) | - |
+| `clientIp` | string | N | 어뷰징 방지용 IP 해시 | (Backend Internal) |
+
+**Data Example (Review):**
+```json
+{
+  "pk": "MENU#2026-02-16#hanyang_plaza#western#0",
+  "sk": "USER#user_12345",
+  "rating": 5,
+  "comment": "돈까스 소스가 맛있네요",
+  "userNickname": "엄준식",
+  "createdAtIso": "2026-02-16T12:30:00+09:00"
+}
+```
+
+## 10. API 인터페이스 명세 (API Contract for Reviews)
+
+프론트엔드와 백엔드 간의 데이터 교환 규약입니다.
+
+### 10.1 리뷰 등록 (POST /reviews)
+**Request Body:**
+```json
+{
+  "date": "2026-02-16",
+  "restaurantId": "hanyang_plaza",
+  "cornerId": "western",
+  "variantIndex": 0,
+  "rating": 5,
+  "comment": "최고예요",
+  "userId": "uuid_v4_string"
+}
+```
+
+**Response:** 200 OK (성공 시 `averageRating` 갱신 값 반환 권장)
+
+### 10.2 리뷰 및 평점 조회 (GET /reviews)
+**Query Params:** `date`, `restaurantId`, `cornerId`, `variantIndex`
+
+**Response:**
+```json
+{
+  "stats": {
+    "averageRating": 4.5,
+    "ratingCount": 10
+  },
+  "reviews": [
+    { "user": "엄**", "rating": 5, "comment": "...", "createdAt": "..." },
+    ...
+  ]
+}
+```
+
+## 11. 데이터 정합성 규칙 (Integrity Rules)
+
+- **원자성(Atomicity)**: 리뷰 등록 시 Type A(Stats)와 Type B(Review)는 반드시 **DynamoDB Transaction (TransactWriteItems)**으로 동시에 처리되어야 합니다.
+- **평점 계산**: `averageRating`은 `ratingSum / ratingCount`로 계산하며, 소수점 둘째 자리에서 반올림하여 첫째 자리까지 저장합니다. (`ratingCount`가 0일 경우 0.0)
+- **데이터 보존**: 리뷰 데이터의 TTL(Time To Live)은 설정하지 않거나, 메뉴 데이터 보존 기한과 동일하게 가져갑니다. (기본: 영구 보존)
 
 ---
 *End of Document*

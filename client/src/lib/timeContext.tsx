@@ -39,6 +39,7 @@ function getKSTNow(): Date {
   if (DEBUG_TEST_DATE) {
     const [y, m, d] = DEBUG_TEST_DATE.split('-').map(Number);
     now.setFullYear(y, m - 1, d);
+    now.setHours(12, 0, 0, 0); // Force to 12:00:00
   }
   return now;
 }
@@ -133,6 +134,7 @@ export function TimeProvider({ children }: { children: React.ReactNode }) {
     if (DEBUG_TEST_DATE) {
       const [y, m, d] = DEBUG_TEST_DATE.split('-').map(Number);
       nowWithOffset.setFullYear(y, m - 1, d);
+      nowWithOffset.setHours(12, 0, 0, 0); // Force to 12:00:00
     }
     setTimeState({
       mode: 'realtime',
@@ -158,6 +160,7 @@ export function TimeProvider({ children }: { children: React.ReactNode }) {
         if (DEBUG_TEST_DATE) {
           const [y, m, d] = DEBUG_TEST_DATE.split('-').map(Number);
           now.setFullYear(y, m - 1, d);
+          now.setHours(12, 0, 0, 0); // Force to 12:00:00
         }
         setTimeState((prev) => ({
           ...prev,

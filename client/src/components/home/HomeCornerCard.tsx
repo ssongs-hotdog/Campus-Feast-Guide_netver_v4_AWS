@@ -113,18 +113,26 @@ export function HomeCornerCard({
             </button>
 
             <div className="mr-8">
-                <Badge
-                    variant="secondary"
-                    className="mb-2 text-xs font-medium px-2 py-0.5 flex items-center gap-1.5 w-fit"
-                    data-testid={`badge-corner-${cornerId}`}
-                >
-                    <span
-                        className={`w-2 h-2 rounded-full flex-shrink-0 ${isActive ? 'bg-green-500' : 'bg-gray-400'}`}
-                        data-testid={`status-${cornerId}`}
-                        aria-label={isActive ? '운영 중' : '운영 종료'}
-                    />
-                    {menu?.cornerDisplayName || cornerDisplayName}
-                </Badge>
+                <div className="flex items-center gap-2 mb-2">
+                    <Badge
+                        variant="secondary"
+                        className="text-xs font-medium px-2 py-0.5 flex items-center gap-1.5 w-fit"
+                        data-testid={`badge-corner-${cornerId}`}
+                    >
+                        <span
+                            className={`w-2 h-2 rounded-full flex-shrink-0 ${isActive ? 'bg-green-500' : 'bg-gray-400'}`}
+                            data-testid={`status-${cornerId}`}
+                            aria-label={isActive ? '운영 중' : '운영 종료'}
+                        />
+                        {menu?.cornerDisplayName || cornerDisplayName}
+                    </Badge>
+                    {hasMenuData && (
+                        <div className={`flex items-center text-xs font-medium ${menu?.averageRating ? 'text-yellow-600' : 'text-gray-400'}`}>
+                            <Star className={`w-3 h-3 mr-1 ${menu?.averageRating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
+                            <span>{(menu?.averageRating || 0).toFixed(1)}</span>
+                        </div>
+                    )}
+                </div>
                 <h3
                     className={`text-lg font-semibold truncate ${hasMenuData ? 'text-foreground' : 'text-muted-foreground'}`}
                     data-testid={`text-menu-${cornerId}`}
