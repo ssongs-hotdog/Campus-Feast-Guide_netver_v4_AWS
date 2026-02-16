@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useAdminAuth } from "../context/AdminAuthContext";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,7 +11,14 @@ export default function AdminLogin() {
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [isLoading, setIsLoading] = useState(false);
-    const { login } = useAdminAuth();
+    const { login, isAuthenticated } = useAdminAuth();
+    const [, setLocation] = useLocation();
+
+    useEffect(() => {
+        if (isAuthenticated) {
+            setLocation("/admin/dashboard");
+        }
+    }, [isAuthenticated, setLocation]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
