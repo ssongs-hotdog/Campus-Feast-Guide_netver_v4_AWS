@@ -1,6 +1,8 @@
 import { Route, Switch, Redirect } from "wouter";
 import { AdminLayout } from "./layouts/AdminLayout";
 import AdminDashboard from "./pages/AdminDashboard";
+import MonitoringPage from "./pages/MonitoringPage";
+import MonitoringDetail from "./pages/MonitoringDetail";
 import AdminLogin from "./pages/AdminLogin";
 import ComingSoon from "./pages/ComingSoon";
 import { AdminAuthProvider } from "./context/AdminAuthContext";
@@ -28,7 +30,9 @@ export default function AdminRoot() {
                                 <Route path="/admin/dashboard" component={AdminDashboard} />
 
                                 {/* Operations */}
-                                <Route path="/admin/monitor" component={ComingSoon} />
+                                <Route path="/admin/monitor" component={MonitoringPage} />
+                                <Route path="/admin/monitoring" component={MonitoringPage} />
+                                <Route path="/admin/monitoring/corners/:restaurantId/:cornerId" component={MonitoringDetail} />
                                 <Route path="/admin/menu" component={ComingSoon} />
                                 <Route path="/admin/ops" component={ComingSoon} />
                                 {/* Legacy / hidden routes */}
