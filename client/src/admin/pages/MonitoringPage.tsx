@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
-import { useLocation } from "wouter";
 import { AdminPageHeader } from "../components/AdminPageHeader";
+import { CornerDetailModal } from "../components/monitoring/CornerDetailModal";
 import {
     MonitoringCornerStatus,
     MOCK_MONITORING_DATA,
@@ -28,7 +28,7 @@ export default function MonitoringPage() {
     const [onlyCongested, setOnlyCongested] = useState(false);
     const [autoRefresh, setAutoRefresh] = useState(true);
     const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
-    const [_, setLocation] = useLocation();
+    const [selectedCornerId, setSelectedCornerId] = useState<string | null>(null);
 
     const { toast } = useToast();
 
@@ -69,9 +69,8 @@ export default function MonitoringPage() {
     };
 
     const handleRowClick = (corner: MonitoringCornerStatus) => {
-        // ONE CLICK NAVIGATION
-        // Route: /admin/monitoring/corners/:restaurantId/:cornerId
-        setLocation(`/admin/monitoring/corners/${corner.restaurantId}/${corner.id}`);
+        // Open modal instead of navigating
+        setSelectedCornerId(corner.id);
     };
 
     const handleResetFilters = () => {
@@ -148,6 +147,12 @@ export default function MonitoringPage() {
                     onRowClick={handleRowClick}
                 />
             </div>
+
+            {/* Corner Detail Modal */}
+            <CornerDetailModal
+                cornerId={selectedCornerId}
+                onClose={() => setSelectedCornerId(null)}
+            />
         </div>
     );
 }
