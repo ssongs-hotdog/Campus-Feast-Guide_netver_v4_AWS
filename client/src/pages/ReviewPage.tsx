@@ -51,17 +51,17 @@ export default function ReviewPage() {
     const [location, setLocation] = useLocation();
     const { todayKey } = useTimeContext();
 
+    // Parse query params for date
+    const searchParams = new URLSearchParams(window.location.search);
+    const dateParam = searchParams.get('date');
+    const effectiveDate = dateParam || todayKey;
+
     const restaurantId = params?.restaurantId || '';
     const cornerId = params?.cornerId || '';
 
     // State for review writing
     const [rating, setRating] = useState<number>(0);
     const [content, setContent] = useState<string>('');
-
-    // Fetch menu data to display title
-    // Assume we are reviewing "Today's" menu for now, or use a query param if needed.
-    // For simplicity, we just fetch today's menu to get the corner name consistently.
-    const effectiveDate = todayKey;
 
     // Helper to get formatted date
     const todayFormatted = new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
@@ -141,8 +141,8 @@ export default function ReviewPage() {
                             >
                                 <Star
                                     className={`w-10 h-10 ${star <= rating
-                                            ? 'fill-yellow-400 text-yellow-400'
-                                            : 'text-gray-200 fill-gray-100'
+                                        ? 'fill-yellow-400 text-yellow-400'
+                                        : 'text-gray-200 fill-gray-100'
                                         }`}
                                     strokeWidth={1.5}
                                 />
@@ -192,8 +192,8 @@ export default function ReviewPage() {
                                                 <Star
                                                     key={star}
                                                     className={`w-3.5 h-3.5 ${star <= review.rating
-                                                            ? 'fill-yellow-400 text-yellow-400'
-                                                            : 'text-gray-200'
+                                                        ? 'fill-yellow-400 text-yellow-400'
+                                                        : 'text-gray-200'
                                                         }`}
                                                 />
                                             ))}
