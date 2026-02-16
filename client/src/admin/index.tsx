@@ -30,25 +30,26 @@ export default function AdminRoot() {
                                 <Route path="/admin/dashboard" component={AdminDashboard} />
 
                                 {/* Operations */}
+                                {/* Operations */}
                                 <Route path="/admin/monitor" component={MonitoringPage} />
                                 <Route path="/admin/monitoring" component={MonitoringPage} />
                                 <Route path="/admin/monitoring/corners/:restaurantId/:cornerId" component={MonitoringDetail} />
-                                <Route path="/admin/menu" component={ComingSoon} />
-                                <Route path="/admin/ops" component={ComingSoon} />
+                                <Route path="/admin/menu" component={() => <ComingSoon title="메뉴 관리" />} />
+                                <Route path="/admin/ops" component={() => <ComingSoon title="운영 제어" />} />
                                 {/* Legacy / hidden routes */}
-                                <Route path="/admin/settings" component={ComingSoon} />
-                                <Route path="/admin/menus" component={ComingSoon} />
+                                <Route path="/admin/settings" component={() => <ComingSoon title="설정" />} />
+                                <Route path="/admin/menus" component={() => <ComingSoon title="메뉴 관리" />} />
 
                                 {/* Content */}
-                                <Route path="/admin/notices" component={ComingSoon} />
-                                <Route path="/admin/banners" component={ComingSoon} />
+                                <Route path="/admin/notices" component={() => <ComingSoon title="공지사항" />} />
+                                <Route path="/admin/banners" component={() => <ComingSoon title="배너 관리" />} />
 
                                 {/* Analytics */}
-                                <Route path="/admin/reports" component={ComingSoon} />
-                                <Route path="/admin/logs" component={ComingSoon} />
+                                <Route path="/admin/reports" component={() => <ComingSoon title="리포트" />} />
+                                <Route path="/admin/logs" component={() => <ComingSoon title="로그 센터" />} />
 
                                 {/* System */}
-                                <Route path="/admin/admins" component={ComingSoon} />
+                                <Route path="/admin/admins" component={() => <ComingSoon title="관리자 계정 관리" />} />
 
                                 {/* Fallback for unknown admin routes */}
                                 <Route path="/admin/:rest*">

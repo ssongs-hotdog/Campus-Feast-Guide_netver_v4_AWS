@@ -65,7 +65,7 @@ export function AdminSidebar() {
                     <SectionTitle title="Operations" className="mt-1" />
                     <NavItem href="/admin/dashboard" icon={LayoutDashboard} label="대시보드" />
                     <NavItem href="/admin/monitoring" icon={Activity} label="실시간 모니터링" />
-                    <NavItem href="/admin/menu" icon={Utensils} label="메뉴 등록" />
+                    <NavItem href="/admin/menu" icon={Utensils} label="메뉴 관리" />
                     <NavItem href="/admin/ops" icon={Sliders} label="운영 제어" />
 
                     {/* CONTENT */}
