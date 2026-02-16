@@ -43,7 +43,7 @@ export function OpsWorkbench({ data, isLoading }: OpsWorkbenchProps) {
             <div className="lg:col-span-2 flex flex-col h-full bg-white rounded-lg border shadow-sm">
                 <div className="p-4 border-b flex justify-between items-center">
                     <h3 className="font-bold text-gray-800 flex items-center gap-2">
-                        Ops Workbench
+                        운영 워크벤치 (Live Ops)
                         <span className="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
                             {data.corners.length} Operations
                         </span>
@@ -68,12 +68,12 @@ export function OpsWorkbench({ data, isLoading }: OpsWorkbenchProps) {
                     <Table>
                         <TableHeader className="bg-gray-50 sticky top-0">
                             <TableRow>
-                                <TableHead className="w-[180px]">Corner Name</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Est. Wait</TableHead>
-                                <TableHead>Trend</TableHead>
-                                <TableHead>Reliability</TableHead>
-                                <TableHead className="text-right">Last Update</TableHead>
+                                <TableHead className="w-[180px]">코너명</TableHead>
+                                <TableHead>상태</TableHead>
+                                <TableHead>평균 대기</TableHead>
+                                <TableHead>추이</TableHead>
+                                <TableHead>신뢰도</TableHead>
+                                <TableHead className="text-right">업데이트</TableHead>
                                 <TableHead className="w-[50px]"></TableHead>
                             </TableRow>
                         </TableHeader>
@@ -89,7 +89,7 @@ export function OpsWorkbench({ data, isLoading }: OpsWorkbenchProps) {
                                         <StatusBadge status={corner.status} />
                                     </TableCell>
                                     <TableCell className="font-mono text-gray-700">
-                                        {corner.waitTime} min
+                                        {corner.waitTime}분
                                     </TableCell>
                                     <TableCell>
                                         <TrendIndicator direction={corner.trend === 'rising' ? 'up' : corner.trend === 'falling' ? 'down' : 'flat'} />
@@ -113,8 +113,8 @@ export function OpsWorkbench({ data, isLoading }: OpsWorkbenchProps) {
             {/* Right: Heatmap (Today Timeline) - Simple Grid */}
             <div className="flex flex-col h-full bg-white rounded-lg border shadow-sm">
                 <div className="p-4 border-b">
-                    <h3 className="font-bold text-gray-800">Today Timeline</h3>
-                    <p className="text-xs text-gray-500">Time x Congestion Heatmap</p>
+                    <h3 className="font-bold text-gray-800">오늘 타임라인</h3>
+                    <p className="text-xs text-gray-500">시간대별 혼잡도 패턴</p>
                 </div>
                 <div className="p-4 flex-1 overflow-auto flex items-center justify-center">
                     <div className="w-full">
@@ -171,11 +171,11 @@ export function OpsWorkbench({ data, isLoading }: OpsWorkbenchProps) {
                         <div className="mt-6 space-y-6">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="bg-gray-50 p-4 rounded-lg">
-                                    <div className="text-sm text-gray-500 mb-1">Current Wait</div>
-                                    <div className="text-2xl font-bold font-mono">{selectedCorner.waitTime} min</div>
+                                    <div className="text-sm text-gray-500 mb-1">현재 대기</div>
+                                    <div className="text-2xl font-bold font-mono">{selectedCorner.waitTime}분</div>
                                 </div>
                                 <div className="bg-gray-50 p-4 rounded-lg">
-                                    <div className="text-sm text-gray-500 mb-1">Reliability</div>
+                                    <div className="text-sm text-gray-500 mb-1">데이터 신뢰도</div>
                                     <div className="flex items-center gap-2">
                                         <ReliabilityIndicator level={selectedCorner.reliability} />
                                         <span className="font-medium capitalize">{selectedCorner.reliability}</span>
