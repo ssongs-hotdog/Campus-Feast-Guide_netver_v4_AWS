@@ -160,6 +160,14 @@ class NoticeStore {
             status: NoticeStatus.EXPIRED,
         });
     }
+
+    bulkDelete(ids: string[]): number {
+        let count = 0;
+        ids.forEach(id => {
+            if (this.delete(id)) count++;
+        });
+        return count;
+    }
 }
 
 export const noticeStore = new NoticeStore();
