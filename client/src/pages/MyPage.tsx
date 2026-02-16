@@ -20,8 +20,11 @@ import { useFavorites } from '@/lib/favoritesContext';
 import { CORNER_DISPLAY_NAMES } from '@shared/cornerDisplayNames';
 import { RESTAURANTS } from '@shared/types';
 import { getTodayKey } from '@/lib/dateUtils';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { TicketVault } from '@/components/ticket/TicketVault';
+import { useUser } from '@/lib/userContext';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
     CORNER_SCHEDULES,
     isCornerActive,
@@ -87,6 +90,30 @@ export default function MyPage() {
     const [, setLocation] = useLocation();
     const { favoritedCornerIds } = useFavorites();
 
+    const { user, updateProfile } = useUser();
+
+    // -- Profile Edit State --
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const [editNickname, setEditNickname] = useState("");
+    const [editDepartment, setEditDepartment] = useState("");
+
+    // Initialize edit state when modal opens
+    useEffect(() => {
+        if (isProfileOpen) {
+            setEditNickname(user.nickname);
+            setEditDepartment(user.department);
+        }
+    }, [isProfileOpen, user]);
+
+    const handleSaveProfile = () => {
+        if (!editNickname.trim() || !editDepartment.trim()) return;
+        updateProfile({
+            nickname: editNickname,
+            department: editDepartment
+        });
+        setIsProfileOpen(false);
+    };
+
     // -- Notifications State (Mock) --
     const [notifOpen, setNotifOpen] = useState(true);
     const [notifGolden, setNotifGolden] = useState(false);
@@ -129,10 +156,15 @@ export default function MyPage() {
             <div className="bg-white p-6 pb-8 border-b border-border">
                 <div className="flex justify-between items-start">
                     <div>
-                        <h1 className="text-xl font-bold text-gray-900">엄준식님</h1>
-                        <p className="text-sm text-gray-500 mt-1">한양대학교 전기·생체공학부 전기공학전공</p>
+                        <h1 className="text-xl font-bold text-gray-900">{user.nickname}</h1>
+                        <p className="text-sm text-gray-500 mt-1">{user.department}</p>
                     </div>
-                    <Button variant="ghost" size="sm" className="text-gray-400 hover:text-gray-600 h-auto p-0">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-gray-400 hover:text-gray-600 h-auto p-0"
+                        onClick={() => setIsProfileOpen(true)}
+                    >
                         <span className="text-xs mr-1">계정 관리</span>
                         <Settings className="w-3 h-3" />
                     </Button>
@@ -275,6 +307,59 @@ export default function MyPage() {
                             <DialogTitle>내 식권함</DialogTitle>
                         </DialogHeader>
                         <TicketVault />
+                    </DialogContent>
+                </Dialog>
+
+                {/* Profile Edit Dialog */}
+                <Dialog open={isProfileOpen} onOpenChange={setIsProfileOpen}>
+                    <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                            <DialogTitle>사용자 정보 설정</DialogTitle>
+                            <DialogDescription>
+                                닉네임과 학과 정보를 설정해주세요.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="nickname" className="text-right">
+                                    닉네임
+                                </Label>
+                                <Input
+                                    id="nickname"
+                                    value={editNickname}
+                                    onChange={(e) => setEditNickname(e.target.value)}
+                                    className="col-span-3"
+                                    placeholder="예: 하이리온"
+                                />
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="department" className="text-right">
+                                    학과
+                                </Label>
+                                <Input
+                                    id="department"
+                                    value={editDepartment}
+                                    onChange={(e) => setEditDepartment(e.target.value)}
+                                    className="col-span-3"
+                                    placeholder="예: 전기공학전공"
+                                />
+                            </div>
+                        </div>
+                        <DialogFooter className="flex flex-row justify-between items-center sm:justify-between">
+                            <Button
+                                variant="ghost"
+                                className="text-sm text-gray-400 hover:text-gray-600 hover:underline bg-transparent h-auto p-0"
+                                onClick={() => {
+                                    setLocation('/admin/dashboard');
+                                    setIsProfileOpen(false);
+                                }}
+                            >
+                                (관리자)
+                            </Button>
+                            <Button type="submit" onClick={handleSaveProfile} className="bg-[#0E4A84] hover:bg-[#0b3d6e]">
+                                확인
+                            </Button>
+                        </DialogFooter>
                     </DialogContent>
                 </Dialog>
 
