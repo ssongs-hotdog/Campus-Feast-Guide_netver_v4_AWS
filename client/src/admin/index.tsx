@@ -9,6 +9,7 @@ import ReportsPage from "./pages/ReportsPage";
 import OperationsLogsPage from "./pages/OperationsLogsPage";
 import AdminLogin from "./pages/AdminLogin";
 import ComingSoon from "./pages/ComingSoon";
+import AdminAccountsPage from "./pages/AdminAccountsPage";
 import { AdminAuthProvider } from "./context/AdminAuthContext";
 import { AdminRouteGuard } from "./components/AdminRouteGuard";
 
@@ -52,7 +53,7 @@ export default function AdminRoot() {
                                 <Route path="/admin/logs" component={OperationsLogsPage} />
 
                                 {/* System */}
-                                <Route path="/admin/admins" component={() => <ComingSoon title="관리자 계정 관리" />} />
+                                <Route path="/admin/admins" component={AdminAccountsPage} />
 
                                 {/* Fallback for unknown admin routes */}
                                 <Route path="/admin/:rest*">
