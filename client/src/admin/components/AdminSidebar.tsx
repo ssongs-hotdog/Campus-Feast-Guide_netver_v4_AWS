@@ -76,7 +76,7 @@ export function AdminSidebar() {
                     {/* ANALYTICS */}
                     <SectionTitle title="Analytics" />
                     <NavItem href="/admin/reports" icon={BarChart2} label="성과 리포트" />
-                    <NavItem href="/admin/logs" icon={FileText} label="로그 센터" />
+                    <NavItem href="/admin/logs" icon={FileText} label="운영 로그" />
 
                     {/* SYSTEM */}
                     <SectionTitle title="System" />
