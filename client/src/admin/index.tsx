@@ -6,6 +6,7 @@ import MenuManagementPage from "./pages/MenuManagementPage";
 import NoticesPage from "./pages/NoticesPage";
 import BannersPage from "./pages/BannersPage";
 import ReportsPage from "./pages/ReportsPage";
+import OperationsLogsPage from "./pages/OperationsLogsPage";
 import AdminLogin from "./pages/AdminLogin";
 import ComingSoon from "./pages/ComingSoon";
 import { AdminAuthProvider } from "./context/AdminAuthContext";
@@ -48,7 +49,7 @@ export default function AdminRoot() {
 
                                 {/* Analytics */}
                                 <Route path="/admin/reports" component={ReportsPage} />
-                                <Route path="/admin/logs" component={() => <ComingSoon title="운영 로그" />} />
+                                <Route path="/admin/logs" component={OperationsLogsPage} />
 
                                 {/* System */}
                                 <Route path="/admin/admins" component={() => <ComingSoon title="관리자 계정 관리" />} />
