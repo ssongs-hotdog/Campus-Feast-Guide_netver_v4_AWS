@@ -10,6 +10,7 @@ import OperationsLogsPage from "./pages/OperationsLogsPage";
 import AdminLogin from "./pages/AdminLogin";
 import ComingSoon from "./pages/ComingSoon";
 import AdminAccountsPage from "./pages/AdminAccountsPage";
+import OperationsControlPage from "./pages/OperationsControlPage";
 import { AdminAuthProvider } from "./context/AdminAuthContext";
 import { AdminRouteGuard } from "./components/AdminRouteGuard";
 
@@ -39,7 +40,7 @@ export default function AdminRoot() {
                                 <Route path="/admin/monitor" component={MonitoringPage} />
                                 <Route path="/admin/monitoring" component={MonitoringPage} />
                                 <Route path="/admin/menu" component={MenuManagementPage} />
-                                <Route path="/admin/ops" component={() => <ComingSoon title="운영 제어" />} />
+                                <Route path="/admin/ops" component={OperationsControlPage} />
                                 {/* Legacy / hidden routes */}
                                 <Route path="/admin/settings" component={() => <ComingSoon title="설정" />} />
                                 <Route path="/admin/menus" component={() => <ComingSoon title="메뉴 관리" />} />
