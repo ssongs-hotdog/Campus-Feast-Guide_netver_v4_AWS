@@ -22,7 +22,8 @@ export async function setupVite(server: Server, app: Express) {
       ...viteLogger,
       error: (msg, options) => {
         viteLogger.error(msg, options);
-        process.exit(1);
+        // Keep dev server running on Vite errors so client can display overlay
+        // instead of dropping all connections.
       },
     },
     server: serverOptions,

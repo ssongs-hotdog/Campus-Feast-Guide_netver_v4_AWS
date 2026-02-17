@@ -61,6 +61,15 @@ export async function updateAuditMemo(auditId: string, memo: string): Promise<vo
   writeJson(KEY_AUDIT, next);
 }
 
+export async function appendAuditEvent(event: AuditEvent): Promise<void> {
+  ensureSeeded();
+  const rows = readJson<AuditEvent[]>(KEY_AUDIT, []);
+  const next = [event, ...rows]
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+    .slice(0, 500);
+  writeJson(KEY_AUDIT, next);
+}
+
 export async function appendIncidentAction(
   incidentId: string,
   note: string,

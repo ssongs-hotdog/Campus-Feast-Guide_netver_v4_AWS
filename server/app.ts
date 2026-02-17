@@ -58,8 +58,8 @@ export async function createApp() {
         const status = err.status || err.statusCode || 500;
         const message = err.message || "Internal Server Error";
 
+        log(`error middleware: ${status} ${message}`);
         res.status(status).json({ message });
-        throw err;
     });
 
     return app;
