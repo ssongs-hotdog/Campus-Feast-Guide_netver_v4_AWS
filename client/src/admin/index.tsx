@@ -48,7 +48,7 @@ export default function AdminRoot() {
 
                                 {/* Analytics */}
                                 <Route path="/admin/reports" component={ReportsPage} />
-                                <Route path="/admin/logs" component={() => <ComingSoon title="로그 센터" />} />
+                                <Route path="/admin/logs" component={() => <ComingSoon title="운영 로그" />} />
 
                                 {/* System */}
                                 <Route path="/admin/admins" component={() => <ComingSoon title="관리자 계정 관리" />} />
