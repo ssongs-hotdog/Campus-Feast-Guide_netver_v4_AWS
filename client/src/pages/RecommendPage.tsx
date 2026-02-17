@@ -36,6 +36,16 @@ export default function RecommendPage() {
     const [activeFilter, setActiveFilter] = useState('all');
     const [activeSort, setActiveSort] = useState('fast'); // fast, cheap, trend
 
+
+    // Scroll to top on mount - reset scroll position when tab is switched
+    useEffect(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        const timeoutId = setTimeout(() => {
+            window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        }, 0);
+        return () => clearTimeout(timeoutId);
+    }, []);
+
     const filteredItems = useMemo(() => {
         let items = [...recommendations];
 

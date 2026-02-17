@@ -64,6 +64,15 @@ export default function MenuPage() {
     const [selectedDate, setSelectedDate] = useState<DayKey>(initialDate);
     const isToday = selectedDate === todayKey;
 
+    // Scroll to top on mount - reset scroll position when tab is switched
+    useEffect(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        const timeoutId = setTimeout(() => {
+            window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        }, 0);
+        return () => clearTimeout(timeoutId);
+    }, []);
+
     const handleDateSelect = useCallback((date: DayKey) => {
         setSelectedDate(date);
     }, []);
