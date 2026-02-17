@@ -299,7 +299,7 @@ export default function HomeCornerDetail() {
 
     return (
         <div className="min-h-screen bg-background">
-            <header className="bg-background border-b border-border px-4 py-3">
+            <header className="fixed top-14 left-0 right-0 bg-background border-b border-border px-4 py-3 z-40">
                 <div className="flex items-center gap-3 max-w-lg mx-auto">
                     <Button
                         variant="ghost"
@@ -316,7 +316,7 @@ export default function HomeCornerDetail() {
                 </div>
             </header>
 
-            <main className="max-w-lg mx-auto px-4 py-4">
+            <main className="max-w-lg mx-auto px-4 py-4 pt-[calc(3.5rem+3.25rem)]">
                 {loadedTimestamp && (
                     <div className="text-xs text-muted-foreground mb-3 text-center" data-testid="text-loaded-timestamp-detail">
                         데이터 시각: {loadedTimestamp}
