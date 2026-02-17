@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { ArrowLeft, CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -17,14 +18,24 @@ export default function TicketPage() {
   const [, setLocation] = useLocation();
   const { ticket, activateTicket, markUsed, clearTicket, remainingSeconds } = useTicketContext();
 
+
+  // Scroll to top on mount - reset scroll position when tab is switched
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    const timeoutId = setTimeout(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }, 0);
+    return () => clearTimeout(timeoutId);
+  }, []);
+
   if (!ticket) {
     return (
       <div className="min-h-screen bg-background">
         <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border px-4 py-3">
           <div className="flex items-center gap-3 max-w-lg mx-auto">
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => setLocation('/')}
               data-testid="button-back"
             >
@@ -35,8 +46,8 @@ export default function TicketPage() {
         </header>
         <main className="max-w-lg mx-auto px-4 py-12 text-center">
           <p className="text-muted-foreground">주문권이 없습니다</p>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             className="mt-4"
             onClick={() => setLocation('/')}
           >
@@ -79,9 +90,9 @@ export default function TicketPage() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border px-4 py-3">
         <div className="flex items-center gap-3 max-w-lg mx-auto">
-          <Button 
-            variant="ghost" 
-            size="icon" 
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => setLocation('/')}
             data-testid="button-back"
           >
@@ -122,10 +133,9 @@ export default function TicketPage() {
                 {remainingSeconds <= 300 && remainingSeconds > 0 && (
                   <AlertTriangle className="w-4 h-4 text-orange-500" />
                 )}
-                <p 
-                  className={`text-2xl font-mono font-bold ${
-                    remainingSeconds <= 300 ? 'text-orange-500' : 'text-foreground'
-                  }`}
+                <p
+                  className={`text-2xl font-mono font-bold ${remainingSeconds <= 300 ? 'text-orange-500' : 'text-foreground'
+                    }`}
                   data-testid="text-countdown"
                 >
                   {formatCountdown(remainingSeconds)}
@@ -169,7 +179,7 @@ export default function TicketPage() {
 
           <div className="space-y-2">
             {ticket.status === 'stored' && (
-              <Button 
+              <Button
                 className="w-full"
                 onClick={activateTicket}
                 data-testid="button-activate"
@@ -179,7 +189,7 @@ export default function TicketPage() {
             )}
 
             {ticket.status === 'active' && (
-              <Button 
+              <Button
                 className="w-full"
                 onClick={markUsed}
                 data-testid="button-mark-used"
@@ -189,7 +199,7 @@ export default function TicketPage() {
             )}
 
             {(ticket.status === 'used' || ticket.status === 'expired') && (
-              <Button 
+              <Button
                 variant="outline"
                 className="w-full"
                 onClick={() => {

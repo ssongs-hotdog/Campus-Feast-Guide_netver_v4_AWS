@@ -101,6 +101,15 @@ export default function MyPage() {
         return () => clearInterval(timer);
     }, []);
 
+    // Scroll to top on mount - reset scroll position when tab is switched
+    useEffect(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        const timeoutId = setTimeout(() => {
+            window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        }, 0);
+        return () => clearTimeout(timeoutId);
+    }, []);
+
     // -- Favorites Data Processing --
     // Flatten restaurants to find corners by ID
     const allCorners = useMemo(() => RESTAURANTS.flatMap(r =>
