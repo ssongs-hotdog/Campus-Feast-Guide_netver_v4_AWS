@@ -312,3 +312,24 @@
     /* Firefox */
   }
 }
+
+/* ADMIN MODE OVERRIDE: Force full-bleed layout */
+body.admin-mode #root {
+  max-width: 100% !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  /* Let AdminLayout handle scroll */
+}
+
+/* Ensure body background matches in admin mode */
+body.admin-mode {
+  background-color: #f9fafb;
+  /* gray-50 */
+  overflow: hidden;
+  /* Prevent body scroll */
+}

@@ -6,7 +6,7 @@ import "dotenv/config";
 // [Config] 날짜 범위 및 설정
 // ==========================================
 const START_DATE = "2025-12-01";
-const END_DATE = "2025-12-31";
+const END_DATE = "2026-02-10";
 const AWS_REGION = process.env.AWS_REGION || "ap-northeast-2";
 const S3_BUCKET = process.env.S3_BUCKET_WAITING || "hyeat-menu-dev";
 

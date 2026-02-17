@@ -1,10 +1,10 @@
 
-import { Clock, TrendingDown, Wallet } from "lucide-react";
+import { Clock, TrendingDown, Wallet, Star } from "lucide-react";
 import { useLocation } from "wouter";
 import type { RecommendationItem } from "@/hooks/useRecommendation";
 
 interface TopPickCardProps {
-    type: 'fast' | 'value' | 'trend';
+    type: 'fast' | 'value' | 'trend' | 'rating';
     item: RecommendationItem | null | undefined;
 }
 
@@ -30,19 +30,19 @@ export function TopPickCard({ type, item }: TopPickCardProps) {
         microcopy = "대기시간이 꺾였어요";
         badgeColor = "bg-[#E8F5E9] text-[#2E7D32]";
         icon = <TrendingDown className="w-3 h-3 mr-1" />;
+    } else if (type === 'rating') {
+        label = "믿고 먹는 별점 픽";
+        microcopy = item?.reason || "학생들이 인정한 실패 없는 맛";
+        badgeColor = "bg-yellow-100 text-yellow-700";
+        icon = <Star className="w-3 h-3 mr-1 fill-yellow-700" />;
     }
 
     const waitTimeDisplay = item ? item.estWaitTimeMin : "—";
+    const ratingDisplay = item ? item.averageRating.toFixed(1) : "0.0";
     const nameDisplay = item ? `${item.cornerName} · ${item.menuName}` : "데이터 준비 중";
 
     const handleClick = () => {
         if (item) {
-            // Navigate to corner detail
-            // Format: /d/:dayKey/restaurant/:restaurantId/corner/:cornerId
-            // We need today's date key here or just use /restaurant/... ID-based routing if available
-            // The app routing for MenuDetail is /menu/detail/:restaurantId/:cornerId OR /d/:date/...
-            // Let's use the simpler path if App.tsx supports it, or construct date-based one.
-            // Checking App.tsx: Route path="/restaurant/:restaurantId/corner/:cornerId" component={HomeCornerDetail} exists
             setLocation(`/restaurant/${item.restaurantId}/corner/${item.cornerId}`);
         }
     };
@@ -59,12 +59,25 @@ export function TopPickCard({ type, item }: TopPickCardProps) {
                 </div>
 
                 <div className="flex items-baseline gap-1 mb-1">
-                    {item ? (
-                        <span className="text-4xl font-extrabold text-foreground">{waitTimeDisplay}</span>
+                    {type === 'rating' ? (
+                        <>
+                            {item ? (
+                                <span className="text-4xl font-extrabold text-foreground">★ {ratingDisplay}</span>
+                            ) : (
+                                <span className="text-4xl font-extrabold text-gray-200 animate-pulse">--</span>
+                            )}
+                            <span className="text-base text-gray-500 font-medium">점</span>
+                        </>
                     ) : (
-                        <span className="text-4xl font-extrabold text-gray-200 animate-pulse">--</span>
+                        <>
+                            {item ? (
+                                <span className="text-4xl font-extrabold text-foreground">{waitTimeDisplay}</span>
+                            ) : (
+                                <span className="text-4xl font-extrabold text-gray-200 animate-pulse">--</span>
+                            )}
+                            <span className="text-base text-gray-500 font-medium">분 대기</span>
+                        </>
                     )}
-                    <span className="text-base text-gray-500 font-medium">분 대기</span>
                 </div>
 
                 <p className="text-sm text-gray-600 font-medium truncate mb-0.5">{microcopy}</p>

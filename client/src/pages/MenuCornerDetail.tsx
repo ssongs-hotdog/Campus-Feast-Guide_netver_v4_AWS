@@ -7,14 +7,13 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useRoute, useLocation, useSearch } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
 import { WaitTimeHistogram } from '@/components/WaitTimeHistogram';
 import { useTicketContext } from '@/lib/ticketContext';
 import { useTimeContext } from '@/lib/timeContext';
-import { PurchaseSheet } from '@/components/ticket/PurchaseSheet';
 import {
     RESTAURANTS,
     formatPrice,
@@ -24,7 +23,6 @@ import {
     hasRealVariants,
     type WaitingData,
     type MenuData,
-    type MenuItem,
 } from '@shared/types';
 import { isValidDayKey, getMissingMenuText, type DayKey } from '@/lib/dateUtils';
 import { CORNER_DISPLAY_NAMES } from '@shared/cornerDisplayNames';
@@ -53,9 +51,9 @@ export default function MenuCornerDetail() {
         return () => clearTimeout(timeoutId);
     }, []);
 
-    // -- Payment Sheet State --
-    const [isPurchaseSheetOpen, setIsPurchaseSheetOpen] = useState(false);
-    const [purchaseTargetMenu, setPurchaseTargetMenu] = useState<MenuItem | null>(null);
+    // -- Payment - REMOVED for Menu Tab --
+    // const [isPurchaseSheetOpen, setIsPurchaseSheetOpen] = useState(false);
+    // const [purchaseTargetMenu, setPurchaseTargetMenu] = useState<MenuItem | null>(null);
 
     const params = paramsMenu;
     const restaurantId = params?.restaurantId || '';
@@ -126,23 +124,6 @@ export default function MenuCornerDetail() {
     const loadedTimestamp = isToday && waitingData?.[0]?.timestamp
         ? formatTime(new Date(waitingData[0].timestamp))
         : null;
-
-    const handlePaymentForVariant = (variantMenuName: string) => {
-        if (!menu) return;
-        // Create a temporary MenuItem for the variant to pass to the sheet
-        const variantItem: MenuItem = {
-            ...menu,
-            mainMenuName: variantMenuName
-        };
-        setPurchaseTargetMenu(variantItem);
-        setIsPurchaseSheetOpen(true);
-    };
-
-    const handlePayment = () => {
-        if (!menu) return;
-        setPurchaseTargetMenu(menu);
-        setIsPurchaseSheetOpen(true);
-    };
 
     const handleBack = () => {
         // Return to menu with the selected date preserved
@@ -223,7 +204,7 @@ export default function MenuCornerDetail() {
 
     return (
         <div className="min-h-screen bg-background">
-            <header className="bg-background border-b border-border px-4 py-3">
+            <header className="fixed top-14 left-0 right-0 bg-background border-b border-border px-4 py-3 z-40">
                 <div className="flex items-center gap-3 max-w-lg mx-auto">
                     <Button
                         variant="ghost"
@@ -240,7 +221,7 @@ export default function MenuCornerDetail() {
                 </div>
             </header>
 
-            <main className="max-w-lg mx-auto px-4 py-4">
+            <main className="max-w-lg mx-auto px-4 py-4 pt-[calc(3.5rem+3.25rem)]">
                 {loadedTimestamp && (
                     <div className="text-xs text-muted-foreground mb-3 text-center" data-testid="text-loaded-timestamp-detail">
                         데이터 시각: {loadedTimestamp}
@@ -284,25 +265,15 @@ export default function MenuCornerDetail() {
                                     <span className="text-sm text-muted-foreground" data-testid={`text-remaining-meals-${variantIdx}`}>
                                         잔여 식수: --명
                                     </span>
-                                    {isToday && (
-                                        hasExistingTicket ? (
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => setLocation('/ticket')}
-                                                data-testid={`button-view-ticket-variant-${variantIdx}`}
-                                            >
-                                                주문권 확인
-                                            </Button>
-                                        ) : (
-                                            <Button
-                                                size="sm"
-                                                onClick={() => handlePaymentForVariant(variant.mainMenuName)}
-                                                data-testid={`button-payment-variant-${variantIdx}`}
-                                            >
-                                                결제하기
-                                            </Button>
-                                        )
+                                    {isToday && hasExistingTicket && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setLocation('/ticket')}
+                                            data-testid={`button-view-ticket-variant-${variantIdx}`}
+                                        >
+                                            주문권 확인
+                                        </Button>
                                     )}
                                 </div>
                             </Card>
@@ -339,25 +310,15 @@ export default function MenuCornerDetail() {
                             </div>
                         </Card>
 
-                        {isToday && hasMenuData && (
-                            hasExistingTicket ? (
-                                <Button
-                                    variant="outline"
-                                    className="w-full h-12 text-base"
-                                    onClick={() => setLocation('/ticket')}
-                                    data-testid="button-view-ticket"
-                                >
-                                    주문권 확인하기
-                                </Button>
-                            ) : (
-                                <Button
-                                    className="w-full h-12 text-base"
-                                    onClick={handlePayment}
-                                    data-testid="button-payment"
-                                >
-                                    결제하기 (시뮬)
-                                </Button>
-                            )
+                        {isToday && hasMenuData && hasExistingTicket && (
+                            <Button
+                                variant="outline"
+                                className="w-full h-12 text-base"
+                                onClick={() => setLocation('/ticket')}
+                                data-testid="button-view-ticket"
+                            >
+                                주문권 확인하기
+                            </Button>
                         )}
                     </>
                 )}
@@ -375,12 +336,23 @@ export default function MenuCornerDetail() {
                         </div>
                     )}
                 </Card>
+
+                {/* Review Action Button */}
+                {/* Review Action Button - Styled as Card */}
+                <Card
+                    className="p-4 mt-4 w-full cursor-pointer hover:bg-gray-50 active:scale-[0.98] transition-all duration-150 flex items-center justify-center group"
+                    onClick={() => setLocation(`/reviews/${restaurantId}/${cornerId}?date=${effectiveDate}`)}
+                    role="button"
+                    tabIndex={0}
+                >
+                    <div className="flex items-center">
+                        <Star className="w-5 h-5 text-yellow-400 fill-yellow-400 mr-2" />
+                        <span className="text-lg font-semibold text-foreground">{(menu?.averageRating || 0).toFixed(1)}</span>
+                    </div>
+                    <div className="w-[1px] h-4 bg-border mx-4" />
+                    <span className="text-base font-medium text-foreground">{menu?.averageRating ? '리뷰 쓰기' : '첫 리뷰 남기기'}</span>
+                </Card>
             </main>
-            <PurchaseSheet
-                isOpen={isPurchaseSheetOpen}
-                onClose={() => setIsPurchaseSheetOpen(false)}
-                menu={purchaseTargetMenu}
-            />
         </div>
     );
 }

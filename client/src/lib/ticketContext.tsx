@@ -8,7 +8,6 @@ interface TicketContextValue {
   balance: number;
   chargeBalance: (amount: number) => void;
   purchaseTicket: (menu: MenuItem, paymentMethod: string) => boolean;
-  cancelTicket: (ticketId: string) => { success: boolean; message: string };
   activateTicket: (ticketId: string) => void;
   markUsed: (ticketId: string) => void;
   remainingSeconds: (ticketId: string) => number;
@@ -17,7 +16,6 @@ interface TicketContextValue {
 const TicketContext = createContext<TicketContextValue | null>(null);
 
 const TICKET_VALIDITY_MINUTES = 30; // Time to use QR after activation
-const CANCELLATION_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 const STORAGE_KEYS = {
   TICKETS: 'h-eat-tickets-v2',
   HISTORY: 'h-eat-history-v2',
@@ -76,8 +74,8 @@ export function TicketProvider({ children }: { children: React.ReactNode }) {
 
   const chargeBalance = useCallback((amount: number) => {
     setBalance(prev => prev + amount);
-    toast({ title: '충전 완료', description: `${amount.toLocaleString()}원이 충전되었습니다.` });
-  }, [toast]);
+    // toast({ title: '충전 완료', description: `${amount.toLocaleString()}원이 충전되었습니다.` });
+  }, []);
 
   const purchaseTicket = useCallback((menu: MenuItem, paymentMethod: string) => {
     if (paymentMethod === '충전액 결제' && balance < menu.priceWon) {
@@ -105,44 +103,6 @@ export function TicketProvider({ children }: { children: React.ReactNode }) {
     return true;
   }, [balance, toast]);
 
-  const cancelTicket = useCallback((ticketId: string) => {
-    let result = { success: false, message: '' };
-
-    setTickets(prev => {
-      const target = prev.find(t => t.id === ticketId);
-      if (!target) {
-        result = { success: false, message: 'Ticket not found' };
-        return prev;
-      }
-
-      if (target.status !== 'stored') {
-        result = { success: false, message: '이미 사용했거나 만료된 식권은 취소할 수 없습니다.' };
-        return prev;
-      }
-
-      const timeDiff = Date.now() - target.createdAt;
-      if (timeDiff > CANCELLATION_WINDOW_MS) {
-        result = { success: false, message: '구매 후 5분이 지나 취소할 수 없습니다.' };
-        return prev;
-      }
-
-      // Restore Balance
-      setBalance(b => b + target.priceWon);
-
-      // Remove from tickets, could move to 'cancelled' history if needed, 
-      // but "Cancellation policy... allow cancellation ONLY when unused" usually implies refund.
-      // We will remove it from active list. 
-      // Optionally add to history as 'cancelled' type if the type supports it. 
-      // For now, just remove.
-      result = { success: true, message: '식권 구매가 취소되었습니다. (환불 완료)' };
-      return prev.filter(t => t.id !== ticketId);
-    });
-
-    if (result.success) toast({ title: '취소 완료', description: result.message });
-    else toast({ title: '취소 실패', description: result.message, variant: 'destructive' });
-
-    return result;
-  }, [toast]);
 
   const activateTicket = useCallback((ticketId: string) => {
     setTickets(prev => prev.map(t => {
@@ -182,7 +142,6 @@ export function TicketProvider({ children }: { children: React.ReactNode }) {
         balance,
         chargeBalance,
         purchaseTicket,
-        cancelTicket,
         activateTicket,
         markUsed,
         remainingSeconds,

@@ -9,6 +9,9 @@ export interface WaitingData {
 export interface MenuVariant {
   mainMenuName: string;
   items: string[];
+  // 리뷰 및 별점 집계 데이터 (v2.2.0)
+  averageRating?: number; // 평균 별점 (예: 4.5)
+  ratingCount?: number;   // 참여자 수 (예: 10)
 }
 
 export interface MenuItem {
@@ -19,6 +22,9 @@ export interface MenuItem {
   priceWon: number;
   items: string[];
   variants?: MenuVariant[];
+  // 리뷰 및 별점 집계 데이터 (v2.2.0)
+  averageRating?: number; // 평균 별점 (예: 4.5)
+  ratingCount?: number;   // 참여자 수 (예: 10)
 }
 
 export function getMenuVariants(menu: MenuItem | null | undefined): MenuVariant[] {
