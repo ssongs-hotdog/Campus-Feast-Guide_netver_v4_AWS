@@ -7,7 +7,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useRoute, useLocation, useSearch } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Users } from 'lucide-react';
+import { ArrowLeft, Users, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -561,6 +561,22 @@ export default function HomeCornerDetail() {
                             </>
                         );
                     })()}
+                </Card>
+
+                {/* Review Action Button */}
+                {/* Review Action Button - Styled as Card */}
+                <Card
+                    className="p-4 mt-4 w-full cursor-pointer hover:bg-gray-50 active:scale-[0.98] transition-all duration-150 flex items-center justify-center group"
+                    onClick={() => setLocation(`/reviews/${restaurantId}/${cornerId}?date=${effectiveDate}`)}
+                    role="button"
+                    tabIndex={0}
+                >
+                    <div className="flex items-center">
+                        <Star className="w-5 h-5 text-yellow-400 fill-yellow-400 mr-2" />
+                        <span className="text-lg font-semibold text-foreground">{(menu?.averageRating || 0).toFixed(1)}</span>
+                    </div>
+                    <div className="w-[1px] h-4 bg-border mx-4" />
+                    <span className="text-base font-medium text-foreground">{menu?.averageRating ? '리뷰 쓰기' : '첫 리뷰 남기기'}</span>
                 </Card>
             </main>
             <PurchaseSheet

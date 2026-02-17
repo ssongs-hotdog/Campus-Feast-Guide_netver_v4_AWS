@@ -76,7 +76,7 @@ export default function RecommendPage() {
     // --- Carousel Indicator Logic ---
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const [currentSlide, setCurrentSlide] = useState(1);
-    const totalSlides = 3;
+    const totalSlides = 4;
 
     const handleScroll = () => {
         if (!scrollContainerRef.current) return;
@@ -117,6 +117,11 @@ export default function RecommendPage() {
                     onScroll={handleScroll}
                     className="flex gap-3 overflow-x-auto px-5 pb-4 snap-x mandatory scrollbar-hide"
                 >
+                    {/* 0. Rating (New) */}
+                    <TopPickCard
+                        type="rating"
+                        item={topPicks.find(p => p.type === 'rating')}
+                    />
                     {/* 1. Fastest */}
                     <TopPickCard
                         type="fast"

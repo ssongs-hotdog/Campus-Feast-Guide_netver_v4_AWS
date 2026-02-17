@@ -18,6 +18,7 @@ import { TimeProvider } from "@/lib/timeContext";
 import { TicketProvider } from "@/lib/ticketContext";
 import { FavoritesProvider } from "@/lib/favoritesContext";
 import { SplashProvider } from "@/contexts/SplashContext";
+import { UserProvider } from "@/lib/userContext";
 import { SplashScreen } from "@/components/SplashScreen";
 import Home from "@/pages/Home";
 import HomeCornerDetail from "@/pages/HomeCornerDetail";
@@ -26,6 +27,7 @@ import NotFound from "@/pages/not-found";
 import { getTodayKey } from "@/lib/dateUtils";
 import MenuPage from "@/pages/MenuPage";
 import RecommendPage from "@/pages/RecommendPage";
+import ReviewPage from "@/pages/ReviewPage";
 import TabTicket from "@/pages/TabTicket";
 import MyPage from "@/pages/MyPage";
 import NotificationCenter from "@/pages/NotificationCenter";
@@ -64,6 +66,7 @@ function Router() {
         <Route path="/d/:dayKey" component={Home} />
         <Route path="/d/:dayKey/restaurant/:restaurantId/corner/:cornerId" component={HomeCornerDetail} />
         <Route path="/restaurant/:restaurantId/corner/:cornerId" component={HomeCornerDetail} />
+        <Route path="/reviews/:restaurantId/:cornerId" component={ReviewPage} />
 
         {/* Menu Tab Routes */}
         <Route path="/menu" component={MenuPage} />
@@ -95,8 +98,10 @@ function App() {
           <TimeProvider>
             <TicketProvider>
               <FavoritesProvider>
-                <Toaster />
-                <Router />
+                <UserProvider>
+                  <Toaster />
+                  <Router />
+                </UserProvider>
               </FavoritesProvider>
             </TicketProvider>
           </TimeProvider>
