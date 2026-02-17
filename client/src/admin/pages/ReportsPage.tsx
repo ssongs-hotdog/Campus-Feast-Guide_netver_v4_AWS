@@ -88,7 +88,7 @@ export default function ReportsPage() {
     };
 
     return (
-        <div className="p-8 space-y-6">
+        <div className="space-y-4 pb-8">
             {/* Page Header */}
             <AdminPageHeader
                 title="리포트"

@@ -91,7 +91,7 @@ export function MenuMatrix({ menuData, onMenuClick }: MenuMatrixProps) {
 
                 {/* Axis labels */}
                 <div className="absolute bottom-2 right-6 text-xs text-gray-500">판매 많음 →</div>
-                <div className="absolute top-2 left-2 text-xs text-gray-500 -rotate-90 origin-top-left">
+                <div className="absolute top-1 left-1/2 -translate-x-1/2 text-xs text-gray-500 font-medium bg-white px-2">
                     만족도 높음 ↑
                 </div>
 
