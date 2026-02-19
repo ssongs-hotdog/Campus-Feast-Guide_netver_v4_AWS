@@ -1,10 +1,10 @@
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 
 const AWS_REGION = process.env.AWS_REGION || "ap-northeast-2";
-const S3_BUCKET = process.env.S3_BUCKET || "hyeat-menu";
-const MENU_SOURCE = process.env.MENU_SOURCE || "disabled";
+const S3_BUCKET = process.env.S3_BUCKET || "hyeat-menu-dev"; // Default to dev bucket as per incident report
+const MENU_SOURCE = process.env.MENU_SOURCE || "s3"; // Default to s3 enabled for develop environment
 
-const S3_TIMEOUT_MS = 3000;
+const S3_TIMEOUT_MS = 10000; // Increased to 10s from 3s
 
 const MENU_CACHE_ENABLED = process.env.MENU_CACHE_ENABLED === "true";
 const MENU_CACHE_TTL_SECONDS = parseInt(process.env.MENU_CACHE_TTL_SECONDS || "60", 10);
@@ -22,31 +22,31 @@ const menuCache = new Map<string, CacheEntry>();
 
 function getCachedMenu(dateKey: string): Record<string, unknown> | null {
   if (!MENU_CACHE_ENABLED) return null;
-  
+
   const entry = menuCache.get(dateKey);
   if (!entry) return null;
-  
+
   const now = Date.now();
   if (now > entry.expiresAt) {
     menuCache.delete(dateKey);
     return null;
   }
-  
+
   return entry.data;
 }
 
 function setCachedMenu(dateKey: string, data: Record<string, unknown>): void {
   if (!MENU_CACHE_ENABLED) return;
-  
+
   const now = Date.now();
-  
+
   const entries = Array.from(menuCache.entries());
   for (const [key, entry] of entries) {
     if (now > entry.expiresAt) {
       menuCache.delete(key);
     }
   }
-  
+
   if (menuCache.size >= MENU_CACHE_MAX_ENTRIES) {
     let oldestKey: string | null = null;
     let oldestTime = Infinity;
@@ -61,7 +61,7 @@ function setCachedMenu(dateKey: string, data: Record<string, unknown>): void {
       menuCache.delete(oldestKey);
     }
   }
-  
+
   menuCache.set(dateKey, {
     data,
     expiresAt: now + MENU_CACHE_TTL_SECONDS * 1000,
@@ -99,13 +99,13 @@ function logMenu(
   opts?: { reasonCategory?: ReasonCategory; size?: number; errorCode?: string }
 ): void {
   const parts = [`[menu] date=${dateKey} key=${objectKey}`];
-  
+
   if (status === "cache_hit") {
     parts.push(`source=cache status=success`);
   } else {
     parts.push(`source=s3 status=${status}`);
   }
-  
+
   if (opts?.size !== undefined) {
     parts.push(`size=${opts.size}`);
   }
@@ -115,13 +115,13 @@ function logMenu(
   if (opts?.errorCode) {
     parts.push(`errorCode=${opts.errorCode}`);
   }
-  
+
   console.log(parts.join(" "));
 }
 
 export async function getMenuFromS3(dateKey: string): Promise<S3MenuResult> {
   const objectKey = `menus/${dateKey}.json`;
-  
+
   if (!isS3MenuEnabled()) {
     logMenu(dateKey, objectKey, "failure", { reasonCategory: "Disabled" });
     return {
@@ -170,12 +170,12 @@ export async function getMenuFromS3(dateKey: string): Promise<S3MenuResult> {
       }
 
       const bodyString = await response.Body.transformToString("utf-8");
-      
+
       let menuData: Record<string, unknown>;
       try {
         menuData = JSON.parse(bodyString);
       } catch (parseError) {
-        logMenu(dateKey, objectKey, "failure", { 
+        logMenu(dateKey, objectKey, "failure", {
           reasonCategory: "JSONParseError",
           size: bodyString.length,
         });
@@ -188,9 +188,9 @@ export async function getMenuFromS3(dateKey: string): Promise<S3MenuResult> {
       }
 
       logMenu(dateKey, objectKey, "success", { size: bodyString.length });
-      
+
       setCachedMenu(dateKey, menuData);
-      
+
       return {
         success: true,
         data: menuData,
@@ -206,7 +206,7 @@ export async function getMenuFromS3(dateKey: string): Promise<S3MenuResult> {
     const httpStatusCode = (error as { $metadata?: { httpStatusCode?: number } })?.$metadata?.httpStatusCode;
 
     if (errorName === "NoSuchKey" || httpStatusCode === 404) {
-      logMenu(dateKey, objectKey, "failure", { 
+      logMenu(dateKey, objectKey, "failure", {
         reasonCategory: "NoSuchKey",
         errorCode: "404",
       });
@@ -219,7 +219,7 @@ export async function getMenuFromS3(dateKey: string): Promise<S3MenuResult> {
     }
 
     if (httpStatusCode === 403 || errorName === "AccessDenied") {
-      logMenu(dateKey, objectKey, "failure", { 
+      logMenu(dateKey, objectKey, "failure", {
         reasonCategory: "AccessDenied",
         errorCode: "403",
       });
@@ -232,7 +232,7 @@ export async function getMenuFromS3(dateKey: string): Promise<S3MenuResult> {
     }
 
     if (errorName === "AbortError" || errorMessage.includes("aborted")) {
-      logMenu(dateKey, objectKey, "failure", { 
+      logMenu(dateKey, objectKey, "failure", {
         reasonCategory: "Timeout",
       });
       return {
@@ -243,7 +243,7 @@ export async function getMenuFromS3(dateKey: string): Promise<S3MenuResult> {
       };
     }
 
-    logMenu(dateKey, objectKey, "failure", { 
+    logMenu(dateKey, objectKey, "failure", {
       reasonCategory: "Unknown",
       errorCode: errorName,
     });
