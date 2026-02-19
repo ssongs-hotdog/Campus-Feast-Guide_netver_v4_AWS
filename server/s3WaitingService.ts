@@ -5,7 +5,7 @@ const AWS_REGION = process.env.AWS_REGION || "ap-northeast-2";
 const S3_BUCKET = process.env.S3_BUCKET_WAITING || "hyeat-menu-dev";
 const WAITING_SOURCE_S3 = process.env.WAITING_SOURCE_S3 || "enabled";
 
-const S3_TIMEOUT_MS = 3000;
+const S3_TIMEOUT_MS = 10000; // Increased to 10s from 3s
 
 // Simple in-memory cache
 const WAITING_CACHE_ENABLED = true;
