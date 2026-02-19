@@ -16,6 +16,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import type { TimeMode, TimeState } from '@shared/types';
 import { getTodayKey, type DayKey, DEBUG_TEST_DATE } from './dateUtils';
+import { ENABLE_DEMO_MODE, DEMO_FIXED_TIME } from './data/dataProvider';
 
 interface TimeContextValue {
   timeState: TimeState;
@@ -36,6 +37,15 @@ const TimeContext = createContext<TimeContextValue | null>(null);
 
 function getKSTNow(): Date {
   const now = new Date();
+
+  if (ENABLE_DEMO_MODE) {
+    // Force date to today + fixed time
+    // We use today's date but the time from DEMO_FIXED_TIME
+    const [h, m] = DEMO_FIXED_TIME.split(':').map(Number);
+    now.setHours(h, m, 0, 0);
+    return now;
+  }
+
   if (DEBUG_TEST_DATE) {
     const [y, m, d] = DEBUG_TEST_DATE.split('-').map(Number);
     now.setFullYear(y, m - 1, d);
@@ -156,6 +166,18 @@ export function TimeProvider({ children }: { children: React.ReactNode }) {
       // We update more frequently (e.g. 1s) for smoothness if seconds are shown, 
       // but here 10s is enough for minute-level UI.
       intervalRef.current = setInterval(() => {
+        if (ENABLE_DEMO_MODE) {
+          // Keep resetting to fixed time to prevent ticking
+          const now = new Date();
+          const [h, m] = DEMO_FIXED_TIME.split(':').map(Number);
+          now.setHours(h, m, 0, 0);
+          setTimeState((prev) => ({
+            ...prev,
+            displayTime: now,
+          }));
+          return;
+        }
+
         const now = new Date(Date.now() + serverOffset);
         if (DEBUG_TEST_DATE) {
           const [y, m, d] = DEBUG_TEST_DATE.split('-').map(Number);

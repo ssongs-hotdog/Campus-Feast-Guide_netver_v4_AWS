@@ -63,7 +63,7 @@ export function HomeRestaurantSection({ restaurant, menus, waitingData, dayKey, 
                         <HomeCornerCard
                             key={cornerId}
                             menu={menu || null}
-                            waitingData={waitingMap.get(cornerId)}
+                            waitingData={menu ? waitingMap.get(cornerId) : undefined}
                             dayKey={dayKey}
                             restaurantId={restaurant.id}
                             cornerId={cornerId}

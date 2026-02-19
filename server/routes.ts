@@ -62,6 +62,31 @@ export async function registerRoutes(
 
   // Postgres index creation removed (Legacy)
 
+  // [DEMO] Proxy S3 data for prototype distribution
+  app.get('/api/demo/s3', validate(DateParamSchema), async (req: Request, res: Response) => {
+    const dateParam = req.query.date as string | undefined;
+    const targetDate = dateParam || getTodayDateKey();
+
+    try {
+      if (isS3WaitingEnabled()) {
+        log(`[API] Fetching demo S3 data for: ${targetDate}`);
+        const s3Result = await getWaitingDataFromS3(targetDate);
+
+        if (s3Result.success && s3Result.data) {
+          return res.json(s3Result.data);
+        }
+        if (s3Result.error === "S3 object not found") {
+          return res.json([]);
+        }
+        return res.status(404).json({ error: s3Result.error || "S3 fetch failed" });
+      }
+      return res.status(503).json({ error: 'S3 Waiting Source Disabled' });
+    } catch (error) {
+      logError('[API] Demo S3 fetch failed:', error);
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+  });
+
   app.get('/api/dates', (_req: Request, res: Response) => {
     // We only provide today's date shortcut. 
     // Available dates should be queried via S3/DB in a real scenario, 
