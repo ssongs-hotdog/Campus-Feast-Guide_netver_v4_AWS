@@ -14,7 +14,7 @@ import { RestaurantSelector } from '@/components/RestaurantSelector';
 import { useTimeContext } from '@/lib/timeContext';
 import { RESTAURANTS, formatTime, type WaitingData, type MenuData } from '@shared/types';
 import { isValidDayKey, type DayKey } from '@/lib/dateUtils';
-import { getMenus, getWaitTimes, getAvailableTimestamps, getLatestWaitTimes, getConfig } from '@/lib/data/dataProvider';
+import { getMenus, getWaitTimes, getAvailableTimestamps, getLatestWaitTimes, getConfig, ENABLE_DEMO_MODE, DEMO_FIXED_TIME } from '@/lib/data/dataProvider';
 import { BannerCarousel } from '@/components/BannerCarousel';
 
 
@@ -174,6 +174,11 @@ export default function Home() {
   const [scheduleRefreshKey, setScheduleRefreshKey] = useState(0);
 
   const getCurrentTimeKST = useCallback(() => {
+    // If DEMO mode is enabled, force the fixed time
+    if (ENABLE_DEMO_MODE) {
+      return DEMO_FIXED_TIME;
+    }
+
     const formatter = new Intl.DateTimeFormat('ko-KR', {
       timeZone: 'Asia/Seoul',
       hour: '2-digit',

@@ -20,6 +20,27 @@ import type { DayKey } from '../dateUtils';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
+// --- DEMO MODE CONFIGURATION (PROTOTYPE) ---
+export const ENABLE_DEMO_MODE = true; // Set to true to load S3 data (via Server Proxy)
+// export const DEMO_S3_URL = ...; // Not used in client anymore, server handles it
+export const DEMO_FIXED_TIME = '12:30'; // Fixed time snapshot to render
+// -------------------------------------------
+
+// Helper to fetch S3 data via Server Proxy
+async function fetchS3DemoData(dayKey: string): Promise<WaitingDataItem[]> {
+  try {
+    // Call the server proxy endpoint
+    const url = `${API_BASE_URL}/api/demo/s3?date=${dayKey}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Failed to fetch demo data from proxy: ${res.status}`);
+    const data = await res.json();
+    return data as WaitingDataItem[];
+  } catch (error) {
+    console.error('Failed to load demo data:', error);
+    return [];
+  }
+}
+
 /**
  * Menu variant for corners with multiple main dishes (e.g., breakfast_1000).
  */
@@ -100,6 +121,10 @@ export async function getMenus(dayKey: DayKey): Promise<DataResponse<MenuDataMap
  * Fetches available timestamps for waiting data on a specific date.
  */
 export async function getAvailableTimestamps(dayKey: DayKey): Promise<DataResponse<string[]>> {
+  if (ENABLE_DEMO_MODE) {
+    // Return fixed timestamp for demo to ensure UI selects it
+    return { data: [DEMO_FIXED_TIME], hasData: true };
+  }
   try {
     const res = await fetch(`${API_BASE_URL}/api/waiting/timestamps?date=${dayKey}`);
     if (!res.ok) {
@@ -126,6 +151,13 @@ export async function getWaitTimes(
   time: string,
   _granularity: 'raw' | '5min' | '10min' = '10min' // Granularity logic handled by API for now
 ): Promise<DataResponse<WaitingDataItem[]>> {
+  if (ENABLE_DEMO_MODE) {
+    const allData = await fetchS3DemoData(dayKey);
+    // Return data matching the fixed timestamp, or all if broad match is needed
+    // Assuming S3 data contains the fixed snapshot
+    const filtered = allData.filter(d => d.timestamp.includes(DEMO_FIXED_TIME));
+    return { data: filtered.length ? filtered : allData, hasData: true };
+  }
   try {
     const res = await fetch(`${API_BASE_URL}/api/waiting?date=${dayKey}&time=${time}`);
     if (!res.ok) {
@@ -144,6 +176,11 @@ export async function getWaitTimes(
  * Fetches the LATEST wait times for today.
  */
 export async function getLatestWaitTimes(dayKey: DayKey): Promise<DataResponse<WaitingDataItem[]>> {
+  if (ENABLE_DEMO_MODE) {
+    const allData = await fetchS3DemoData(dayKey);
+    const filtered = allData.filter(d => d.timestamp.includes(DEMO_FIXED_TIME));
+    return { data: filtered.length ? filtered : allData, hasData: true };
+  }
   try {
     const res = await fetch(`${API_BASE_URL}/api/waiting/latest?date=${dayKey}`);
     if (!res.ok) {
